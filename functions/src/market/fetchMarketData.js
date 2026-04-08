@@ -146,11 +146,9 @@ exports.fetchMarketData = onSchedule(
       Object.assign(updates, flatten("prices", prices));
     });
 
-    // Hisseler → stocks + us_stocks + prices (XU100)
-    settle("Yahoo (Hisse)", stocksRes, ({ bist, us, xu100 }) => {
-      Object.assign(updates, flatten("stocks",    bist));
-      Object.assign(updates, flatten("us_stocks", us));
-
+    // Hisseler — stocks ve us_stocks'u yahoo.js kendi { merge: true } ile yazdı.
+    // Burada yalnızca XU100 endeks fiyatını prices map'ine ekliyoruz.
+    settle("Yahoo (Hisse)", stocksRes, ({ xu100 }) => {
       if (xu100) {
         updates["prices.XU100"] = {
           price:         xu100.price,
