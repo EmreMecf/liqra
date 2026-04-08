@@ -1,0 +1,31 @@
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "finansasistaniapp",
+          "appId": "1:646938337554:android:030f5cb0249fa5d8fc13cb",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "finansasistaniapp",
+          "configurations": {
+            "android": "1:646938337554:android:030f5cb0249fa5d8fc13cb"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "functions": [
+    {
+      "source":  "functions",
+      "codebase": "liqra-market",
+      "ignore":  ["node_modules", ".git"]
+    }
+  ]
+}

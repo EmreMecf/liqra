@@ -1,0 +1,30 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Kullanıcı kendi verisine tam erişim, başkasına erişemez
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /{subcollection}/{docId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      // Abonelikler
+      match /subscriptions/{subId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Piyasa verileri: tüm giriş yapmış kullanıcılar okuyabilir, yazma yok
+    match /market/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false; // Sadece Cloud Functions yazar
+    }
+
+    // TEFAS fon verileri (Cloud Functions tarafından yazılır)
+    match /tefas_funds/{fundCode} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+  }
+}

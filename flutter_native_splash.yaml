@@ -1,0 +1,23 @@
+# Flutter Native Splash Konfigürasyonu
+# Çalıştır: dart run flutter_native_splash:create
+
+flutter_native_splash:
+  # Arka plan rengi — dark mode tasarımına uygun
+  color: "#0D1B2A"
+  color_dark: "#0D1B2A"
+
+  # Logo — lib/assets/images/splash_logo.png olarak ekle
+  # image: assets/images/splash_logo.png
+
+  # Android 12+ splash ekranı
+  android_12:
+    color: "#0D1B2A"
+    color_dark: "#0D1B2A"
+    # image: assets/images/splash_logo.png
+
+  # Durum çubuğu
+  fullscreen: false
+
+  android: true
+  ios: true
+  web: false
