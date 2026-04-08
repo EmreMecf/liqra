@@ -31,46 +31,41 @@ abstract interface class TefasDataSource {
   Future<List<TefasFund>> getAllFunds();
 }
 
-/// TEFAS RapidAPI entegrasyonu
-/// Endpoint: https://rapidapi.com/serifcolakel/api/tefas-api
+/// TEFAS resmi sitesi entegrasyonu — direkt istek (CORS mobile'da engellenmez)
 ///
-/// Kullanılan endpointler:
-///   GET /api/v1/funds/returns?fundType=1&startDate=DD.MM.YYYY&endDate=DD.MM.YYYY
-///   GET /api/v1/funds
+/// Endpoint: POST https://www.tefas.gov.tr/api/DB/BindHistoryInfo
+/// Content-Type: application/x-www-form-urlencoded
+/// Tarayıcı header'ları zorunlu — aksi halde 403/500 döner.
 class TefasDataSourceImpl implements TefasDataSource {
   late final Dio _dio;
 
-  // Bellek cache (hot restart'ta korunur)
+  // Bellek cache
   static List<TefasFund>? _memCache;
   static DateTime?        _memCacheAt;
   static DateTime?        _rateLimitedUntil;
   static const _cacheDuration    = Duration(hours: 4);
-  static const _rateLimitBackoff = Duration(minutes: 5);
+  static const _rateLimitBackoff = Duration(minutes: 10);
 
-  // Disk cache anahtarları (SharedPreferences)
+  // Disk cache anahtarları
   static const _prefKeyData = 'tefas_funds_json';
   static const _prefKeyTime = 'tefas_funds_ts';
 
-  /// API key: dart-define ile override edilebilir
-  /// flutter run --dart-define=RAPIDAPI_TEFAS_KEY=your_key
-  static const _apiKey = String.fromEnvironment(
-    'RAPIDAPI_TEFAS_KEY',
-    defaultValue: '6f9f3b646amsh892717882cf9b7cp16dd7bjsnf389be28196d',
-  );
-  static const _apiHost = 'tefas-api.p.rapidapi.com';
-  static const _baseUrl  = 'https://tefas-api.p.rapidapi.com';
+  static const _baseUrl = 'https://www.tefas.gov.tr';
 
-  static Map<String, String> get _headers => {
-    'x-rapidapi-key':  _apiKey,
-    'x-rapidapi-host': _apiHost,
-    'Accept':          'application/json',
+  // TEFAS'ın tarayıcı sandığı için zorunlu header'lar
+  static Map<String, String> get _browserHeaders => {
+    'User-Agent':       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+    'Accept':           'application/json, text/javascript, */*; q=0.01',
+    'X-Requested-With': 'XMLHttpRequest',
+    'Origin':           'https://www.tefas.gov.tr',
+    'Referer':          'https://www.tefas.gov.tr/FonKarsilastirma.aspx',
   };
 
   TefasDataSourceImpl() {
     _dio = Dio(BaseOptions(
       baseUrl:        _baseUrl,
       connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 20),
+      receiveTimeout: const Duration(seconds: 25),
     ));
   }
 
@@ -113,15 +108,15 @@ class TefasDataSourceImpl implements TefasDataSource {
       return diskFunds;
     }
 
-    // 3. Rate limit backoff aktifse bekle
+    // 3. Rate limit backoff aktifse
     if (_rateLimitedUntil != null && DateTime.now().isBefore(_rateLimitedUntil!)) {
       final sn = _rateLimitedUntil!.difference(DateTime.now()).inSeconds;
       debugPrint('[TEFAS] Rate limit backoff: $sn sn kaldı.');
       return _memCache ?? [];
     }
 
-    // 4. API'den çek
-    final funds = await _fetchReturns();
+    // 4. TEFAS'tan direkt çek
+    final funds = await _fetchFromTefas();
 
     if (funds.isNotEmpty) {
       _memCache         = funds;
@@ -132,7 +127,7 @@ class TefasDataSourceImpl implements TefasDataSource {
       return funds;
     }
 
-    // 5. API başarısız — Firestore cache'ini dene (Cloud Functions tarafından dolduruluyor)
+    // 5. Başarısız — Firestore cache'ini dene
     final firestoreFunds = await _loadFromFirestore();
     if (firestoreFunds.isNotEmpty) {
       _memCache   = firestoreFunds;
@@ -141,11 +136,49 @@ class TefasDataSourceImpl implements TefasDataSource {
       return firestoreFunds;
     }
 
-    debugPrint('[TEFAS] API başarısız, mevcut önbellek kullanılıyor.');
+    debugPrint('[TEFAS] Tüm kaynaklar başarısız, mevcut önbellek kullanılıyor.');
     return _memCache ?? [];
   }
 
-  // ── Firestore Cache (Cloud Functions tarafından yazılır) ─────────────────
+  // ── TEFAS Resmi API ───────────────────────────────────────────────────────
+
+  Future<List<TefasFund>> _fetchFromTefas() async {
+    try {
+      final today     = _fmtDate(DateTime.now());
+      final yesterday = _fmtDate(DateTime.now().subtract(const Duration(days: 1)));
+
+      final response = await _dio.post(
+        '/api/DB/BindHistoryInfo',
+        data: {
+          'fontip':   'YAT',
+          'bastarih': yesterday,
+          'bittarih': today,
+        },
+        options: Options(
+          headers:     _browserHeaders,
+          contentType: Headers.formUrlEncodedContentType,
+          validateStatus: (status) => status != null && status < 500,
+        ),
+      );
+
+      if (response.statusCode == 429) {
+        _rateLimitedUntil = DateTime.now().add(_rateLimitBackoff);
+        debugPrint('[TEFAS] 429 Rate limit — ${_rateLimitBackoff.inMinutes} dk sonra tekrar denenecek.');
+        return [];
+      }
+
+      debugPrint('[TEFAS] HTTP ${response.statusCode}');
+      return _parseResponse(response.data);
+    } on DioException catch (e) {
+      debugPrint('[TEFAS] DioException: ${e.response?.statusCode} — ${e.message}');
+      return [];
+    } catch (e) {
+      debugPrint('[TEFAS] Hata: $e');
+      return [];
+    }
+  }
+
+  // ── Firestore Cache ───────────────────────────────────────────────────────
 
   Future<List<TefasFund>> _loadFromFirestore() async {
     try {
@@ -160,41 +193,6 @@ class TefasDataSourceImpl implements TefasDataSource {
           .toList();
     } catch (e) {
       debugPrint('[TEFAS] Firestore okuma hatası: $e');
-      return [];
-    }
-  }
-
-  // ── /api/v1/funds/returns — getiri oranlarıyla birlikte ──────────────────
-
-  Future<List<TefasFund>> _fetchReturns() async {
-    try {
-      // 1 yıllık getiri için 365 gün aralık
-      // API cache TTL: 30 dk — günde birkaç kez sorgu yeterli
-      final endDate   = _fmtDate(DateTime.now());
-      final startDate = _fmtDate(DateTime.now().subtract(const Duration(days: 365)));
-
-      final res = await _dio.get(
-        '/api/v1/funds/returns',
-        queryParameters: {
-          'fundType':  'YAT',   // YAT = Yatırım Fonu (1 de çalışıyor)
-          'startDate': startDate,
-          'endDate':   endDate,
-        },
-        options: Options(headers: _headers),
-      );
-
-      return _parseResponse(res.data);
-    } on DioException catch (e) {
-      if (e.response?.statusCode == 429) {
-        // Rate limit — 5 dakika bekle
-        _rateLimitedUntil = DateTime.now().add(_rateLimitBackoff);
-        debugPrint('[TEFAS] 429 Rate limit, ${_rateLimitBackoff.inMinutes} dk sonra tekrar denenecek.');
-      } else {
-        debugPrint('[TEFAS] returns endpoint hatası: $e');
-      }
-      return [];
-    } catch (e) {
-      debugPrint('[TEFAS] returns endpoint hatası: $e');
       return [];
     }
   }
@@ -236,12 +234,13 @@ class TefasDataSourceImpl implements TefasDataSource {
   }
 
   Map<String, dynamic> _fundToJson(TefasFund f) => {
-    'fundCode':     f.code,
-    'fundName':     f.name,
-    'category':     f.type,
-    'return1d':     f.dailyReturn,
-    'return1m':     f.monthlyReturn,
-    'return1y':     f.yearlyReturn,
+    'fundCode':  f.code,
+    'fundName':  f.name,
+    'category':  f.type,
+    'price':     f.currentPrice,
+    'return1d':  f.dailyReturn,
+    'return1m':  f.monthlyReturn,
+    'return1y':  f.yearlyReturn,
   };
 
   // ── Parse ─────────────────────────────────────────────────────────────────
@@ -254,9 +253,9 @@ class TefasDataSourceImpl implements TefasDataSource {
   List<TefasFund> _parseResponse(dynamic data) {
     List<dynamic> list;
     if (data is Map) {
-      list = (data['data'] as List?) ??
+      list = (data['data']   as List?) ??
              (data['result'] as List?) ??
-             (data['funds'] as List?) ??
+             (data['funds']  as List?) ??
              [];
     } else if (data is List) {
       list = data;
@@ -272,21 +271,26 @@ class TefasDataSourceImpl implements TefasDataSource {
   }
 
   TefasFund _parseItem(Map<String, dynamic> item) {
-    // RapidAPI alanları: fundCode, fundName, fundType, category,
-    //   return1d, return1w, return1m, return3m, return6m,
-    //   returnYtd, return1y, return3y, return5y
+    // TEFAS resmi alanlar: FONKODU, FONUNVAN, FONTUR, BIRIMPAYDEGERI,
+    // GUNLUK, AYLIK, YILLIK — veya küçük harf varyantları
     return TefasFund(
-      code: _str(item['fundCode']  ?? item['code']    ?? item['FonKod']   ?? ''),
-      name: _str(item['fundName']  ?? item['name']    ?? item['FonUnvan'] ?? ''),
-      type: _str(item['category']  ?? item['fundType']?? item['FonTur']   ?? 'Fon'),
-      currentPrice:  _dbl(item['price'] ?? item['BirimPayDegeri'] ?? 0),
-      dailyReturn:   _dbl(item['return1d'] ?? item['GunlukGetiri'] ?? 0),
-      monthlyReturn: _dbl(item['return1m'] ?? item['AylikGetiri']  ?? 0),
-      yearlyReturn:  _dbl(item['return1y'] ?? item['BirYillikGetiri'] ?? 0),
+      code: _str(
+        item['FONKODU']   ?? item['fundCode'] ?? item['code']    ?? '',
+      ),
+      name: _str(
+        item['FONUNVAN']  ?? item['fundName'] ?? item['name']    ?? '',
+      ),
+      type: _str(
+        item['FONTUR']    ?? item['category'] ?? item['fundType']?? 'Fon',
+      ),
+      currentPrice:  _dbl(item['BIRIMPAYDEGERI'] ?? item['price']    ?? 0),
+      dailyReturn:   _dbl(item['GUNLUK']         ?? item['return1d'] ?? 0),
+      monthlyReturn: _dbl(item['AYLIK']          ?? item['return1m'] ?? 0),
+      yearlyReturn:  _dbl(item['YILLIK']         ?? item['return1y'] ?? 0),
     );
   }
 
-  /// DD.MM.YYYY formatı
+  /// DD.MM.YYYY formatı — TEFAS'ın beklediği format
   String _fmtDate(DateTime d) =>
       '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
 

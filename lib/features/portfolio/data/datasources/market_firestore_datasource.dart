@@ -23,19 +23,20 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
   static const _docPath = 'market/live_prices';
 
   // Temel sembol meta: Firestore key → (displaySymbol, displayName, icon, category)
+  // Döviz anahtarları: CollectAPI "USDTRY", "EURTRY" vb. yazar (=X suffix yok)
   static const Map<String, (String, String, String, String)> _meta = {
-    'USDTRY=X':    ('USD/TRY', 'Dolar/TL',    '💵', 'doviz'),
-    'EURTRY=X':    ('EUR/TRY', 'Euro/TL',     '💶', 'doviz'),
-    'GBPTRY=X':    ('GBP/TRY', 'Sterlin/TL',  '💷', 'doviz'),
-    'CHFTRY=X':    ('CHF/TRY', 'İsviçre Fr/TL','🇨🇭','doviz'),
-    'XAU_GRAM_TRY':('XAU/TRY', 'Gram Altın',  '🥇', 'emtia'),
-    'XU100':       ('XU100',   'BIST100',     '📊', 'bist100'),
-    'BTC_TRY':     ('BTC/TRY', 'Bitcoin',     '₿',  'kripto'),
-    'ETH_TRY':     ('ETH/TRY', 'Ethereum',    '⟠',  'kripto'),
-    'SOL_TRY':     ('SOL/TRY', 'Solana',      '◎',  'kripto'),
-    'BNB_TRY':     ('BNB/TRY', 'BNB',         '🔶', 'kripto'),
-    'XRP_TRY':     ('XRP/TRY', 'XRP',         '✕',  'kripto'),
-    'DOGE_TRY':    ('DOGE/TRY','Dogecoin',    '🐕', 'kripto'),
+    'USDTRY':  ('USD/TRY', 'Dolar/TL',       '💵', 'doviz'),
+    'EURTRY':  ('EUR/TRY', 'Euro/TL',        '💶', 'doviz'),
+    'GBPTRY':  ('GBP/TRY', 'Sterlin/TL',     '💷', 'doviz'),
+    'CHFTRY':  ('CHF/TRY', 'İsviçre Fr/TL',  '🇨🇭', 'doviz'),
+    'XU100':   ('XU100',   'BIST100',        '📊', 'bist100'),
+    'BTC_TRY': ('BTC/TRY', 'Bitcoin',        '₿',  'kripto'),
+    'ETH_TRY': ('ETH/TRY', 'Ethereum',       '⟠',  'kripto'),
+    'SOL_TRY': ('SOL/TRY', 'Solana',         '◎',  'kripto'),
+    'BNB_TRY': ('BNB/TRY', 'BNB',            '🔶', 'kripto'),
+    'XRP_TRY': ('XRP/TRY', 'XRP',            '✕',  'kripto'),
+    'DOGE_TRY':('DOGE/TRY','Dogecoin',       '🐕', 'kripto'),
+    'USDT_TRY':('USDT/TRY','Tether',         '💲', 'kripto'),
   };
 
   // BIST hisse ikonları
@@ -148,11 +149,51 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
       }
     }
 
-    // Sıralama: önce temel döviz, sonra BIST100, sonra emtia, kripto
+    // 4. Altın (gold map) — CollectAPI: gram, ceyrek, yarim, tam, cumhuriyet...
+    final goldMap = docData['gold'] as Map<String, dynamic>?;
+    if (goldMap != null) {
+      const goldMeta = <String, (String, String)>{
+        'gram':        ('Gram Altın',       '🥇'),
+        'ceyrek':      ('Çeyrek Altın',     '🪙'),
+        'yarim':       ('Yarım Altın',      '🪙'),
+        'tam':         ('Tam Altın',        '🥇'),
+        'cumhuriyet':  ('Cumhuriyet Altını','🏅'),
+        'resat':       ('Reşat Altın',      '🏅'),
+        'ons':         ('Ons Altın',        '🥇'),
+        'gumus':       ('Gümüş',            '🔘'),
+      };
+      for (final entry in goldMap.entries) {
+        final key   = entry.key;
+        final value = entry.value;
+        if (value is! Map<String, dynamic>) continue;
+        // Bilezik anahtarları (bilezik22/18/14) alisgram/satisgram kullanır
+        if (key.startsWith('bilezik')) continue;
+
+        final meta  = goldMeta[key];
+        final alis  = _toDouble(value['alis']);
+        final satis = _toDouble(value['satis']);
+        final price = alis > 0 ? alis : satis;
+        if (price <= 0) continue;
+
+        result.add(MarketDataDto(
+          symbol:        key.toUpperCase(),
+          name:          meta?.$1 ?? key,
+          icon:          meta?.$2 ?? '🥇',
+          price:         price,
+          changePercent: _toDouble(value['degisim']),
+          currency:      'TRY',
+          subLabel:      'emtia',
+          lastUpdated:   value['lastUpdated'] as String?,
+        ));
+      }
+    }
+
+    // Sıralama: önce temel döviz, BIST100, altın, kripto, sonra hisseler
     const baseOrder = [
       'USD/TRY', 'EUR/TRY', 'GBP/TRY', 'CHF/TRY',
-      'XAU/TRY', 'XU100',
-      'BTC/TRY', 'ETH/TRY', 'SOL/TRY', 'BNB/TRY', 'XRP/TRY', 'DOGE/TRY',
+      'XU100',
+      'GRAM', 'CEYREK', 'YARIM', 'TAM', 'ONS',
+      'BTC/TRY', 'ETH/TRY', 'SOL/TRY', 'BNB/TRY', 'XRP/TRY', 'DOGE/TRY', 'USDT/TRY',
     ];
     result.sort((a, b) {
       final ai = baseOrder.indexOf(a.symbol);
