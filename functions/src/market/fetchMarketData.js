@@ -162,10 +162,10 @@ exports.fetchMarketData = onSchedule(
       }
     });
 
-    // Döviz + Altın → prices + gold maps
-    settle("CollectAPI (Döviz+Altın)", forexGoldRes, ({ forex, gold }) => {
-      Object.assign(updates, flatten("prices", forex));
-      Object.assign(updates, flatten("gold",   gold));
+    // Döviz + Altın — collectapi.js kendi prices/gold map'lerini merge:true ile yazdı.
+    // Burada yalnızca USD/TRY kurunu ABD hisseleri için kaydediyoruz (usdTry).
+    settle("CollectAPI (Döviz+Altın)", forexGoldRes, (_data) => {
+      // Firestore yazımı collectapi.js içinde yapıldı — burada ek işlem yok.
     });
 
     // Fonlar → funds map
