@@ -166,82 +166,119 @@ class _SummaryTab extends StatelessWidget {
         final month = selectedMonth.month;
         final byCategory  = provider.expensesByCategoryForMonth(year, month);
         final totalExpense = provider.expensesForMonth(year, month);
-        final totalIncome  = provider.incomeForMonth(year, month);
         final entries = byCategory.entries.toList()
           ..sort((a, b) => b.value.compareTo(a.value));
 
-        final netMonth   = totalIncome - totalExpense;
+        // Özet kart: tüm zamanlara ait toplamlar (ay filtresinden bağımsız)
+        final allIncome   = provider.totalIncomeAllTime;
+        final allExpense  = provider.totalExpenseAllTime;
         final totalBalance = provider.totalBalance;
 
         return ListView(
           padding: const EdgeInsets.symmetric(horizontal: 20),
           children: [
-            // Birikimli bakiye + aylık özet
+            // ── Genel Özet Kartı (tüm zamanlar) ──────────────────────────────
             AppCard(
-              child: Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Aylık Gelir', style: AppTypography.labelS),
-                        const SizedBox(height: 4),
-                        Text(
-                          Formatters.currency(totalIncome),
-                          style: GoogleFonts.dmMono(
-                            fontSize: 16, fontWeight: FontWeight.w600,
-                            color: AppColors.accentGreen,
-                          ),
+                  Row(
+                    children: [
+                      Text('Genel Özet', style: AppTypography.headlineS),
+                      const SizedBox(width: 6),
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: AppColors.accentBlue.withOpacity(0.12),
+                          borderRadius: BorderRadius.circular(6),
                         ),
-                      ],
-                    ),
+                        child: Text('Tüm Zamanlar',
+                          style: AppTypography.labelS.copyWith(
+                            color: AppColors.accentBlue, fontSize: 10, fontWeight: FontWeight.w600)),
+                      ),
+                    ],
                   ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.center,
-                      children: [
-                        Text('Net', style: AppTypography.labelS),
-                        const SizedBox(height: 4),
-                        Text(
-                          '${netMonth >= 0 ? "+" : ""}${Formatters.currency(netMonth)}',
-                          style: GoogleFonts.dmMono(
-                            fontSize: 16, fontWeight: FontWeight.w600,
-                            color: netMonth >= 0 ? AppColors.accentGreen : AppColors.accentRed,
-                          ),
+                  const SizedBox(height: 14),
+                  Row(
+                    children: [
+                      // Toplam Gelir
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Toplam Gelir', style: AppTypography.labelS),
+                            const SizedBox(height: 4),
+                            Text(
+                              Formatters.currency(allIncome),
+                              style: GoogleFonts.dmMono(
+                                fontSize: 15, fontWeight: FontWeight.w600,
+                                color: AppColors.accentGreen,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
-                  ),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.end,
-                      children: [
-                        Text('Birikimli Bakiye', style: AppTypography.labelS),
-                        const SizedBox(height: 4),
-                        Text(
-                          Formatters.currency(totalBalance),
-                          style: GoogleFonts.dmMono(
-                            fontSize: 16, fontWeight: FontWeight.w600,
-                            color: totalBalance >= 0 ? AppColors.accentGreen : AppColors.accentRed,
-                          ),
+                      ),
+                      // Toplam Gider
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.center,
+                          children: [
+                            Text('Toplam Gider', style: AppTypography.labelS),
+                            const SizedBox(height: 4),
+                            Text(
+                              Formatters.currency(allExpense),
+                              style: GoogleFonts.dmMono(
+                                fontSize: 15, fontWeight: FontWeight.w600,
+                                color: AppColors.accentRed,
+                              ),
+                            ),
+                          ],
                         ),
-                      ],
-                    ),
+                      ),
+                      // Net Bakiye
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text('Net Bakiye', style: AppTypography.labelS),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${totalBalance >= 0 ? "+" : ""}${Formatters.currency(totalBalance)}',
+                              style: GoogleFonts.dmMono(
+                                fontSize: 15, fontWeight: FontWeight.w600,
+                                color: totalBalance >= 0 ? AppColors.accentGreen : AppColors.accentRed,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ).animate().fadeIn(duration: 300.ms),
             const SizedBox(height: 12),
 
-            // Donut grafik
+            const SizedBox(height: 12),
+            // ── Aylık Kategori Dağılımı (seçili ay) ──────────────────────────
             AppCard(
               child: Column(
                 children: [
                   Row(
                     children: [
-                      Text('Kategori Dağılımı', style: AppTypography.headlineS),
-                      const Spacer(),
-                      DeltaChip(value: -8.3), // Geçen aya göre
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text('Kategori Dağılımı', style: AppTypography.headlineS),
+                            Text(
+                              Formatters.monthYear(selectedMonth),
+                              style: AppTypography.labelS.copyWith(
+                                color: AppColors.textSecondary, fontSize: 11),
+                            ),
+                          ],
+                        ),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 20),

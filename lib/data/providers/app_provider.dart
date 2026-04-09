@@ -335,6 +335,14 @@ class AppProvider extends ChangeNotifier {
   double get totalBalance =>
       _transactions.fold(0.0, (acc, t) => acc + (t.isIncome ? t.amount : -t.amount));
 
+  /// Tüm zamanların toplam geliri
+  double get totalIncomeAllTime =>
+      _transactions.where((t) => t.isIncome).fold(0.0, (acc, t) => acc + t.amount);
+
+  /// Tüm zamanların toplam gideri
+  double get totalExpenseAllTime =>
+      _transactions.where((t) => t.isExpense).fold(0.0, (acc, t) => acc + t.amount);
+
   // ── Sabit Kalemler ──────────────────────────────────────────────────────────
 
   void addRecurringItem(RecurringItemModel item) {
