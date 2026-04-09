@@ -66,6 +66,9 @@ dependencies:
   # Google Generative AI (Gemini) — resmi Flutter SDK
   google_generative_ai: ^0.4.7
 
+  # URL açma — kampanya detay linkleri
+  url_launcher: ^6.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

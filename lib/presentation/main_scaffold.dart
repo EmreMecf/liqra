@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/di/injection.dart';
 import '../features/subscriptions/presentation/viewmodel/subscription_viewmodel.dart';
+import '../features/campaigns/presentation/viewmodel/campaign_viewmodel.dart';
 
 import 'dashboard/dashboard_screen.dart';
 import 'spending/spending_screen.dart';
@@ -11,6 +12,7 @@ import '../features/accounts/presentation/screens/accounts_screen.dart';
 import 'portfolio/portfolio_screen.dart';
 import 'ai_assistant/ai_assistant_screen.dart';
 import 'subscriptions/subscriptions_screen.dart';
+import 'campaigns/campaigns_screen.dart';
 import 'profile/profile_screen.dart';
 
 /// Ana scaffold — Alt navigasyon çubuğu ile 5 ekran
@@ -40,6 +42,7 @@ class _MainScaffoldState extends State<MainScaffold> {
     PortfolioScreen(),
     AiAssistantScreen(),
     SubscriptionsScreen(),
+    CampaignsScreen(),
     ProfileScreen(),
   ];
 
@@ -49,6 +52,9 @@ class _MainScaffoldState extends State<MainScaffold> {
       providers: [
         ChangeNotifierProvider<SubscriptionViewModel>(
           create: (_) => getIt<SubscriptionViewModel>(),
+        ),
+        ChangeNotifierProvider<CampaignViewModel>(
+          create: (_) => getIt<CampaignViewModel>(),
         ),
       ],
       child: Scaffold(
@@ -83,7 +89,8 @@ class _MainScaffoldState extends State<MainScaffold> {
                 _NavItem(icon: Icons.show_chart_outlined,      activeIcon: Icons.show_chart,          label: 'Yatırımlar', index: 3, current: _selectedIndex, onTap: _onTap),
                 _NavItem(icon: Icons.smart_toy_outlined,       activeIcon: Icons.smart_toy,           label: 'AI',         index: 4, current: _selectedIndex, onTap: _onTap, badge: true),
                 _NavItem(icon: Icons.subscriptions_outlined,   activeIcon: Icons.subscriptions,       label: 'Abonelik',   index: 5, current: _selectedIndex, onTap: _onTap),
-                _NavItem(icon: Icons.person_outline,           activeIcon: Icons.person,              label: 'Profil',     index: 6, current: _selectedIndex, onTap: _onTap),
+                _NavItem(icon: Icons.local_offer_outlined,     activeIcon: Icons.local_offer,         label: 'Kampanya',   index: 6, current: _selectedIndex, onTap: _onTap),
+                _NavItem(icon: Icons.person_outline,           activeIcon: Icons.person,              label: 'Profil',     index: 7, current: _selectedIndex, onTap: _onTap),
               ],
             ),
           ),

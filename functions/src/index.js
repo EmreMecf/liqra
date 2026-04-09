@@ -12,5 +12,6 @@ const { initializeApp } = require("firebase-admin/app");
 initializeApp();
 
 const { fetchMarketData } = require("./market/fetchMarketData");
+const { fetchCampaigns }  = require("./campaigns/fetchCampaigns");
 
-module.exports = { fetchMarketData };
+module.exports = { fetchMarketData, fetchCampaigns };

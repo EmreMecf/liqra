@@ -55,6 +55,12 @@ import '../../features/accounts/domain/usecases/add_account_transaction_usecase.
 import '../../features/accounts/domain/usecases/import_statement_usecase.dart';
 import '../../features/accounts/presentation/viewmodels/accounts_viewmodel.dart';
 
+// Campaigns Feature
+import '../../features/campaigns/data/datasources/campaign_firestore_datasource.dart';
+import '../../features/campaigns/data/repositories/campaign_repository_impl.dart';
+import '../../features/campaigns/domain/repositories/campaign_repository.dart';
+import '../../features/campaigns/presentation/viewmodel/campaign_viewmodel.dart';
+
 // Subscriptions Feature
 import '../../features/subscriptions/data/datasources/subscription_datasource.dart';
 import '../../features/subscriptions/data/repositories/subscription_repository_impl.dart';
@@ -80,6 +86,7 @@ Future<void> configureDependencies() async {
   _registerDashboardFeature();
   _registerAccountsFeature();
   _registerSubscriptionsFeature();
+  _registerCampaignsFeature();
 }
 
 // ── Network ───────────────────────────────────────────────────────────────────
@@ -280,4 +287,15 @@ void _registerSubscriptionsFeature() {
       toggleSubscription: getIt<ToggleSubscriptionUseCase>(),
     ),
   );
+}
+
+// ── Campaigns Feature ─────────────────────────────────────────────────────────
+
+void _registerCampaignsFeature() {
+  getIt.registerLazySingleton<CampaignFirestoreDataSource>(
+      () => CampaignFirestoreDataSource());
+  getIt.registerLazySingleton<CampaignRepository>(
+      () => CampaignRepositoryImpl(getIt<CampaignFirestoreDataSource>()));
+  getIt.registerFactory<CampaignViewModel>(
+      () => CampaignViewModel(getIt<CampaignRepository>()));
 }

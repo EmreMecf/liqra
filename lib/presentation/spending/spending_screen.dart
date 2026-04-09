@@ -11,7 +11,6 @@ import '../../data/models/transaction_model.dart';
 import '../../data/providers/app_provider.dart';
 import '../../features/spending/presentation/viewmodel/spending_viewmodel.dart';
 import '../widgets/app_card.dart';
-import '../widgets/delta_chip.dart';
 import '../ocr/ocr_screen.dart';
 
 /// Harcama Yönetimi — 4 sekme: Özet | İşlemler | Sabit Kalemler | Ekle
