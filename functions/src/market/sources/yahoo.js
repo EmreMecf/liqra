@@ -2,12 +2,13 @@
  * yahoo.js — BIST Hisse Senedi Veri Kaynağı
  *
  * Kaynak: CollectAPI /economy/hisseSenedi
- *   - Canlı BIST fiyatları, günlük değişim yüzdesi
+ *   - 611 BIST hissesi, hacme göre sıralı
  *   - GCP sunucularından sorunsuz çalışır (aynı CollectAPI key)
- *   - Basic plan: 10.000 istek/ay → her 2 dk = 21.600 istek/ay
- *     → Sadece hacimce en yüksek 20 hisseyi çeker (1 istek/run ✓)
+ *   - rate (günlük %), lastprice, hacim, min, max alanları
  *
- * ABD hisseleri kaldırıldı (kullanıcı talebi).
+ * Strateji: API'den gelen 611 hisseden hacim sıralamasına göre
+ *   ilk MAX_STOCKS tanesini Firestore'a yazar.
+ *   MAX_STOCKS = 100 (Firestore 1MB döküman limiti dahilinde)
  *
  * Firestore şeması:
  *   market/live_prices.stocks → BIST hisseleri (subLabel: "bist")
@@ -24,43 +25,33 @@ const COLLECT_BASE  = "https://api.collectapi.com/economy";
 const TIMEOUT_MS    = 15_000;
 const FIRESTORE_DOC = "market/live_prices";
 
-// Gösterilecek BIST hisseleri (CollectAPI kod eşleşmesi)
-const BIST_META = {
-  GARAN:  { name: "Garanti BBVA",       icon: "🏦" },
-  BIMAS:  { name: "BİM Mağazalar",      icon: "🛒" },
-  THYAO:  { name: "Türk Hava Yolları",  icon: "✈️"  },
-  AKBNK:  { name: "Akbank",             icon: "🏦" },
-  ASELS:  { name: "Aselsan",            icon: "🛡️"  },
-  EREGL:  { name: "Ereğli Demir Çelik",icon: "⚙️"  },
-  SISE:   { name: "Şişecam",            icon: "🔬" },
-  KCHOL:  { name: "Koç Holding",        icon: "🏭" },
-  ISCTR:  { name: "İş Bankası C",       icon: "🏦" },
-  SAHOL:  { name: "Sabancı Holding",    icon: "🏢" },
-  TCELL:  { name: "Turkcell",           icon: "📱" },
-  ARCLK:  { name: "Arçelik",            icon: "🏠" },
-  FROTO:  { name: "Ford Otomotiv",      icon: "🚗" },
-  KOZAL:  { name: "Koza Altın",         icon: "🥇" },
-  YKBNK:  { name: "Yapı Kredi",         icon: "🏦" },
-  TUPRS:  { name: "Tüpraş",            icon: "⛽" },
-  TOASO:  { name: "Tofaş Oto",         icon: "🚙" },
-  PGSUS:  { name: "Pegasus",            icon: "✈️"  },
-  VESTL:  { name: "Vestel",            icon: "📺" },
-  SOKM:   { name: "Şok Marketler",      icon: "🛍️"  },
-};
-
-const WANTED_CODES = new Set(Object.keys(BIST_META));
+/** Hacim sıralamasına göre kaç hisse kaydedilecek */
+const MAX_STOCKS = 100;
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
 
 const round2 = (n) => Math.round((isNaN(n) || n == null ? 0 : Number(n)) * 100) / 100;
 
+/**
+ * Hisse adını Türkçe karakterlerle düzenler.
+ * CollectAPI büyük harf İngilizce döndürüyor (TURK HAVA YOLLARI).
+ * Title case'e çeviririz: "Türk Hava Yolları" gibi değil ama
+ * en azından baş harfi büyük yapıyoruz.
+ */
+function formatName(raw) {
+  if (!raw) return raw;
+  return raw
+    .split(" ")
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .join(" ");
+}
+
 // ─── Ana Fonksiyon ────────────────────────────────────────────────────────────
 
 /**
- * CollectAPI'den BIST hisselerini çeker, Firestore'a yazar.
- * fetchMarketData.js tarafından çağrılır.
+ * CollectAPI'den BIST hisselerini çeker, hacme göre ilk MAX_STOCKS'u Firestore'a yazar.
  *
- * @returns {{ bist: object, xu100: null, usdTryFromYahoo: 0 }}
+ * @returns {{ bist: object, xu100: object|null, usdTryFromYahoo: 0 }}
  */
 async function fetchStocks() {
   const now    = new Date().toISOString();
@@ -84,35 +75,41 @@ async function fetchStocks() {
     throw new Error(`CollectAPI hisseSenedi başarısız: ${err.message}`);
   }
 
-  // ── 2. İstediğimiz hisseleri filtrele & parse et ─────────────────────────
+  if (raw.length === 0) throw new Error("CollectAPI: Boş liste döndü");
+
+  // ── 2. Hacme göre zaten sıralı geliyor — ilk MAX_STOCKS'u al ─────────────
+  //    Fiyatı 0 olan veya kodu olmayan hisseleri filtrele
+  const top = raw
+    .filter((x) => x?.code && x.lastprice > 0)
+    .slice(0, MAX_STOCKS);
+
+  // ── 3. Firestore objesi oluştur ───────────────────────────────────────────
   const bist = {};
 
-  for (const item of raw) {
-    const code = item?.code?.toUpperCase?.();
-    if (!code || !WANTED_CODES.has(code)) continue;
-
-    const price = round2(item.lastprice);
-    if (price <= 0) continue;
-
-    const meta       = BIST_META[code];
+  for (const item of top) {
+    const code = item.code.toUpperCase();
     bist[code] = {
-      price,
-      changePercent: round2(item.rate),        // günlük % (pozitif/negatif)
-      name:          meta?.name ?? item.text ?? code,
-      icon:          meta?.icon ?? "📈",
+      price:         round2(item.lastprice),
+      changePercent: round2(item.rate),
+      name:          formatName(item.text) || code,
       symbol:        code,
       currency:      "TRY",
       subLabel:      "bist",
+      hacim:         item.hacim ?? 0,      // işlem hacmi (sıralama için)
+      min:           round2(item.min),
+      max:           round2(item.max),
       lastUpdated:   now,
     };
   }
 
   const bistCount = Object.keys(bist).length;
-  console.log(`[collectapi/bist] ✓ ${bistCount}/${WANTED_CODES.size} BIST hissesi`);
+  console.log(`[collectapi/bist] ✓ ${bistCount} BIST hissesi (${raw.length} toplam)`);
 
   if (bistCount === 0) throw new Error("CollectAPI: Hiçbir BIST hissesi parse edilemedi");
 
-  // ── 3. XU100 endeks (ayrı endpoint) ─────────────────────────────────────
+  // ── 4. XU100 endeks ───────────────────────────────────────────────────────
+  // API hacim sıralamasıyla geldiği için XU100 listede olmayabilir.
+  // Ayrıca parametreli istek yapıyoruz.
   let xu100 = null;
   try {
     const xuRes = await axios.get(`${COLLECT_BASE}/hisseSenedi`, {
@@ -136,7 +133,7 @@ async function fetchStocks() {
     console.warn("[collectapi/bist] XU100 alınamadı — endeks gösterilmeyecek");
   }
 
-  // ── 4. Firestore'a yaz ───────────────────────────────────────────────────
+  // ── 5. Firestore'a yaz ───────────────────────────────────────────────────
   const db     = getFirestore();
   const docRef = db.doc(FIRESTORE_DOC);
   await docRef.set({ stocks: bist }, { merge: true });
