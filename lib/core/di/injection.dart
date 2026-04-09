@@ -61,6 +61,12 @@ import '../../features/campaigns/data/repositories/campaign_repository_impl.dart
 import '../../features/campaigns/domain/repositories/campaign_repository.dart';
 import '../../features/campaigns/presentation/viewmodel/campaign_viewmodel.dart';
 
+// News Feature
+import '../../features/news/data/datasources/news_firestore_datasource.dart';
+import '../../features/news/data/repositories/news_repository_impl.dart';
+import '../../features/news/domain/repositories/news_repository.dart';
+import '../../features/news/presentation/viewmodel/news_viewmodel.dart';
+
 // Subscriptions Feature
 import '../../features/subscriptions/data/datasources/subscription_datasource.dart';
 import '../../features/subscriptions/data/repositories/subscription_repository_impl.dart';
@@ -87,6 +93,7 @@ Future<void> configureDependencies() async {
   _registerAccountsFeature();
   _registerSubscriptionsFeature();
   _registerCampaignsFeature();
+  _registerNewsFeature();
 }
 
 // ── Network ───────────────────────────────────────────────────────────────────
@@ -298,4 +305,15 @@ void _registerCampaignsFeature() {
       () => CampaignRepositoryImpl(getIt<CampaignFirestoreDataSource>()));
   getIt.registerFactory<CampaignViewModel>(
       () => CampaignViewModel(getIt<CampaignRepository>()));
+}
+
+// ── News Feature ──────────────────────────────────────────────────────────────
+
+void _registerNewsFeature() {
+  getIt.registerLazySingleton<NewsFirestoreDataSource>(
+      () => NewsFirestoreDataSourceImpl());
+  getIt.registerLazySingleton<NewsRepository>(
+      () => NewsRepositoryImpl(getIt<NewsFirestoreDataSource>()));
+  getIt.registerFactory<NewsViewModel>(
+      () => NewsViewModel(getIt<NewsRepository>()));
 }
