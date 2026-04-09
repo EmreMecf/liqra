@@ -30,6 +30,7 @@ class MarketDataDto with _$MarketDataDto {
     required String currency,
     String? subLabel,
     String? lastUpdated,
+    @Default(0) double volume,
   }) = _MarketDataDto;
 
   factory MarketDataDto.fromJson(Map<String, dynamic> json) =>

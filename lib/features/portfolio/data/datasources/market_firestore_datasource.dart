@@ -116,6 +116,7 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
           currency:      'TRY',
           subLabel:      'bist',
           lastUpdated:   value['lastUpdated'] as String?,
+          volume:        _toDouble(value['hacim']),
         ));
       }
     }

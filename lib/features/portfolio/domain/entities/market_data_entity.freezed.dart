@@ -25,6 +25,7 @@ mixin _$MarketDataEntity {
   String get currency => throw _privateConstructorUsedError;
   String? get subLabel => throw _privateConstructorUsedError;
   DateTime? get lastUpdated => throw _privateConstructorUsedError;
+  double get volume => throw _privateConstructorUsedError;
 
   /// Create a copy of MarketDataEntity
   /// with the given fields replaced by the non-null parameter values.
@@ -49,6 +50,7 @@ abstract class $MarketDataEntityCopyWith<$Res> {
     String currency,
     String? subLabel,
     DateTime? lastUpdated,
+    double volume,
   });
 }
 
@@ -75,6 +77,7 @@ class _$MarketDataEntityCopyWithImpl<$Res, $Val extends MarketDataEntity>
     Object? currency = null,
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
+    Object? volume = null,
   }) {
     return _then(
       _value.copyWith(
@@ -110,6 +113,10 @@ class _$MarketDataEntityCopyWithImpl<$Res, $Val extends MarketDataEntity>
                 ? _value.lastUpdated
                 : lastUpdated // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            volume: null == volume
+                ? _value.volume
+                : volume // ignore: cast_nullable_to_non_nullable
+                      as double,
           )
           as $Val,
     );
@@ -134,6 +141,7 @@ abstract class _$$MarketDataEntityImplCopyWith<$Res>
     String currency,
     String? subLabel,
     DateTime? lastUpdated,
+    double volume,
   });
 }
 
@@ -159,6 +167,7 @@ class __$$MarketDataEntityImplCopyWithImpl<$Res>
     Object? currency = null,
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
+    Object? volume = null,
   }) {
     return _then(
       _$MarketDataEntityImpl(
@@ -194,6 +203,10 @@ class __$$MarketDataEntityImplCopyWithImpl<$Res>
             ? _value.lastUpdated
             : lastUpdated // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        volume: null == volume
+            ? _value.volume
+            : volume // ignore: cast_nullable_to_non_nullable
+                  as double,
       ),
     );
   }
@@ -211,6 +224,7 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
     required this.currency,
     this.subLabel,
     this.lastUpdated,
+    this.volume = 0,
   });
 
   @override
@@ -229,10 +243,13 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
   final String? subLabel;
   @override
   final DateTime? lastUpdated;
+  @override
+  @JsonKey()
+  final double volume;
 
   @override
   String toString() {
-    return 'MarketDataEntity(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated)';
+    return 'MarketDataEntity(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated, volume: $volume)';
   }
 
   @override
@@ -251,7 +268,8 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
             (identical(other.subLabel, subLabel) ||
                 other.subLabel == subLabel) &&
             (identical(other.lastUpdated, lastUpdated) ||
-                other.lastUpdated == lastUpdated));
+                other.lastUpdated == lastUpdated) &&
+            (identical(other.volume, volume) || other.volume == volume));
   }
 
   @override
@@ -265,6 +283,7 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
     currency,
     subLabel,
     lastUpdated,
+    volume,
   );
 
   /// Create a copy of MarketDataEntity
@@ -289,6 +308,7 @@ abstract class _MarketDataEntity implements MarketDataEntity {
     required final String currency,
     final String? subLabel,
     final DateTime? lastUpdated,
+    final double volume,
   }) = _$MarketDataEntityImpl;
 
   @override
@@ -307,6 +327,8 @@ abstract class _MarketDataEntity implements MarketDataEntity {
   String? get subLabel;
   @override
   DateTime? get lastUpdated;
+  @override
+  double get volume;
 
   /// Create a copy of MarketDataEntity
   /// with the given fields replaced by the non-null parameter values.

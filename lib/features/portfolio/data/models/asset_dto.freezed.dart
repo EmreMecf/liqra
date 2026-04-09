@@ -331,6 +331,7 @@ mixin _$MarketDataDto {
   String get currency => throw _privateConstructorUsedError;
   String? get subLabel => throw _privateConstructorUsedError;
   String? get lastUpdated => throw _privateConstructorUsedError;
+  double get volume => throw _privateConstructorUsedError;
 
   /// Serializes this MarketDataDto to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -358,6 +359,7 @@ abstract class $MarketDataDtoCopyWith<$Res> {
     String currency,
     String? subLabel,
     String? lastUpdated,
+    double volume,
   });
 }
 
@@ -384,6 +386,7 @@ class _$MarketDataDtoCopyWithImpl<$Res, $Val extends MarketDataDto>
     Object? currency = null,
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
+    Object? volume = null,
   }) {
     return _then(
       _value.copyWith(
@@ -419,6 +422,10 @@ class _$MarketDataDtoCopyWithImpl<$Res, $Val extends MarketDataDto>
                 ? _value.lastUpdated
                 : lastUpdated // ignore: cast_nullable_to_non_nullable
                       as String?,
+            volume: null == volume
+                ? _value.volume
+                : volume // ignore: cast_nullable_to_non_nullable
+                      as double,
           )
           as $Val,
     );
@@ -443,6 +450,7 @@ abstract class _$$MarketDataDtoImplCopyWith<$Res>
     String currency,
     String? subLabel,
     String? lastUpdated,
+    double volume,
   });
 }
 
@@ -468,6 +476,7 @@ class __$$MarketDataDtoImplCopyWithImpl<$Res>
     Object? currency = null,
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
+    Object? volume = null,
   }) {
     return _then(
       _$MarketDataDtoImpl(
@@ -503,6 +512,10 @@ class __$$MarketDataDtoImplCopyWithImpl<$Res>
             ? _value.lastUpdated
             : lastUpdated // ignore: cast_nullable_to_non_nullable
                   as String?,
+        volume: null == volume
+            ? _value.volume
+            : volume // ignore: cast_nullable_to_non_nullable
+                  as double,
       ),
     );
   }
@@ -520,6 +533,7 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
     required this.currency,
     this.subLabel,
     this.lastUpdated,
+    this.volume = 0,
   });
 
   factory _$MarketDataDtoImpl.fromJson(Map<String, dynamic> json) =>
@@ -541,10 +555,13 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
   final String? subLabel;
   @override
   final String? lastUpdated;
+  @override
+  @JsonKey()
+  final double volume;
 
   @override
   String toString() {
-    return 'MarketDataDto(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated)';
+    return 'MarketDataDto(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated, volume: $volume)';
   }
 
   @override
@@ -563,7 +580,8 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
             (identical(other.subLabel, subLabel) ||
                 other.subLabel == subLabel) &&
             (identical(other.lastUpdated, lastUpdated) ||
-                other.lastUpdated == lastUpdated));
+                other.lastUpdated == lastUpdated) &&
+            (identical(other.volume, volume) || other.volume == volume));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -578,6 +596,7 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
     currency,
     subLabel,
     lastUpdated,
+    volume,
   );
 
   /// Create a copy of MarketDataDto
@@ -604,6 +623,7 @@ abstract class _MarketDataDto implements MarketDataDto {
     required final String currency,
     final String? subLabel,
     final String? lastUpdated,
+    final double volume,
   }) = _$MarketDataDtoImpl;
 
   factory _MarketDataDto.fromJson(Map<String, dynamic> json) =
@@ -625,6 +645,8 @@ abstract class _MarketDataDto implements MarketDataDto {
   String? get subLabel;
   @override
   String? get lastUpdated;
+  @override
+  double get volume;
 
   /// Create a copy of MarketDataDto
   /// with the given fields replaced by the non-null parameter values.

@@ -672,14 +672,18 @@ class _MarketTabState extends State<_MarketTab> {
     List<MarketDataEntity> result = all;
 
     // Kategori filtresi (subLabel kullanılıyor)
-    if (_selectedCat != _MarketCat.all) {
-      if (_selectedCat == _MarketCat.bist) {
-        // Hem bist hem bist100 göster
-        result = result.where((e) =>
-            e.subLabel == 'bist' || e.subLabel == 'bist100').toList();
-      } else {
-        result = result.where((e) => e.subLabel == _selectedCat).toList();
-      }
+    if (_selectedCat == _MarketCat.all) {
+      // "Tümü" görünümünde BIST hisselerini hariç tut
+      // (ayrı "En Çok Hacim" widget'ı ile gösterilir)
+      result = result.where((e) => e.subLabel != 'bist').toList();
+    } else if (_selectedCat == _MarketCat.bist) {
+      // BIST sekmesi: hem bist hem bist100 göster, hacme göre sırala
+      result = result
+          .where((e) => e.subLabel == 'bist' || e.subLabel == 'bist100')
+          .toList()
+        ..sort((a, b) => b.volume.compareTo(a.volume));
+    } else {
+      result = result.where((e) => e.subLabel == _selectedCat).toList();
     }
 
     // Arama filtresi
@@ -691,6 +695,13 @@ class _MarketTabState extends State<_MarketTab> {
     }
 
     return result;
+  }
+
+  /// "Tümü" sekmesinde gösterilecek top 5 BIST hissesi (hacme göre)
+  List<MarketDataEntity> _topBistByVolume(List<MarketDataEntity> all) {
+    final bist = all.where((e) => e.subLabel == 'bist').toList()
+      ..sort((a, b) => b.volume.compareTo(a.volume));
+    return bist.take(5).toList();
   }
 
   @override
@@ -897,6 +908,19 @@ class _MarketTabState extends State<_MarketTab> {
               // ── Altın Ekranı ───────────────────────────────────────────────
               if (_selectedCat == _MarketCat.altin) ...[
                 _GoldView(goldPrices: goldPrices, lastUpdated: vm.goldLastUpdated),
+              ],
+
+              // ── En Çok Hacim (sadece "Tümü" görünümünde) ──────────────────
+              if (_selectedCat == _MarketCat.all) ...[
+                _BistTopVolumeSection(
+                  items: _topBistByVolume(allData),
+                  onTapAll: () => setState(() {
+                    _selectedCat = _MarketCat.bist;
+                    _searchCtrl.clear();
+                    _searchQuery = '';
+                  }),
+                ),
+                const SizedBox(height: 16),
               ],
 
               // ── Piyasa Listesi ─────────────────────────────────────────────
@@ -1708,6 +1732,137 @@ class _DiscoverTab extends StatelessWidget {
           ],
         );
       },
+    );
+  }
+}
+
+// ── En Çok Hacim BIST Widget'ı ───────────────────────────────────────────────
+
+class _BistTopVolumeSection extends StatelessWidget {
+  final List<MarketDataEntity> items;
+  final VoidCallback onTapAll;
+
+  const _BistTopVolumeSection({required this.items, required this.onTapAll});
+
+  String _formatHacim(double v) {
+    if (v >= 1e9) return '${(v / 1e9).toStringAsFixed(1)}Mr';
+    if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(0)}Mn';
+    if (v >= 1e3) return '${(v / 1e3).toStringAsFixed(0)}K';
+    return v.toStringAsFixed(0);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (items.isEmpty) return const SizedBox.shrink();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Row(
+          children: [
+            const Text('🔥', style: TextStyle(fontSize: 16)),
+            const SizedBox(width: 6),
+            Text('En Çok Hacim · BIST', style: AppTypography.headlineS),
+            const Spacer(),
+            GestureDetector(
+              onTap: onTapAll,
+              child: Text(
+                'Tümünü Gör →',
+                style: AppTypography.labelS.copyWith(
+                  color: AppColors.accentBlue,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 8),
+        AppCard(
+          padding: EdgeInsets.zero,
+          child: Column(
+            children: items.asMap().entries.map((e) {
+              final item    = e.value;
+              final isLast  = e.key == items.length - 1;
+              final change  = item.changePercent;
+              final changeColor = change >= 0 ? AppColors.accentGreen : AppColors.accentRed;
+
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 20,
+                          child: Text('${e.key + 1}', style: AppTypography.labelS.copyWith(
+                            color: AppColors.textDisabled, fontWeight: FontWeight.w700,
+                          )),
+                        ),
+                        const SizedBox(width: 6),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: AppColors.accentBlue.withOpacity(0.12),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(item.symbol, style: GoogleFonts.dmMono(
+                            color: AppColors.accentBlue, fontSize: 11, fontWeight: FontWeight.w700,
+                          )),
+                        ),
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(item.name, style: AppTypography.labelS.copyWith(
+                                color: AppColors.textPrimary, fontWeight: FontWeight.w500,
+                              ), maxLines: 1, overflow: TextOverflow.ellipsis),
+                              Text('Hacim: ₺${_formatHacim(item.volume)}',
+                                style: AppTypography.labelS.copyWith(
+                                  color: AppColors.textDisabled, fontSize: 10,
+                                )),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Text(
+                              item.price >= 1000
+                                  ? Formatters.currency(item.price)
+                                  : '${item.price.toStringAsFixed(2)} TL',
+                              style: GoogleFonts.dmMono(
+                                fontSize: 13, fontWeight: FontWeight.w600,
+                                color: AppColors.textPrimary,
+                              ),
+                            ),
+                            const SizedBox(height: 2),
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                              decoration: BoxDecoration(
+                                color: changeColor.withOpacity(0.12),
+                                borderRadius: BorderRadius.circular(4),
+                              ),
+                              child: Text(
+                                '${change >= 0 ? '+' : ''}${change.toStringAsFixed(2)}%',
+                                style: GoogleFonts.dmMono(
+                                  color: changeColor, fontSize: 10, fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isLast)
+                    Divider(height: 1, color: AppColors.borderSubtle.withOpacity(0.5)),
+                ],
+              );
+            }).toList(),
+          ),
+        ).animate().fadeIn(duration: 250.ms),
+      ],
     );
   }
 }

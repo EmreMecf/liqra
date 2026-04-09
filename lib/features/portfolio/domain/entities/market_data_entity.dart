@@ -13,6 +13,7 @@ class MarketDataEntity with _$MarketDataEntity {
     required String currency,
     String? subLabel,
     DateTime? lastUpdated,
+    @Default(0) double volume,
   }) = _MarketDataEntity;
 }
 

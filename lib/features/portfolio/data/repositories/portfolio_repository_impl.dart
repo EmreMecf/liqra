@@ -143,5 +143,6 @@ class PortfolioRepositoryImpl implements PortfolioRepository {
         lastUpdated: dto.lastUpdated != null
             ? DateTime.tryParse(dto.lastUpdated!)
             : DateTime.now(),
+        volume: dto.volume,
       );
 }
