@@ -8,7 +8,6 @@ import '../../core/constants/app_typography.dart';
 import '../../features/news/domain/entities/news_entity.dart';
 import '../../features/news/presentation/viewmodel/news_viewmodel.dart';
 import '../widgets/app_card.dart';
-import 'package:intl/intl.dart';
 
 class NewsScreen extends StatefulWidget {
   const NewsScreen({super.key});
@@ -304,11 +303,13 @@ class _NewsCard extends StatelessWidget {
     }
   }
 
+  static const _months = ['Oca','Şub','Mar','Nis','May','Haz','Tem','Ağu','Eyl','Eki','Kas','Ara'];
+
   String get _timeAgo {
     final diff = DateTime.now().difference(news.pubDate);
     if (diff.inMinutes < 60) return '${diff.inMinutes}d önce';
     if (diff.inHours < 24)   return '${diff.inHours}s önce';
-    return DateFormat('d MMM', 'tr_TR').format(news.pubDate);
+    return '${news.pubDate.day} ${_months[news.pubDate.month - 1]}';
   }
 
   @override
