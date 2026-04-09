@@ -28,6 +28,8 @@ mixin _$AssetDto {
   double get buyPrice => throw _privateConstructorUsedError;
   double get currentPrice => throw _privateConstructorUsedError;
   List<double> get priceHistory => throw _privateConstructorUsedError;
+  String? get priceSection => throw _privateConstructorUsedError;
+  String? get priceKey => throw _privateConstructorUsedError;
 
   /// Serializes this AssetDto to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -52,6 +54,8 @@ abstract class $AssetDtoCopyWith<$Res> {
     double buyPrice,
     double currentPrice,
     List<double> priceHistory,
+    String? priceSection,
+    String? priceKey,
   });
 }
 
@@ -77,6 +81,8 @@ class _$AssetDtoCopyWithImpl<$Res, $Val extends AssetDto>
     Object? buyPrice = null,
     Object? currentPrice = null,
     Object? priceHistory = null,
+    Object? priceSection = freezed,
+    Object? priceKey = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -108,6 +114,14 @@ class _$AssetDtoCopyWithImpl<$Res, $Val extends AssetDto>
                 ? _value.priceHistory
                 : priceHistory // ignore: cast_nullable_to_non_nullable
                       as List<double>,
+            priceSection: freezed == priceSection
+                ? _value.priceSection
+                : priceSection // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            priceKey: freezed == priceKey
+                ? _value.priceKey
+                : priceKey // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -131,6 +145,8 @@ abstract class _$$AssetDtoImplCopyWith<$Res>
     double buyPrice,
     double currentPrice,
     List<double> priceHistory,
+    String? priceSection,
+    String? priceKey,
   });
 }
 
@@ -155,6 +171,8 @@ class __$$AssetDtoImplCopyWithImpl<$Res>
     Object? buyPrice = null,
     Object? currentPrice = null,
     Object? priceHistory = null,
+    Object? priceSection = freezed,
+    Object? priceKey = freezed,
   }) {
     return _then(
       _$AssetDtoImpl(
@@ -186,6 +204,14 @@ class __$$AssetDtoImplCopyWithImpl<$Res>
             ? _value._priceHistory
             : priceHistory // ignore: cast_nullable_to_non_nullable
                   as List<double>,
+        priceSection: freezed == priceSection
+            ? _value.priceSection
+            : priceSection // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        priceKey: freezed == priceKey
+            ? _value.priceKey
+            : priceKey // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -202,6 +228,8 @@ class _$AssetDtoImpl implements _AssetDto {
     required this.buyPrice,
     required this.currentPrice,
     final List<double> priceHistory = const [],
+    this.priceSection,
+    this.priceKey,
   }) : _priceHistory = priceHistory;
 
   factory _$AssetDtoImpl.fromJson(Map<String, dynamic> json) =>
@@ -229,8 +257,13 @@ class _$AssetDtoImpl implements _AssetDto {
   }
 
   @override
+  final String? priceSection;
+  @override
+  final String? priceKey;
+
+  @override
   String toString() {
-    return 'AssetDto(id: $id, type: $type, name: $name, quantity: $quantity, buyPrice: $buyPrice, currentPrice: $currentPrice, priceHistory: $priceHistory)';
+    return 'AssetDto(id: $id, type: $type, name: $name, quantity: $quantity, buyPrice: $buyPrice, currentPrice: $currentPrice, priceHistory: $priceHistory, priceSection: $priceSection, priceKey: $priceKey)';
   }
 
   @override
@@ -250,7 +283,11 @@ class _$AssetDtoImpl implements _AssetDto {
             const DeepCollectionEquality().equals(
               other._priceHistory,
               _priceHistory,
-            ));
+            ) &&
+            (identical(other.priceSection, priceSection) ||
+                other.priceSection == priceSection) &&
+            (identical(other.priceKey, priceKey) ||
+                other.priceKey == priceKey));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -264,6 +301,8 @@ class _$AssetDtoImpl implements _AssetDto {
     buyPrice,
     currentPrice,
     const DeepCollectionEquality().hash(_priceHistory),
+    priceSection,
+    priceKey,
   );
 
   /// Create a copy of AssetDto
@@ -289,6 +328,8 @@ abstract class _AssetDto implements AssetDto {
     required final double buyPrice,
     required final double currentPrice,
     final List<double> priceHistory,
+    final String? priceSection,
+    final String? priceKey,
   }) = _$AssetDtoImpl;
 
   factory _AssetDto.fromJson(Map<String, dynamic> json) =
@@ -308,6 +349,10 @@ abstract class _AssetDto implements AssetDto {
   double get currentPrice;
   @override
   List<double> get priceHistory;
+  @override
+  String? get priceSection;
+  @override
+  String? get priceKey;
 
   /// Create a copy of AssetDto
   /// with the given fields replaced by the non-null parameter values.

@@ -13,6 +13,8 @@ class AssetDto with _$AssetDto {
     required double buyPrice,
     required double currentPrice,
     @Default([]) List<double> priceHistory,
+    String? priceSection,
+    String? priceKey,
   }) = _AssetDto;
 
   factory AssetDto.fromJson(Map<String, dynamic> json) =>

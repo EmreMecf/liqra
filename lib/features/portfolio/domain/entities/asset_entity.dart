@@ -12,6 +12,10 @@ class AssetEntity with _$AssetEntity {
     required double buyPrice,
     required double currentPrice,
     @Default([]) List<double> priceHistory,
+    /// Firestore market/live_prices içindeki bölüm: "stocks" | "prices" | "gold" | "funds"
+    String? priceSection,
+    /// Bölüm içindeki anahtar: "GARAN", "USDTRY", "gram", "BTC_TRY", "AAK"...
+    String? priceKey,
   }) = _AssetEntity;
 }
 

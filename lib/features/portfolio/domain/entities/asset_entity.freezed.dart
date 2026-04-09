@@ -25,6 +25,12 @@ mixin _$AssetEntity {
   double get currentPrice => throw _privateConstructorUsedError;
   List<double> get priceHistory => throw _privateConstructorUsedError;
 
+  /// Firestore market/live_prices içindeki bölüm: "stocks" | "prices" | "gold" | "funds"
+  String? get priceSection => throw _privateConstructorUsedError;
+
+  /// Bölüm içindeki anahtar: "GARAN", "USDTRY", "gram", "BTC_TRY", "AAK"...
+  String? get priceKey => throw _privateConstructorUsedError;
+
   /// Create a copy of AssetEntity
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -47,6 +53,8 @@ abstract class $AssetEntityCopyWith<$Res> {
     double buyPrice,
     double currentPrice,
     List<double> priceHistory,
+    String? priceSection,
+    String? priceKey,
   });
 }
 
@@ -72,6 +80,8 @@ class _$AssetEntityCopyWithImpl<$Res, $Val extends AssetEntity>
     Object? buyPrice = null,
     Object? currentPrice = null,
     Object? priceHistory = null,
+    Object? priceSection = freezed,
+    Object? priceKey = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -103,6 +113,14 @@ class _$AssetEntityCopyWithImpl<$Res, $Val extends AssetEntity>
                 ? _value.priceHistory
                 : priceHistory // ignore: cast_nullable_to_non_nullable
                       as List<double>,
+            priceSection: freezed == priceSection
+                ? _value.priceSection
+                : priceSection // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            priceKey: freezed == priceKey
+                ? _value.priceKey
+                : priceKey // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -126,6 +144,8 @@ abstract class _$$AssetEntityImplCopyWith<$Res>
     double buyPrice,
     double currentPrice,
     List<double> priceHistory,
+    String? priceSection,
+    String? priceKey,
   });
 }
 
@@ -150,6 +170,8 @@ class __$$AssetEntityImplCopyWithImpl<$Res>
     Object? buyPrice = null,
     Object? currentPrice = null,
     Object? priceHistory = null,
+    Object? priceSection = freezed,
+    Object? priceKey = freezed,
   }) {
     return _then(
       _$AssetEntityImpl(
@@ -181,6 +203,14 @@ class __$$AssetEntityImplCopyWithImpl<$Res>
             ? _value._priceHistory
             : priceHistory // ignore: cast_nullable_to_non_nullable
                   as List<double>,
+        priceSection: freezed == priceSection
+            ? _value.priceSection
+            : priceSection // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        priceKey: freezed == priceKey
+            ? _value.priceKey
+            : priceKey // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -197,6 +227,8 @@ class _$AssetEntityImpl implements _AssetEntity {
     required this.buyPrice,
     required this.currentPrice,
     final List<double> priceHistory = const [],
+    this.priceSection,
+    this.priceKey,
   }) : _priceHistory = priceHistory;
 
   @override
@@ -220,9 +252,17 @@ class _$AssetEntityImpl implements _AssetEntity {
     return EqualUnmodifiableListView(_priceHistory);
   }
 
+  /// Firestore market/live_prices içindeki bölüm: "stocks" | "prices" | "gold" | "funds"
+  @override
+  final String? priceSection;
+
+  /// Bölüm içindeki anahtar: "GARAN", "USDTRY", "gram", "BTC_TRY", "AAK"...
+  @override
+  final String? priceKey;
+
   @override
   String toString() {
-    return 'AssetEntity(id: $id, type: $type, name: $name, quantity: $quantity, buyPrice: $buyPrice, currentPrice: $currentPrice, priceHistory: $priceHistory)';
+    return 'AssetEntity(id: $id, type: $type, name: $name, quantity: $quantity, buyPrice: $buyPrice, currentPrice: $currentPrice, priceHistory: $priceHistory, priceSection: $priceSection, priceKey: $priceKey)';
   }
 
   @override
@@ -242,7 +282,11 @@ class _$AssetEntityImpl implements _AssetEntity {
             const DeepCollectionEquality().equals(
               other._priceHistory,
               _priceHistory,
-            ));
+            ) &&
+            (identical(other.priceSection, priceSection) ||
+                other.priceSection == priceSection) &&
+            (identical(other.priceKey, priceKey) ||
+                other.priceKey == priceKey));
   }
 
   @override
@@ -255,6 +299,8 @@ class _$AssetEntityImpl implements _AssetEntity {
     buyPrice,
     currentPrice,
     const DeepCollectionEquality().hash(_priceHistory),
+    priceSection,
+    priceKey,
   );
 
   /// Create a copy of AssetEntity
@@ -275,6 +321,8 @@ abstract class _AssetEntity implements AssetEntity {
     required final double buyPrice,
     required final double currentPrice,
     final List<double> priceHistory,
+    final String? priceSection,
+    final String? priceKey,
   }) = _$AssetEntityImpl;
 
   @override
@@ -291,6 +339,14 @@ abstract class _AssetEntity implements AssetEntity {
   double get currentPrice;
   @override
   List<double> get priceHistory;
+
+  /// Firestore market/live_prices içindeki bölüm: "stocks" | "prices" | "gold" | "funds"
+  @override
+  String? get priceSection;
+
+  /// Bölüm içindeki anahtar: "GARAN", "USDTRY", "gram", "BTC_TRY", "AAK"...
+  @override
+  String? get priceKey;
 
   /// Create a copy of AssetEntity
   /// with the given fields replaced by the non-null parameter values.

@@ -19,6 +19,8 @@ _$AssetDtoImpl _$$AssetDtoImplFromJson(Map<String, dynamic> json) =>
               ?.map((e) => (e as num).toDouble())
               .toList() ??
           const [],
+      priceSection: json['priceSection'] as String?,
+      priceKey: json['priceKey'] as String?,
     );
 
 Map<String, dynamic> _$$AssetDtoImplToJson(_$AssetDtoImpl instance) =>
@@ -30,6 +32,8 @@ Map<String, dynamic> _$$AssetDtoImplToJson(_$AssetDtoImpl instance) =>
       'buyPrice': instance.buyPrice,
       'currentPrice': instance.currentPrice,
       'priceHistory': instance.priceHistory,
+      'priceSection': instance.priceSection,
+      'priceKey': instance.priceKey,
     };
 
 _$MarketDataDtoImpl _$$MarketDataDtoImplFromJson(Map<String, dynamic> json) =>

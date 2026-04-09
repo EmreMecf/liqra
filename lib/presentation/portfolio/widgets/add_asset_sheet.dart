@@ -10,21 +10,51 @@ import '../../../core/constants/app_typography.dart';
 import '../../../features/portfolio/data/datasources/tefas_datasource.dart';
 import '../../../features/portfolio/presentation/viewmodel/portfolio_viewmodel.dart';
 
-/// Popüler BIST hisseleri (Firestore'dan fiyat alınır)
+// ── Meta tablolar ─────────────────────────────────────────────────────────────
+
 const _popularBist = [
-  ('GARAN', 'Garanti BBVA'),     ('BIMAS', 'BİM Mağazalar'),
-  ('THYAO', 'Türk Hava Yolları'),('AKBNK', 'Akbank'),
-  ('ASELS', 'Aselsan'),          ('EREGL', 'Ereğli Demir'),
-  ('SISE',  'Şişecam'),          ('KCHOL', 'Koç Holding'),
-  ('ISCTR', 'İş Bankası C'),     ('SAHOL', 'Sabancı Holding'),
-  ('TCELL', 'Turkcell'),         ('FROTO', 'Ford Otomotiv'),
-  ('PGSUS', 'Pegasus'),          ('YKBNK', 'Yapı Kredi'),
+  ('GARAN', 'Garanti BBVA'),      ('BIMAS', 'BİM Mağazalar'),
+  ('THYAO', 'Türk Hava Yolları'), ('AKBNK', 'Akbank'),
+  ('ASELS', 'Aselsan'),           ('EREGL', 'Ereğli Demir'),
+  ('SISE',  'Şişecam'),           ('KCHOL', 'Koç Holding'),
+  ('ISCTR', 'İş Bankası C'),      ('SAHOL', 'Sabancı Holding'),
+  ('TCELL', 'Turkcell'),          ('FROTO', 'Ford Otomotiv'),
+  ('PGSUS', 'Pegasus'),           ('YKBNK', 'Yapı Kredi'),
   ('TUPRS', 'Tüpraş'),
 ];
 
-/// Varlık Ekle Bottom Sheet
-/// Fon tipinde: TEFAS fon arama ve otomatik fiyat doldurma
-/// Hisse tipinde: BIST hisse seçimi + Firestore fiyat çekimi
+/// Altın tipleri: (priceKey, displayName, icon)
+const _goldTypes = [
+  ('gram',        'Gram Altın',         '🥇'),
+  ('ceyrek',      'Çeyrek Altın',       '🪙'),
+  ('yarim',       'Yarım Altın',        '🪙'),
+  ('tam',         'Tam Altın',          '🥇'),
+  ('cumhuriyet',  'Cumhuriyet Altını',  '🏅'),
+  ('ons',         'Ons Altın',          '🥇'),
+  ('gumus',       'Gümüş',              '🔘'),
+];
+
+/// Kripto tipleri: (priceKey, displayName, icon)
+const _cryptoTypes = [
+  ('BTC_TRY',  'Bitcoin',  '₿'),
+  ('ETH_TRY',  'Ethereum', '⟠'),
+  ('SOL_TRY',  'Solana',   '◎'),
+  ('BNB_TRY',  'BNB',      '🔶'),
+  ('XRP_TRY',  'XRP',      '✕'),
+  ('DOGE_TRY', 'Dogecoin', '🐕'),
+  ('USDT_TRY', 'Tether',   '💲'),
+];
+
+/// Döviz tipleri: (priceKey, displayName, flag)
+const _dovizTypes = [
+  ('USDTRY', 'Dolar (USD)',        '🇺🇸'),
+  ('EURTRY', 'Euro (EUR)',         '🇪🇺'),
+  ('GBPTRY', 'Sterlin (GBP)',      '🇬🇧'),
+  ('CHFTRY', 'İsv. Frangı (CHF)', '🇨🇭'),
+];
+
+// ── Widget ────────────────────────────────────────────────────────────────────
+
 class AddAssetSheet extends StatefulWidget {
   final String? initialType;
   const AddAssetSheet({super.key, this.initialType});
@@ -40,10 +70,10 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
   final _priceCtrl = TextEditingController();
 
   // TEFAS fon arama
-  final _searchCtrl  = TextEditingController();
+  final _searchCtrl = TextEditingController();
   Timer? _debounce;
-  List<TefasFund> _fundResults = [];
-  bool _searchLoading = false;
+  List<TefasFund> _fundResults   = [];
+  bool _searchLoading             = false;
   TefasFund? _selectedFund;
 
   // Hisse arama
@@ -52,11 +82,35 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
   bool _stockSearchLoading = false;
   String? _selectedStockCode;
 
+  // Altın / Kripto / Döviz seçimi
+  String? _selectedSubKey;   // priceKey: "gram", "BTC_TRY", "USDTRY" ...
+  String? _selectedSubName;  // Görüntü adı
+  double  _livePrice = 0;    // Anlık fiyat
+
   String _selectedType = 'hisse';
   bool   _isLoading    = false;
 
   bool get _isFon    => _selectedType == 'fon';
   bool get _isHisse  => _selectedType == 'hisse';
+  bool get _isAltin  => _selectedType == 'altin';
+  bool get _isCrypto => _selectedType == 'crypto';
+  bool get _isDoviz  => _selectedType == 'doviz';
+  bool get _isMevduat => _selectedType == 'mevduat';
+
+  // priceSection ve priceKey her tip için
+  String? get _priceSection {
+    if (_isAltin)  return 'gold';
+    if (_isCrypto) return 'prices';
+    if (_isDoviz)  return 'prices';
+    if (_isHisse)  return 'stocks';
+    if (_isFon)    return 'funds';
+    return null;
+  }
+  String? get _priceKey {
+    if (_isHisse) return _selectedStockCode;
+    if (_isFon)   return _selectedFund?.code;
+    return _selectedSubKey;
+  }
 
   late final TefasDataSource _tefas;
 
@@ -89,16 +143,13 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
 
   @override
   void dispose() {
-    _nameCtrl.dispose();
-    _qtyCtrl.dispose();
-    _priceCtrl.dispose();
-    _searchCtrl.dispose();
-    _stockSearchCtrl.dispose();
+    _nameCtrl.dispose(); _qtyCtrl.dispose(); _priceCtrl.dispose();
+    _searchCtrl.dispose(); _stockSearchCtrl.dispose();
     _debounce?.cancel();
     super.dispose();
   }
 
-  // ── TEFAS Fon Arama ────────────────────────────────────────────────────────
+  // ── TEFAS Fon Arama ─────────────────────────────────────────────────────────
 
   void _onFonSearchChanged() {
     _debounce?.cancel();
@@ -115,96 +166,134 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
   }
 
   Future<void> _selectFund(TefasFund fund) async {
-    setState(() {
-      _selectedFund  = fund;
-      _fundResults   = [];
-      _searchLoading = false;
-    });
+    setState(() { _selectedFund = fund; _fundResults = []; _searchLoading = false; });
     _searchCtrl.text = '${fund.code} — ${fund.name}';
     _nameCtrl.text   = '${fund.code} - ${fund.name}';
+    if (fund.currentPrice > 0) _priceCtrl.text = fund.currentPrice.toStringAsFixed(4);
   }
 
-  // ── Hisse Arama (Firestore'dan) ────────────────────────────────────────────
+  // ── Hisse Arama ─────────────────────────────────────────────────────────────
 
   void _onStockSearchChanged() {
     _debounce?.cancel();
     final q = _stockSearchCtrl.text.trim().toUpperCase();
-    if (q.isEmpty) {
-      setState(() { _stockResults = []; _stockSearchLoading = false; });
-      return;
-    }
+    if (q.isEmpty) { setState(() { _stockResults = []; _stockSearchLoading = false; }); return; }
     setState(() => _stockSearchLoading = true);
-    _debounce = Timer(const Duration(milliseconds: 400), () async {
-      await _searchStocks(q);
-    });
+    _debounce = Timer(const Duration(milliseconds: 400), () async => _searchStocks(q));
   }
 
   Future<void> _searchStocks(String query) async {
     try {
-      final db   = FirebaseFirestore.instance;
-      final snap = await db.doc('market/live_prices').get();
+      final snap = await FirebaseFirestore.instance.doc('market/live_prices').get();
       if (!snap.exists) { if (mounted) setState(() => _stockSearchLoading = false); return; }
-
-      final data = snap.data();
+      final data    = snap.data();
       final results = <({String code, String name, double price, bool isUs})>[];
-
-      // BIST hisseleri
-      final stocks = data?['stocks'] as Map<String, dynamic>?;
+      final stocks  = data?['stocks'] as Map<String, dynamic>?;
       if (stocks != null) {
-        for (final entry in stocks.entries) {
-          final code = entry.key;
-          final val  = entry.value as Map<String, dynamic>?;
+        for (final e in stocks.entries) {
+          final code = e.key;
+          final val  = e.value as Map<String, dynamic>?;
           if (val == null) continue;
           final name = (val['name'] as String?) ?? code;
-          if (code.toUpperCase().contains(query) || name.toUpperCase().contains(query)) {
-            results.add((
-              code: code,
-              name: name,
-              price: _toDouble(val['price']),
-              isUs: false,
-            ));
+          if (code.contains(query) || name.toUpperCase().contains(query)) {
+            results.add((code: code, name: name, price: _toDouble(val['price']), isUs: false));
           }
         }
       }
-
       results.sort((a, b) => a.code.compareTo(b.code));
-      if (mounted) setState(() {
-        _stockResults      = results;
-        _stockSearchLoading = false;
-      });
+      if (mounted) setState(() { _stockResults = results; _stockSearchLoading = false; });
     } catch (_) {
       if (mounted) setState(() => _stockSearchLoading = false);
     }
   }
 
-  Future<void> _selectStock(String code, String name, double price, bool isUs) async {
-    setState(() {
-      _selectedStockCode = code;
-      _stockResults      = [];
-      _stockSearchLoading = false;
-    });
+  Future<void> _selectStock(String code, String name, double price) async {
+    setState(() { _selectedStockCode = code; _stockResults = []; _stockSearchLoading = false; });
     _stockSearchCtrl.text = '$code — $name';
     _nameCtrl.text = '$code - $name';
-    if (price > 0) {
-      _priceCtrl.text = price.toStringAsFixed(4);
+    if (price > 0) _priceCtrl.text = price.toStringAsFixed(2);
+  }
+
+  Future<void> _fetchAndSelectStock(String code, String name) async {
+    try {
+      final snap = await FirebaseFirestore.instance.doc('market/live_prices').get();
+      double price = 0;
+      if (snap.exists) {
+        final entry = (snap.data()?['stocks'] as Map?)?[code] as Map?;
+        price = _toDouble(entry?['price']);
+      }
+      await _selectStock(code, name, price);
+    } catch (_) {
+      await _selectStock(code, name, 0);
+    } finally {
+      if (mounted) setState(() => _stockSearchLoading = false);
     }
   }
 
-  // ── Form Gönder ────────────────────────────────────────────────────────────
+  // ── Altın / Kripto / Döviz Seçimi ───────────────────────────────────────────
+
+  Future<void> _selectSubType(String priceKey, String displayName, String section) async {
+    setState(() { _selectedSubKey = priceKey; _selectedSubName = displayName; _livePrice = 0; });
+    _nameCtrl.text = displayName;
+
+    // Canlı fiyatı Firestore'dan çek
+    try {
+      final snap = await FirebaseFirestore.instance.doc('market/live_prices').get();
+      if (!snap.exists) return;
+      final data = snap.data()!;
+      double price = 0;
+
+      if (section == 'gold') {
+        final entry = (data['gold'] as Map?)?[priceKey] as Map<String, dynamic>?;
+        final alis  = _toDouble(entry?['alis']);
+        final satis = _toDouble(entry?['satis']);
+        price = alis > 0 ? alis : satis;
+      } else {
+        // prices (kripto + döviz)
+        price = _toDouble((data['prices'] as Map?)?[priceKey]?['price']);
+      }
+
+      if (mounted && price > 0) {
+        setState(() => _livePrice = price);
+        _priceCtrl.text = price.toStringAsFixed(price >= 1000 ? 2 : 4);
+      }
+    } catch (_) {}
+  }
+
+  // ── Form Gönder ──────────────────────────────────────────────────────────────
 
   Future<void> _submit() async {
     if (!_formKey.currentState!.validate()) return;
+
+    // Tip bazlı ek validasyon
+    if ((_isAltin || _isCrypto || _isDoviz) && _selectedSubKey == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Lütfen bir tür seçin'),
+        backgroundColor: AppColors.accentRed,
+      ));
+      return;
+    }
+    if (_isHisse && _selectedStockCode == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+        content: Text('Lütfen bir hisse seçin'),
+        backgroundColor: AppColors.accentRed,
+      ));
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     final vm  = context.read<PortfolioViewModel>();
     final err = await vm.addAsset(
-      type:     _selectedType,
-      name:     _nameCtrl.text.trim(),
-      quantity: double.parse(_qtyCtrl.text.replaceAll(',', '.')),
-      buyPrice: double.parse(_priceCtrl.text.replaceAll(',', '.')),
+      type:         _selectedType,
+      name:         _nameCtrl.text.trim(),
+      quantity:     double.parse(_qtyCtrl.text.replaceAll(',', '.')),
+      buyPrice:     double.parse(_priceCtrl.text.replaceAll(',', '.')),
       currentPrice: _isFon && _selectedFund != null && _selectedFund!.currentPrice > 0
           ? _selectedFund!.currentPrice
-          : null,
+          : _livePrice > 0 ? _livePrice : null,
+      priceSection: _priceSection,
+      priceKey:     _priceKey,
     );
 
     if (!mounted) return;
@@ -223,7 +312,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
     }
   }
 
-  // ── UI ─────────────────────────────────────────────────────────────────────
+  // ── Build ────────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
@@ -242,20 +331,19 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
             crossAxisAlignment: CrossAxisAlignment.start,
             mainAxisSize: MainAxisSize.min,
             children: [
-              Center(
-                child: Container(
-                  width: 40, height: 4,
-                  margin: const EdgeInsets.only(bottom: 20),
-                  decoration: BoxDecoration(
-                    color: AppColors.borderSubtle, borderRadius: BorderRadius.circular(2),
-                  ),
+              // Handle
+              Center(child: Container(
+                width: 40, height: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                decoration: BoxDecoration(
+                  color: AppColors.borderSubtle, borderRadius: BorderRadius.circular(2),
                 ),
-              ),
+              )),
 
               Text('Varlık Ekle', style: AppTypography.headlineS),
               const SizedBox(height: 20),
 
-              // ── Varlık Tipi ─────────────────────────────────────────────────
+              // ── Tip seçici ──────────────────────────────────────────────────
               _label('Tip'),
               const SizedBox(height: 8),
               SizedBox(
@@ -266,15 +354,13 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                     final sel = _selectedType == e.key;
                     return GestureDetector(
                       onTap: () => setState(() {
-                        _selectedType       = e.key;
-                        _selectedFund       = null;
-                        _selectedStockCode  = null;
-                        _fundResults        = [];
-                        _stockResults       = [];
-                        _searchCtrl.clear();
-                        _stockSearchCtrl.clear();
-                        _nameCtrl.clear();
-                        _priceCtrl.clear();
+                        _selectedType      = e.key;
+                        _selectedFund      = null; _selectedStockCode = null;
+                        _selectedSubKey    = null; _selectedSubName   = null;
+                        _livePrice         = 0;
+                        _fundResults       = []; _stockResults      = [];
+                        _searchCtrl.clear(); _stockSearchCtrl.clear();
+                        _nameCtrl.clear(); _priceCtrl.clear();
                       }),
                       child: AnimatedContainer(
                         duration: const Duration(milliseconds: 200),
@@ -283,9 +369,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                         decoration: BoxDecoration(
                           color: sel ? AppColors.accentGreen.withOpacity(0.15) : AppColors.bgTertiary,
                           borderRadius: BorderRadius.circular(22),
-                          border: Border.all(
-                            color: sel ? AppColors.accentGreen : AppColors.borderSubtle,
-                          ),
+                          border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
                         ),
                         child: Row(
                           mainAxisSize: MainAxisSize.min,
@@ -306,162 +390,144 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
               ),
               const SizedBox(height: 16),
 
-              // ── FON: TEFAS Arama ─────────────────────────────────────────────
-              if (_isFon) ...[
-                _label('Fon Ara (kod veya isim)'),
-                const SizedBox(height: 6),
-                _buildSearchField(
-                  controller: _searchCtrl,
-                  hint: 'TEC, AAK, Teknoloji...',
-                ),
-                const SizedBox(height: 4),
-                if (_searchLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Center(child: SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen))),
-                  ),
-                if (_fundResults.isNotEmpty)
-                  _buildFundResults(),
-                if (_selectedFund != null && _fundResults.isEmpty)
-                  _buildSelectedFundChip(),
+              // ── ALTIN Seçici ────────────────────────────────────────────────
+              if (_isAltin) ...[
+                _label('Altın Türü'),
+                const SizedBox(height: 8),
+                _buildSubTypeGrid(_goldTypes, 'gold'),
+                if (_selectedSubKey != null && _livePrice > 0) ...[
+                  const SizedBox(height: 8),
+                  _LivePriceChip(price: _livePrice, label: _selectedSubName ?? '', section: 'gold'),
+                ],
                 const SizedBox(height: 14),
               ],
 
-              // ── HİSSE: BIST ─────────────────────────────────────────────────
-              if (_isHisse) ...[
-                // Arama kutusu
-                _buildSearchField(
-                  controller: _stockSearchCtrl,
-                  hint: 'GARAN, BIMAS, THYAO...',
-                ),
+              // ── KRİPTO Seçici ───────────────────────────────────────────────
+              if (_isCrypto) ...[
+                _label('Kripto Para'),
                 const SizedBox(height: 8),
+                _buildSubTypeGrid(_cryptoTypes, 'prices'),
+                if (_selectedSubKey != null && _livePrice > 0) ...[
+                  const SizedBox(height: 8),
+                  _LivePriceChip(price: _livePrice, label: _selectedSubName ?? '', section: 'prices'),
+                ],
+                const SizedBox(height: 14),
+              ],
 
-                // Arama sonuçları
-                if (_stockSearchLoading)
-                  const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
+              // ── DÖVİZ Seçici ────────────────────────────────────────────────
+              if (_isDoviz) ...[
+                _label('Döviz'),
+                const SizedBox(height: 8),
+                _buildSubTypeGrid(_dovizTypes, 'prices'),
+                if (_selectedSubKey != null && _livePrice > 0) ...[
+                  const SizedBox(height: 8),
+                  _LivePriceChip(price: _livePrice, label: _selectedSubName ?? '', section: 'prices'),
+                ],
+                const SizedBox(height: 14),
+              ],
+
+              // ── FON Arama ───────────────────────────────────────────────────
+              if (_isFon) ...[
+                _label('Fon Ara (kod veya isim)'),
+                const SizedBox(height: 6),
+                _buildSearchField(controller: _searchCtrl, hint: 'TEC, AAK, Teknoloji...'),
+                const SizedBox(height: 4),
+                if (_searchLoading)
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 8),
                     child: Center(child: SizedBox(width: 20, height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen))),
-                  ),
-                if (_stockResults.isNotEmpty)
-                  _buildStockResults(),
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen)))),
+                if (_fundResults.isNotEmpty) _buildFundResults(),
+                if (_selectedFund != null && _fundResults.isEmpty) _buildSelectedFundChip(),
+                const SizedBox(height: 14),
+              ],
 
-                // Popüler hisseler (arama yoksa)
+              // ── HİSSE Arama ─────────────────────────────────────────────────
+              if (_isHisse) ...[
+                _buildSearchField(controller: _stockSearchCtrl, hint: 'GARAN, BIMAS, THYAO...'),
+                const SizedBox(height: 8),
+                if (_stockSearchLoading)
+                  const Padding(padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Center(child: SizedBox(width: 20, height: 20,
+                      child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen)))),
+                if (_stockResults.isNotEmpty) _buildStockResults(),
                 if (_stockSearchCtrl.text.isEmpty && _selectedStockCode == null) ...[
                   Text('Popüler', style: AppTypography.labelS.copyWith(color: AppColors.textSecondary)),
                   const SizedBox(height: 6),
                   _buildPopularStocks(),
                 ],
-
-                if (_selectedStockCode != null && _stockResults.isEmpty) ...[
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                    decoration: BoxDecoration(
-                      color: AppColors.accentGreen.withOpacity(0.08),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: AppColors.accentGreen.withOpacity(0.3)),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.check_circle_outline,
-                            color: AppColors.accentGreen, size: 16),
-                        const SizedBox(width: 8),
-                        Text(_selectedStockCode!, style: AppTypography.labelS.copyWith(
-                          color: AppColors.accentGreen, fontWeight: FontWeight.w700,
-                        )),
-                        const SizedBox(width: 4),
-                        Text('seçildi', style: AppTypography.labelS.copyWith(
-                          color: AppColors.accentGreen,
-                        )),
-                      ],
-                    ),
-                  ),
-                ],
+                if (_selectedStockCode != null && _stockResults.isEmpty)
+                  _buildSelectedChip(_selectedStockCode!),
                 const SizedBox(height: 14),
               ],
 
-              // ── Diğer tipler: Manuel isim ────────────────────────────────────
-              if (!_isFon && !_isHisse) ...[
-                _label('Varlık Adı / Kodu'),
+              // ── Mevduat: Manuel isim ────────────────────────────────────────
+              if (_isMevduat) ...[
+                _label('Hesap Adı'),
                 const SizedBox(height: 6),
                 _buildTextField(
-                  controller: _nameCtrl,
-                  hint: _getHint(),
+                  controller: _nameCtrl, hint: 'Garanti Vadeli Hesap',
                   validator: (v) => (v == null || v.trim().isEmpty) ? 'Ad gerekli' : null,
                 ),
                 const SizedBox(height: 14),
               ],
 
-              // ── Hisse: sadece isim alanı yoksa, miktar + fiyat göster ────────
-              if (_isHisse && _nameCtrl.text.isEmpty)
-                const SizedBox.shrink(),
-
-              // ── Miktar + Fiyat ──────────────────────────────────────────────
+              // ── Miktar + Alış Fiyatı ────────────────────────────────────────
               Row(
                 children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label(_isFon ? 'Pay Sayısı' : _isHisse ? 'Lot / Adet' : 'Adet'),
-                        const SizedBox(height: 6),
-                        _buildTextField(
-                          controller: _qtyCtrl,
-                          hint: _isFon ? '1000' : '1',
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'Gerekli';
-                            final n = double.tryParse(v.replaceAll(',', '.'));
-                            if (n == null || n <= 0) return 'Geçersiz';
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label(_isFon ? 'Pay Sayısı' : _isHisse ? 'Adet / Lot' : _isAltin ? 'Gram / Adet' : 'Adet'),
+                      const SizedBox(height: 6),
+                      _buildTextField(
+                        controller: _qtyCtrl,
+                        hint: _isFon ? '1000' : '1',
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Gerekli';
+                          final n = double.tryParse(v.replaceAll(',', '.'));
+                          if (n == null || n <= 0) return 'Geçersiz';
+                          return null;
+                        },
+                      ),
+                    ],
+                  )),
                   const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        _label(_isFon ? 'Alış NAV (TL)' : 'Alış Fiyatı (TL)'),
-                        const SizedBox(height: 6),
-                        _buildTextField(
-                          controller: _priceCtrl,
-                          hint: _isFon ? '1.2345' : '42.50',
-                          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                          inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
-                          validator: (v) {
-                            if (v == null || v.isEmpty) return 'Gerekli';
-                            final n = double.tryParse(v.replaceAll(',', '.'));
-                            if (n == null || n <= 0) return 'Geçersiz';
-                            return null;
-                          },
-                        ),
-                      ],
-                    ),
-                  ),
+                  Expanded(child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _label('Alış Fiyatı (TL)'),
+                      const SizedBox(height: 6),
+                      _buildTextField(
+                        controller: _priceCtrl,
+                        hint: _livePrice > 0 ? _livePrice.toStringAsFixed(2) : '0.00',
+                        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                        inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Gerekli';
+                          final n = double.tryParse(v.replaceAll(',', '.'));
+                          if (n == null || n <= 0) return 'Geçersiz';
+                          return null;
+                        },
+                      ),
+                    ],
+                  )),
                 ],
               ),
               const SizedBox(height: 16),
 
               // ── Önizleme ────────────────────────────────────────────────────
               if (_isFon && _selectedFund != null && _selectedFund!.currentPrice > 0)
-                _FundPnlPreview(
-                  fund: _selectedFund!, qtyCtrl: _qtyCtrl, priceCtrl: _priceCtrl,
-                ),
+                _FundPnlPreview(fund: _selectedFund!, qtyCtrl: _qtyCtrl, priceCtrl: _priceCtrl),
               if (!_isFon)
-                _TotalPreview(qtyCtrl: _qtyCtrl, priceCtrl: _priceCtrl,
-                    currencySymbol: 'TL'),
+                _TotalPreview(qtyCtrl: _qtyCtrl, priceCtrl: _priceCtrl, livePrice: _livePrice),
 
               const SizedBox(height: 24),
 
               // ── Kaydet ──────────────────────────────────────────────────────
               SizedBox(
-                width: double.infinity,
-                height: 52,
+                width: double.infinity, height: 52,
                 child: ElevatedButton(
                   onPressed: _isLoading ? null : _submit,
                   style: ElevatedButton.styleFrom(
@@ -484,10 +550,68 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
     );
   }
 
-  // ── Widget Builders ────────────────────────────────────────────────────────
+  // ── SubType Grid (Altın / Kripto / Döviz) ────────────────────────────────────
 
-  Widget _label(String text) => Text(text,
-      style: AppTypography.labelS.copyWith(color: AppColors.textSecondary));
+  Widget _buildSubTypeGrid(
+    List<(String, String, String)> types,
+    String section,
+  ) =>
+      Wrap(
+        spacing: 8, runSpacing: 8,
+        children: types.map((t) {
+          final key  = t.$1;
+          final name = t.$2;
+          final icon = t.$3;
+          final sel  = _selectedSubKey == key;
+          return GestureDetector(
+            onTap: () => _selectSubType(key, name, section),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                color: sel ? AppColors.accentGreen.withOpacity(0.15) : AppColors.bgTertiary,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(icon, style: const TextStyle(fontSize: 14)),
+                  const SizedBox(width: 6),
+                  Text(name, style: AppTypography.labelS.copyWith(
+                    color: sel ? AppColors.accentGreen : AppColors.textPrimary,
+                    fontWeight: sel ? FontWeight.w700 : FontWeight.w500,
+                  )),
+                ],
+              ),
+            ),
+          );
+        }).toList(),
+      );
+
+  // ── Canlı Fiyat Göstergesi ───────────────────────────────────────────────────
+
+  Widget _buildSelectedChip(String code) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+    decoration: BoxDecoration(
+      color: AppColors.accentGreen.withOpacity(0.08),
+      borderRadius: BorderRadius.circular(10),
+      border: Border.all(color: AppColors.accentGreen.withOpacity(0.3)),
+    ),
+    child: Row(children: [
+      const Icon(Icons.check_circle_outline, color: AppColors.accentGreen, size: 16),
+      const SizedBox(width: 8),
+      Text(code, style: AppTypography.labelS.copyWith(
+        color: AppColors.accentGreen, fontWeight: FontWeight.w700)),
+      const SizedBox(width: 4),
+      Text('seçildi', style: AppTypography.labelS.copyWith(color: AppColors.accentGreen)),
+    ]),
+  );
+
+  // ── Builders (ortak) ─────────────────────────────────────────────────────────
+
+  Widget _label(String text) =>
+      Text(text, style: AppTypography.labelS.copyWith(color: AppColors.textSecondary));
 
   Widget _buildSearchField({
     required TextEditingController controller,
@@ -512,8 +636,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                     });
                   })
               : null,
-          filled: true,
-          fillColor: AppColors.bgTertiary,
+          filled: true, fillColor: AppColors.bgTertiary,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.accentGreen, width: 1.5)),
@@ -529,17 +652,15 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
     String? Function(String?)? validator,
   }) =>
       TextFormField(
-        controller:      controller,
-        keyboardType:    keyboardType,
+        controller: controller,
+        keyboardType: keyboardType,
         inputFormatters: inputFormatters,
-        validator:       validator,
-        onChanged:       (_) => setState(() {}),
+        validator: validator,
+        onChanged: (_) => setState(() {}),
         style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 15),
         decoration: InputDecoration(
-          hintText:  hint,
-          hintStyle: GoogleFonts.outfit(color: AppColors.textDisabled, fontSize: 14),
-          filled:    true,
-          fillColor: AppColors.bgTertiary,
+          hintText: hint, hintStyle: GoogleFonts.outfit(color: AppColors.textDisabled, fontSize: 14),
+          filled: true, fillColor: AppColors.bgTertiary,
           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
           focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
               borderSide: const BorderSide(color: AppColors.accentGreen, width: 1.5)),
@@ -553,14 +674,10 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
 
   Widget _buildFundResults() => Container(
     constraints: const BoxConstraints(maxHeight: 220),
-    decoration: BoxDecoration(
-      color: AppColors.bgTertiary, borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: AppColors.borderSubtle),
-    ),
+    decoration: BoxDecoration(color: AppColors.bgTertiary, borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderSubtle)),
     child: ListView.builder(
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      itemCount: _fundResults.length,
+      shrinkWrap: true, padding: EdgeInsets.zero, itemCount: _fundResults.length,
       itemBuilder: (_, i) {
         final f = _fundResults[i];
         return InkWell(
@@ -568,46 +685,33 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentBlue.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(f.code, style: GoogleFonts.dmMono(
-                    color: AppColors.accentBlue, fontSize: 11, fontWeight: FontWeight.w700,
-                  )),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(f.name, style: AppTypography.labelS.copyWith(color: AppColors.textPrimary),
-                          maxLines: 1, overflow: TextOverflow.ellipsis),
-                      Text(f.type, style: AppTypography.labelS.copyWith(
-                        color: AppColors.textSecondary, fontSize: 10)),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 8),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.end,
-                  children: [
-                    Text(f.currentPrice > 0 ? '${f.currentPrice.toStringAsFixed(4)} TL' : '—',
-                        style: GoogleFonts.dmMono(color: AppColors.textPrimary, fontSize: 12,
-                            fontWeight: FontWeight.w600)),
-                    if (f.monthlyReturn != 0)
-                      Text('${f.monthlyReturn >= 0 ? "+" : ""}${f.monthlyReturn.toStringAsFixed(1)}% /ay',
-                          style: AppTypography.labelS.copyWith(
-                            color: f.monthlyReturn >= 0 ? AppColors.accentGreen : AppColors.accentRed,
-                            fontSize: 10)),
-                  ],
-                ),
-              ],
-            ),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: AppColors.accentBlue.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(f.code, style: GoogleFonts.dmMono(
+                    color: AppColors.accentBlue, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Text(f.name, style: AppTypography.labelS.copyWith(color: AppColors.textPrimary),
+                    maxLines: 1, overflow: TextOverflow.ellipsis),
+                Text(f.type, style: AppTypography.labelS.copyWith(
+                    color: AppColors.textSecondary, fontSize: 10)),
+              ])),
+              const SizedBox(width: 8),
+              Column(crossAxisAlignment: CrossAxisAlignment.end, children: [
+                Text(f.currentPrice > 0 ? '${f.currentPrice.toStringAsFixed(4)} TL' : '—',
+                    style: GoogleFonts.dmMono(color: AppColors.textPrimary, fontSize: 12,
+                        fontWeight: FontWeight.w600)),
+                if (f.monthlyReturn != 0)
+                  Text('${f.monthlyReturn >= 0 ? "+" : ""}${f.monthlyReturn.toStringAsFixed(1)}% /ay',
+                      style: AppTypography.labelS.copyWith(
+                          color: f.monthlyReturn >= 0 ? AppColors.accentGreen : AppColors.accentRed,
+                          fontSize: 10)),
+              ]),
+            ]),
           ),
         );
       },
@@ -616,163 +720,146 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
 
   Widget _buildSelectedFundChip() => Container(
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: AppColors.accentGreen.withOpacity(0.08), borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.accentGreen.withOpacity(0.3)),
-    ),
-    child: Row(
-      children: [
-        const Icon(Icons.check_circle_outline, color: AppColors.accentGreen, size: 16),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text('${_selectedFund!.code} — ${_selectedFund!.name}',
-              style: AppTypography.labelS.copyWith(color: AppColors.accentGreen)),
-        ),
-        if (_selectedFund!.yearlyReturn != 0)
-          Text('${_selectedFund!.yearlyReturn >= 0 ? "+" : ""}${_selectedFund!.yearlyReturn.toStringAsFixed(1)}% /yıl',
-              style: AppTypography.labelS.copyWith(
-                color: _selectedFund!.yearlyReturn >= 0 ? AppColors.accentGreen : AppColors.accentRed,
-                fontWeight: FontWeight.w700,
-              )),
-      ],
-    ),
+    decoration: BoxDecoration(color: AppColors.accentGreen.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.accentGreen.withOpacity(0.3))),
+    child: Row(children: [
+      const Icon(Icons.check_circle_outline, color: AppColors.accentGreen, size: 16),
+      const SizedBox(width: 8),
+      Expanded(child: Text('${_selectedFund!.code} — ${_selectedFund!.name}',
+          style: AppTypography.labelS.copyWith(color: AppColors.accentGreen))),
+      if (_selectedFund!.yearlyReturn != 0)
+        Text('${_selectedFund!.yearlyReturn >= 0 ? "+" : ""}${_selectedFund!.yearlyReturn.toStringAsFixed(1)}% /yıl',
+            style: AppTypography.labelS.copyWith(
+              color: _selectedFund!.yearlyReturn >= 0 ? AppColors.accentGreen : AppColors.accentRed,
+              fontWeight: FontWeight.w700,
+            )),
+    ]),
   );
 
   Widget _buildStockResults() => Container(
     constraints: const BoxConstraints(maxHeight: 200),
-    decoration: BoxDecoration(
-      color: AppColors.bgTertiary, borderRadius: BorderRadius.circular(12),
-      border: Border.all(color: AppColors.borderSubtle),
-    ),
+    decoration: BoxDecoration(color: AppColors.bgTertiary, borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.borderSubtle)),
     child: ListView.builder(
-      shrinkWrap: true,
-      padding: EdgeInsets.zero,
-      itemCount: _stockResults.length,
+      shrinkWrap: true, padding: EdgeInsets.zero, itemCount: _stockResults.length,
       itemBuilder: (_, i) {
         final s = _stockResults[i];
         return InkWell(
-          onTap: () => _selectStock(s.code, s.name, s.price, false),
+          onTap: () => _selectStock(s.code, s.name, s.price),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            child: Row(
-              children: [
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(
-                    color: AppColors.accentBlue.withOpacity(0.15),
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(s.code, style: GoogleFonts.dmMono(
-                    color: AppColors.accentBlue,
-                    fontSize: 11, fontWeight: FontWeight.w700,
-                  )),
-                ),
-                const SizedBox(width: 10),
-                Expanded(child: Text(s.name, style: AppTypography.labelS.copyWith(
-                  color: AppColors.textPrimary),
-                  maxLines: 1, overflow: TextOverflow.ellipsis)),
-                Text(
-                  s.price > 0 ? '${s.price.toStringAsFixed(2)} TL' : '—',
-                  style: GoogleFonts.dmMono(color: AppColors.textPrimary, fontSize: 12,
-                      fontWeight: FontWeight.w600),
-                ),
-              ],
-            ),
+            child: Row(children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(color: AppColors.accentBlue.withOpacity(0.15),
+                    borderRadius: BorderRadius.circular(6)),
+                child: Text(s.code, style: GoogleFonts.dmMono(
+                    color: AppColors.accentBlue, fontSize: 11, fontWeight: FontWeight.w700)),
+              ),
+              const SizedBox(width: 10),
+              Expanded(child: Text(s.name, style: AppTypography.labelS.copyWith(
+                  color: AppColors.textPrimary), maxLines: 1, overflow: TextOverflow.ellipsis)),
+              Text(s.price > 0 ? '${s.price.toStringAsFixed(2)} TL' : '—',
+                  style: GoogleFonts.dmMono(color: AppColors.textPrimary,
+                      fontSize: 12, fontWeight: FontWeight.w600)),
+            ]),
           ),
         );
       },
     ),
   );
 
-  Widget _buildPopularStocks() {
-    const list = _popularBist;
-    return SizedBox(
-      height: 36,
-      child: ListView.builder(
-        scrollDirection: Axis.horizontal,
-        itemCount: list.length,
-        itemBuilder: (_, i) {
-          final s = list[i];
-          return GestureDetector(
-            onTap: () async {
-              setState(() => _stockSearchLoading = true);
-              await _fetchAndSelectStock(s.$1, s.$2, false);
-            },
-            child: Container(
-              margin: const EdgeInsets.only(right: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-              decoration: BoxDecoration(
-                color: _selectedStockCode == s.$1
-                    ? AppColors.accentGreen.withOpacity(0.15)
-                    : AppColors.bgTertiary,
-                borderRadius: BorderRadius.circular(18),
-                border: Border.all(
-                  color: _selectedStockCode == s.$1
-                      ? AppColors.accentGreen
-                      : AppColors.borderSubtle,
-                ),
-              ),
-              child: Text(s.$1, style: AppTypography.labelS.copyWith(
-                color: _selectedStockCode == s.$1
-                    ? AppColors.accentGreen
-                    : AppColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              )),
+  Widget _buildPopularStocks() => SizedBox(
+    height: 36,
+    child: ListView.builder(
+      scrollDirection: Axis.horizontal,
+      itemCount: _popularBist.length,
+      itemBuilder: (_, i) {
+        final s   = _popularBist[i];
+        final sel = _selectedStockCode == s.$1;
+        return GestureDetector(
+          onTap: () async {
+            setState(() => _stockSearchLoading = true);
+            await _fetchAndSelectStock(s.$1, s.$2);
+          },
+          child: Container(
+            margin: const EdgeInsets.only(right: 8),
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+            decoration: BoxDecoration(
+              color: sel ? AppColors.accentGreen.withOpacity(0.15) : AppColors.bgTertiary,
+              borderRadius: BorderRadius.circular(18),
+              border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
             ),
-          );
-        },
-      ),
-    );
-  }
+            child: Text(s.$1, style: AppTypography.labelS.copyWith(
+              color: sel ? AppColors.accentGreen : AppColors.textPrimary,
+              fontWeight: FontWeight.w600,
+            )),
+          ),
+        );
+      },
+    ),
+  );
 
-  Future<void> _fetchAndSelectStock(String code, String name, bool isUs) async {
-    try {
-      final db   = FirebaseFirestore.instance;
-      final snap = await db.doc('market/live_prices').get();
-      double price = 0;
-      if (snap.exists) {
-        final data    = snap.data();
-        final section = data?['stocks'] as Map<String, dynamic>?;
-        final entry   = section?[code] as Map<String, dynamic>?;
-        price = _toDouble(entry?['price']);
-      }
-      await _selectStock(code, name, price, false);
-    } catch (_) {
-      await _selectStock(code, name, 0, false);
-    } finally {
-      if (mounted) setState(() => _stockSearchLoading = false);
-    }
-  }
-
-  String _getHint() {
-    switch (_selectedType) {
-      case 'altin':   return 'Gram Altın, Çeyrek...';
-      case 'crypto':  return 'BTC, ETH, SOL...';
-      case 'doviz':   return 'USD, EUR, GBP...';
-      case 'mevduat': return 'Garanti Vadeli Hesap';
-      default:        return 'Varlık adı';
-    }
-  }
-
-  double _toDouble(dynamic v) {
+  static double _toDouble(dynamic v) {
     if (v == null) return 0;
     if (v is num) return v.toDouble();
     return double.tryParse(v.toString()) ?? 0;
   }
 }
 
+// ── Canlı Fiyat Chip ──────────────────────────────────────────────────────────
+
+class _LivePriceChip extends StatelessWidget {
+  final double price;
+  final String label;
+  final String section;
+
+  const _LivePriceChip({required this.price, required this.label, required this.section});
+
+  @override
+  Widget build(BuildContext context) {
+    final fmt = price >= 10000
+        ? price.toStringAsFixed(0)
+        : price >= 100
+            ? price.toStringAsFixed(2)
+            : price.toStringAsFixed(4);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: AppColors.accentBlue.withOpacity(0.08),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.accentBlue.withOpacity(0.25)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Container(width: 6, height: 6,
+            decoration: const BoxDecoration(color: AppColors.accentGreen, shape: BoxShape.circle)),
+          const SizedBox(width: 8),
+          Text('Canlı: ', style: AppTypography.labelS.copyWith(color: AppColors.textSecondary)),
+          Text('$fmt TL', style: AppTypography.labelS.copyWith(
+            color: AppColors.accentBlue, fontWeight: FontWeight.w700,
+          )),
+          const SizedBox(width: 6),
+          Text('· Alış fiyatı otomatik dolduruldu',
+              style: AppTypography.labelS.copyWith(color: AppColors.textDisabled, fontSize: 10)),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Fon Kâr/Zarar Önizlemesi ──────────────────────────────────────────────────
+
 class _FundPnlPreview extends StatefulWidget {
   final TefasFund fund;
   final TextEditingController qtyCtrl;
   final TextEditingController priceCtrl;
 
-  const _FundPnlPreview({
-    required this.fund,
-    required this.qtyCtrl,
-    required this.priceCtrl,
-  });
+  const _FundPnlPreview({required this.fund, required this.qtyCtrl, required this.priceCtrl});
 
   @override
   State<_FundPnlPreview> createState() => _FundPnlPreviewState();
@@ -785,9 +872,7 @@ class _FundPnlPreviewState extends State<_FundPnlPreview> {
     widget.qtyCtrl.addListener(_rebuild);
     widget.priceCtrl.addListener(_rebuild);
   }
-
   void _rebuild() => setState(() {});
-
   @override
   void dispose() {
     widget.qtyCtrl.removeListener(_rebuild);
@@ -797,58 +882,45 @@ class _FundPnlPreviewState extends State<_FundPnlPreview> {
 
   @override
   Widget build(BuildContext context) {
-    final qty    = double.tryParse(widget.qtyCtrl.text.replaceAll(',', '.')) ?? 0;
-    final buyNAV = double.tryParse(widget.priceCtrl.text.replaceAll(',', '.')) ?? 0;
+    final qty     = double.tryParse(widget.qtyCtrl.text.replaceAll(',', '.')) ?? 0;
+    final buyNAV  = double.tryParse(widget.priceCtrl.text.replaceAll(',', '.')) ?? 0;
     final currNAV = widget.fund.currentPrice;
-
     if (qty <= 0 || buyNAV <= 0) return const SizedBox.shrink();
 
-    final cost     = qty * buyNAV;
-    final value    = qty * currNAV;
-    final pnl      = value - cost;
-    final pnlPct   = buyNAV > 0 ? (pnl / cost) * 100 : 0.0;
+    final cost = qty * buyNAV;
+    final value = qty * currNAV;
+    final pnl   = value - cost;
+    final pnlPct = buyNAV > 0 ? (pnl / cost) * 100 : 0.0;
     final isProfit = pnl >= 0;
+    final c = isProfit ? AppColors.accentGreen : AppColors.accentRed;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: (isProfit ? AppColors.accentGreen : AppColors.accentRed).withOpacity(0.08),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: (isProfit ? AppColors.accentGreen : AppColors.accentRed).withOpacity(0.3),
-        ),
+        color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.withOpacity(0.3)),
       ),
-      child: Column(
-        children: [
-          _row('Maliyet', _fmt(cost)),
-          const SizedBox(height: 6),
-          _row('Güncel Değer (NAV)', _fmt(value)),
-          const Divider(color: AppColors.borderSubtle, height: 16),
-          _row(
-            'Kâr / Zarar',
-            '${isProfit ? "+" : ""}${_fmt(pnl)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toStringAsFixed(2)}%)',
-            bold: true,
-            color: isProfit ? AppColors.accentGreen : AppColors.accentRed,
-          ),
-        ],
-      ),
+      child: Column(children: [
+        _row('Maliyet', _fmt(cost)),
+        const SizedBox(height: 6),
+        _row('Güncel Değer (NAV)', _fmt(value)),
+        const Divider(color: AppColors.borderSubtle, height: 16),
+        _row('Kâr / Zarar',
+          '${isProfit ? "+" : ""}${_fmt(pnl)} (${pnlPct >= 0 ? "+" : ""}${pnlPct.toStringAsFixed(2)}%)',
+          bold: true, color: c),
+      ]),
     );
   }
 
-  Widget _row(String label, String value, {bool bold = false, Color? color}) => Row(
-    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-    children: [
+  Widget _row(String label, String value, {bool bold = false, Color? color}) =>
+    Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
       Text(label, style: AppTypography.labelS.copyWith(
         color: bold ? AppColors.textPrimary : AppColors.textSecondary,
-        fontWeight: bold ? FontWeight.w700 : FontWeight.w400,
-      )),
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w400)),
       Text(value, style: AppTypography.labelM.copyWith(
-        fontWeight: bold ? FontWeight.w700 : FontWeight.w500,
-        color: color,
-      )),
-    ],
-  );
+        fontWeight: bold ? FontWeight.w700 : FontWeight.w500, color: color)),
+    ]);
 
   String _fmt(double v) {
     final s = v.abs().toStringAsFixed(2);
@@ -860,15 +932,16 @@ class _FundPnlPreviewState extends State<_FundPnlPreview> {
 }
 
 // ── Toplam Maliyet Önizleme ────────────────────────────────────────────────────
+
 class _TotalPreview extends StatefulWidget {
   final TextEditingController qtyCtrl;
   final TextEditingController priceCtrl;
-  final String currencySymbol;
+  final double livePrice;
 
   const _TotalPreview({
     required this.qtyCtrl,
     required this.priceCtrl,
-    this.currencySymbol = 'TL',
+    this.livePrice = 0,
   });
 
   @override
@@ -882,9 +955,7 @@ class _TotalPreviewState extends State<_TotalPreview> {
     widget.qtyCtrl.addListener(_rebuild);
     widget.priceCtrl.addListener(_rebuild);
   }
-
   void _rebuild() => setState(() {});
-
   @override
   void dispose() {
     widget.qtyCtrl.removeListener(_rebuild);
@@ -899,34 +970,49 @@ class _TotalPreviewState extends State<_TotalPreview> {
     final total = qty * price;
     if (total <= 0) return const SizedBox.shrink();
 
-    final isUsd = widget.currencySymbol == '\$';
-    String formatted;
-    if (isUsd) {
-      formatted = '\$${total.toStringAsFixed(2)}';
-    } else {
-      final s = total.toStringAsFixed(2);
-      final parts = s.split('.');
-      final intPart = parts[0].replaceAllMapped(
-          RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
-      formatted = '$intPart,${parts[1]} TL';
-    }
+    // Canlı fiyat ile güncel değer de hesapla
+    final liveTotal = widget.livePrice > 0 ? qty * widget.livePrice : 0.0;
+    final pnl = liveTotal - total;
+    final hasPnl = widget.livePrice > 0 && pnl.abs() > 0.01;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.accentGreen.withOpacity(0.08),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.accentGreen.withOpacity(0.25)),
+        color: AppColors.accentGreen.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: AppColors.accentGreen.withOpacity(0.2)),
       ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          Text('Toplam maliyet',
-              style: AppTypography.labelS.copyWith(color: AppColors.textSecondary)),
-          Text(formatted, style: AppTypography.labelM.copyWith(
-              color: AppColors.accentGreen, fontWeight: FontWeight.w700)),
+      child: Column(children: [
+        Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+          Text('Toplam maliyet', style: AppTypography.labelS.copyWith(color: AppColors.textSecondary)),
+          Text(_fmt(total), style: AppTypography.labelM.copyWith(
+            color: AppColors.accentGreen, fontWeight: FontWeight.w700)),
+        ]),
+        if (hasPnl) ...[
+          const SizedBox(height: 6),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('Güncel değer', style: AppTypography.labelS.copyWith(color: AppColors.textSecondary)),
+            Text(_fmt(liveTotal), style: AppTypography.labelM.copyWith(
+              color: AppColors.textPrimary, fontWeight: FontWeight.w600)),
+          ]),
+          const SizedBox(height: 4),
+          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+            Text('Anlık K/Z', style: AppTypography.labelS.copyWith(color: AppColors.textSecondary)),
+            Text('${pnl >= 0 ? "+" : ""}${_fmt(pnl)}',
+              style: AppTypography.labelM.copyWith(
+                color: pnl >= 0 ? AppColors.accentGreen : AppColors.accentRed,
+                fontWeight: FontWeight.w700)),
+          ]),
         ],
-      ),
+      ]),
     );
+  }
+
+  String _fmt(double v) {
+    final s = v.abs().toStringAsFixed(2);
+    final parts = s.split('.');
+    final intPart = parts[0].replaceAllMapped(
+        RegExp(r'(\d)(?=(\d{3})+(?!\d))'), (m) => '${m[1]}.');
+    return '${v < 0 ? "-" : ""}$intPart,${parts[1]} TL';
   }
 }

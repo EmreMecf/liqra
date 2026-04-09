@@ -120,6 +120,8 @@ class PortfolioRepositoryImpl implements PortfolioRepository {
         buyPrice: dto.buyPrice,
         currentPrice: dto.currentPrice,
         priceHistory: dto.priceHistory,
+        priceSection: dto.priceSection,
+        priceKey: dto.priceKey,
       );
 
   AssetDto _assetToDto(AssetEntity entity) => AssetDto(
@@ -130,6 +132,8 @@ class PortfolioRepositoryImpl implements PortfolioRepository {
         buyPrice: entity.buyPrice,
         currentPrice: entity.currentPrice,
         priceHistory: entity.priceHistory,
+        priceSection: entity.priceSection,
+        priceKey: entity.priceKey,
       );
 
   MarketDataEntity _dtoToMarket(MarketDataDto dto) => MarketDataEntity(
