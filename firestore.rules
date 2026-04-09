@@ -26,5 +26,23 @@ service cloud.firestore {
       allow read: if request.auth != null;
       allow write: if false;
     }
+
+    // Banka kampanyaları (Cloud Functions tarafından yazılır, tüm kullanıcılar okur)
+    match /bank_campaigns/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Piyasa haberleri (Cloud Functions tarafından yazılır, tüm kullanıcılar okur)
+    match /news/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
+
+    // Meta koleksiyonu (kampanya/haber son güncelleme bilgisi)
+    match /meta/{docId} {
+      allow read: if request.auth != null;
+      allow write: if false;
+    }
   }
 }
