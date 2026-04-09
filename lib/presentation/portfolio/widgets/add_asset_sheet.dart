@@ -22,17 +22,9 @@ const _popularBist = [
   ('TUPRS', 'Tüpraş'),
 ];
 
-/// Popüler ABD hisseleri
-const _popularUs = [
-  ('AAPL', 'Apple'),   ('TSLA', 'Tesla'),  ('NVDA', 'Nvidia'),
-  ('MSFT', 'Microsoft'),('AMZN', 'Amazon'),('META', 'Meta'),
-  ('GOOGL', 'Google'), ('JPM', 'JP Morgan'),('V', 'Visa'),
-  ('BRK-B', 'Berkshire'),
-];
-
 /// Varlık Ekle Bottom Sheet
 /// Fon tipinde: TEFAS fon arama ve otomatik fiyat doldurma
-/// Hisse tipinde: BIST/ABD hisse seçimi + Firestore fiyat çekimi
+/// Hisse tipinde: BIST hisse seçimi + Firestore fiyat çekimi
 class AddAssetSheet extends StatefulWidget {
   final String? initialType;
   const AddAssetSheet({super.key, this.initialType});
@@ -59,7 +51,6 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
   List<({String code, String name, double price, bool isUs})> _stockResults = [];
   bool _stockSearchLoading = false;
   String? _selectedStockCode;
-  bool _showBistStocks = true; // BIST mi ABD mi
 
   String _selectedType = 'hisse';
   bool   _isLoading    = false;
@@ -176,25 +167,6 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
         }
       }
 
-      // ABD hisseleri
-      final usStocks = data?['us_stocks'] as Map<String, dynamic>?;
-      if (usStocks != null) {
-        for (final entry in usStocks.entries) {
-          final code = entry.key;
-          final val  = entry.value as Map<String, dynamic>?;
-          if (val == null) continue;
-          final name = (val['name'] as String?) ?? code;
-          if (code.toUpperCase().contains(query) || name.toUpperCase().contains(query)) {
-            results.add((
-              code: code,
-              name: name,
-              price: _toDouble(val['priceUsd']),
-              isUs: true,
-            ));
-          }
-        }
-      }
-
       results.sort((a, b) => a.code.compareTo(b.code));
       if (mounted) setState(() {
         _stockResults      = results;
@@ -212,9 +184,9 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
       _stockSearchLoading = false;
     });
     _stockSearchCtrl.text = '$code — $name';
-    _nameCtrl.text = isUs ? '$code - $name (ABD)' : '$code - $name';
+    _nameCtrl.text = '$code - $name';
     if (price > 0) {
-      _priceCtrl.text = price.toStringAsFixed(isUs ? 2 : 4);
+      _priceCtrl.text = price.toStringAsFixed(4);
     }
   }
 
@@ -356,49 +328,12 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                 const SizedBox(height: 14),
               ],
 
-              // ── HİSSE: BIST / ABD Seçimi ────────────────────────────────────
+              // ── HİSSE: BIST ─────────────────────────────────────────────────
               if (_isHisse) ...[
-                Row(
-                  children: [
-                    GestureDetector(
-                      onTap: () => setState(() { _showBistStocks = true; _stockSearchCtrl.clear(); _stockResults = []; _selectedStockCode = null; }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: _showBistStocks ? AppColors.accentBlue.withOpacity(0.15) : AppColors.bgTertiary,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: _showBistStocks ? AppColors.accentBlue : AppColors.borderSubtle),
-                        ),
-                        child: Text('BIST Hisse', style: AppTypography.labelS.copyWith(
-                          color: _showBistStocks ? AppColors.accentBlue : AppColors.textSecondary,
-                          fontWeight: _showBistStocks ? FontWeight.w700 : FontWeight.w500,
-                        )),
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    GestureDetector(
-                      onTap: () => setState(() { _showBistStocks = false; _stockSearchCtrl.clear(); _stockResults = []; _selectedStockCode = null; }),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                        decoration: BoxDecoration(
-                          color: !_showBistStocks ? AppColors.accentBlue.withOpacity(0.15) : AppColors.bgTertiary,
-                          borderRadius: BorderRadius.circular(20),
-                          border: Border.all(color: !_showBistStocks ? AppColors.accentBlue : AppColors.borderSubtle),
-                        ),
-                        child: Text('ABD Hisse', style: AppTypography.labelS.copyWith(
-                          color: !_showBistStocks ? AppColors.accentBlue : AppColors.textSecondary,
-                          fontWeight: !_showBistStocks ? FontWeight.w700 : FontWeight.w500,
-                        )),
-                      ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-
                 // Arama kutusu
                 _buildSearchField(
                   controller: _stockSearchCtrl,
-                  hint: _showBistStocks ? 'GARAN, BIMAS, THYAO...' : 'AAPL, TSLA, NVDA...',
+                  hint: 'GARAN, BIMAS, THYAO...',
                 ),
                 const SizedBox(height: 8),
 
@@ -491,11 +426,11 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        _label(_isFon ? 'Alış NAV (TL)' : _isHisse && !_showBistStocks ? 'Alış Fiyatı (\$)' : 'Alış Fiyatı (TL)'),
+                        _label(_isFon ? 'Alış NAV (TL)' : 'Alış Fiyatı (TL)'),
                         const SizedBox(height: 6),
                         _buildTextField(
                           controller: _priceCtrl,
-                          hint: _isFon ? '1.2345' : _isHisse && !_showBistStocks ? '175.50' : '42.50',
+                          hint: _isFon ? '1.2345' : '42.50',
                           keyboardType: const TextInputType.numberWithOptions(decimal: true),
                           inputFormatters: [FilteringTextInputFormatter.allow(RegExp(r'[\d,.]'))],
                           validator: (v) {
@@ -519,7 +454,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                 ),
               if (!_isFon)
                 _TotalPreview(qtyCtrl: _qtyCtrl, priceCtrl: _priceCtrl,
-                    currencySymbol: _isHisse && !_showBistStocks ? '\$' : 'TL'),
+                    currencySymbol: 'TL'),
 
               const SizedBox(height: 24),
 
@@ -716,7 +651,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
       itemBuilder: (_, i) {
         final s = _stockResults[i];
         return InkWell(
-          onTap: () => _selectStock(s.code, s.name, s.price, s.isUs),
+          onTap: () => _selectStock(s.code, s.name, s.price, false),
           borderRadius: BorderRadius.circular(12),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
@@ -725,11 +660,11 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: (s.isUs ? AppColors.accentAmber : AppColors.accentBlue).withOpacity(0.15),
+                    color: AppColors.accentBlue.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(s.code, style: GoogleFonts.dmMono(
-                    color: s.isUs ? AppColors.accentAmber : AppColors.accentBlue,
+                    color: AppColors.accentBlue,
                     fontSize: 11, fontWeight: FontWeight.w700,
                   )),
                 ),
@@ -738,7 +673,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                   color: AppColors.textPrimary),
                   maxLines: 1, overflow: TextOverflow.ellipsis)),
                 Text(
-                  s.price > 0 ? '${s.isUs ? "\$" : ""}${s.price.toStringAsFixed(2)}${s.isUs ? "" : " TL"}' : '—',
+                  s.price > 0 ? '${s.price.toStringAsFixed(2)} TL' : '—',
                   style: GoogleFonts.dmMono(color: AppColors.textPrimary, fontSize: 12,
                       fontWeight: FontWeight.w600),
                 ),
@@ -751,7 +686,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
   );
 
   Widget _buildPopularStocks() {
-    final list = _showBistStocks ? _popularBist : _popularUs;
+    const list = _popularBist;
     return SizedBox(
       height: 36,
       child: ListView.builder(
@@ -761,9 +696,8 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
           final s = list[i];
           return GestureDetector(
             onTap: () async {
-              // Firestore'dan fiyat çek
               setState(() => _stockSearchLoading = true);
-              await _fetchAndSelectStock(s.$1, s.$2, _showBistStocks ? false : true);
+              await _fetchAndSelectStock(s.$1, s.$2, false);
             },
             child: Container(
               margin: const EdgeInsets.only(right: 8),
@@ -799,15 +733,13 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
       double price = 0;
       if (snap.exists) {
         final data    = snap.data();
-        final section = isUs
-            ? (data?['us_stocks'] as Map<String, dynamic>?)
-            : (data?['stocks'] as Map<String, dynamic>?);
-        final entry = section?[code] as Map<String, dynamic>?;
-        price = _toDouble(isUs ? (entry?['priceUsd']) : (entry?['price']));
+        final section = data?['stocks'] as Map<String, dynamic>?;
+        final entry   = section?[code] as Map<String, dynamic>?;
+        price = _toDouble(entry?['price']);
       }
-      await _selectStock(code, name, price, isUs);
+      await _selectStock(code, name, price, false);
     } catch (_) {
-      await _selectStock(code, name, 0, isUs);
+      await _selectStock(code, name, 0, false);
     } finally {
       if (mounted) setState(() => _stockSearchLoading = false);
     }

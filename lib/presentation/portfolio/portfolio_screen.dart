@@ -635,7 +635,6 @@ class _MarketCat {
   static const altin  = 'altin';
   static const doviz  = 'doviz';
   static const bist   = 'bist';
-  static const abd    = 'abd';
   static const kripto = 'kripto';
   static const emtia  = 'emtia';
   static const fon    = 'fon';
@@ -658,7 +657,6 @@ class _MarketTabState extends State<_MarketTab> {
     (_MarketCat.altin,  'Altın'),
     (_MarketCat.doviz,  'Döviz'),
     (_MarketCat.bist,   'BIST'),
-    (_MarketCat.abd,    'ABD'),
     (_MarketCat.kripto, 'Kripto'),
     (_MarketCat.emtia,  'Emtia'),
     (_MarketCat.fon,    'Fon'),
@@ -866,13 +864,13 @@ class _MarketTabState extends State<_MarketTab> {
               const SizedBox(height: 12),
 
               // ── Arama Kutusu ──────────────────────────────────────────────
-              if (_selectedCat == _MarketCat.bist || _selectedCat == _MarketCat.abd || _selectedCat == _MarketCat.all) ...[
+              if (_selectedCat == _MarketCat.bist || _selectedCat == _MarketCat.all) ...[
                 TextFormField(
                   controller: _searchCtrl,
                   onChanged: (v) => setState(() => _searchQuery = v.trim()),
                   style: GoogleFonts.outfit(color: AppColors.textPrimary, fontSize: 14),
                   decoration: InputDecoration(
-                    hintText: 'Hisse ara... (GARAN, AAPL...)',
+                    hintText: 'Hisse ara... (GARAN, THYAO...)',
                     hintStyle: GoogleFonts.outfit(color: AppColors.textDisabled, fontSize: 14),
                     prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 18),
                     suffixIcon: _searchQuery.isNotEmpty
@@ -1060,7 +1058,6 @@ class _MarketTabState extends State<_MarketTab> {
       case 'bist100':return 'BIST · Liqra';
       case 'kripto': return 'Kripto · Liqra';
       case 'bist':   return 'BIST Hisse · Liqra';
-      case 'abd':    return 'ABD Hisse · Liqra';
       default:       return 'Liqra';
     }
   }
@@ -1562,15 +1559,6 @@ class _DiscoverTab extends StatelessWidget {
             'riskColor': AppColors.accentAmber,
             'tag': 'UZUN VADE',
             'tagColor': AppColors.accentAmber,
-          },
-          {
-            'instrument': 'S&P500 / ABD Hisse',
-            'icon': '🇺🇸',
-            'reason': 'TL değer kaybına karşı koruma için USD bazlı ABD hisselerine döviz hedge olarak bakılabilir.',
-            'risk': 'Orta-Yüksek Risk',
-            'riskColor': AppColors.accentAmber,
-            'tag': 'DÖVİZ KORUMA',
-            'tagColor': AppColors.accentBlue,
           },
         ];
 

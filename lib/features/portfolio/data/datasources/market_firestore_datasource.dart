@@ -9,13 +9,13 @@ import 'market_remote_datasource.dart';
 ///
 /// Firestore şeması:
 /// {
-///   prices:    { "USDTRY=X": {price, changePercent, lastUpdated}, ... }
-///   stocks:    { "GARAN": {price, changePercent, name, currency, lastUpdated}, ... }
-///   us_stocks: { "AAPL": {priceUsd, priceTry, changePercent, name, currency, lastUpdated}, ... }
+///   prices: { "USDTRY": {price, changePercent, lastUpdated}, ... }
+///   stocks: { "GARAN": {price, changePercent, name, currency, lastUpdated}, ... }
+///   gold:   { "gram": {alis, satis, degisim, lastUpdated}, ... }
 /// }
 ///
 /// subLabel: kategori kodu olarak kullanılır (UI filtreleme için)
-///   "doviz" | "emtia" | "bist100" | "kripto" | "bist" | "abd"
+///   "doviz" | "emtia" | "bist100" | "kripto" | "bist"
 class MarketFirestoreDataSource implements MarketRemoteDataSource {
   MarketFirestoreDataSource() : _db = FirebaseFirestore.instance;
 
@@ -46,13 +46,6 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
     'ISCTR': '🏦', 'SAHOL': '🏢', 'TCELL': '📱', 'ARCLK': '🏠',
     'FROTO': '🚗', 'KOZAL': '🥇', 'YKBNK': '🏦', 'TUPRS': '⛽',
     'TOASO': '🚙', 'PGSUS': '✈️', 'VESTL': '📺', 'SOKM':  '🛍️',
-  };
-
-  // ABD hisse ikonları
-  static const Map<String, String> _usIcons = {
-    'AAPL': '🍎', 'TSLA': '⚡', 'NVDA': '🟢', 'MSFT': '🪟',
-    'AMZN': '📦', 'META': '👓', 'GOOGL': '🔍', 'BRK-B': '💼',
-    'JPM':  '🏦', 'V':   '💳',
   };
 
   // ── Gerçek zamanlı stream ─────────────────────────────────────────────────
@@ -127,29 +120,7 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
       }
     }
 
-    // 3. ABD hisseleri
-    final usStocks = docData['us_stocks'] as Map<String, dynamic>?;
-    if (usStocks != null) {
-      for (final entry in usStocks.entries) {
-        final sym   = entry.key;
-        final value = entry.value;
-        if (value is! Map<String, dynamic>) continue;
-        final priceUsd = _toDouble(value['priceUsd']);
-        if (priceUsd <= 0) continue;
-        result.add(MarketDataDto(
-          symbol:        sym,
-          name:          (value['name'] as String?) ?? sym,
-          icon:          _usIcons[sym] ?? '🇺🇸',
-          price:         priceUsd,
-          changePercent: _toDouble(value['changePercent']),
-          currency:      'USD',
-          subLabel:      'abd',
-          lastUpdated:   value['lastUpdated'] as String?,
-        ));
-      }
-    }
-
-    // 4. Altın (gold map) — CollectAPI: gram, ceyrek, yarim, tam, cumhuriyet...
+    // 3. Altın (gold map) — CollectAPI: gram, ceyrek, yarim, tam, cumhuriyet...
     final goldMap = docData['gold'] as Map<String, dynamic>?;
     if (goldMap != null) {
       const goldMeta = <String, (String, String)>{
