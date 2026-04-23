@@ -70,3 +70,6 @@ service-account*.json
 
 # JSON data files (local test verisi)
 json/
+
+Kullanýcýlar
+tool/
