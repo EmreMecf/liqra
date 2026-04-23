@@ -28,6 +28,9 @@ class FeatureFlagService {
     'gemini_api_key':              '',
     'collectapi_key':              '',
     'gemini_model':                'gemini-2.0-flash',
+    // Claude model adları — Remote Config'den override edilebilir
+    'claude_chat_model':           'claude-sonnet-4-6',
+    'claude_fast_model':           'claude-haiku-4-5-20251001',
   };
 
   Future<void> init() async {
@@ -81,6 +84,27 @@ class FeatureFlagService {
 
   // ── Bakım modu kontrolü ──────────────────────────────────────────────────
   bool get isMaintenanceMode => getBool('maintenance_mode');
+
+  // ── Minimum uygulama versiyonu kontrolü ──────────────────────────────────
+
+  /// [currentVersion] = "1.1.0" gibi semver string.
+  /// Remote Config'deki min_app_version'dan küçükse false döner.
+  bool checkMinAppVersion(String currentVersion) {
+    final minVersion = getString('min_app_version');
+    if (minVersion.isEmpty || minVersion == '1.0.0') return true;
+    return _compareVersions(currentVersion, minVersion) >= 0;
+  }
+
+  int _compareVersions(String a, String b) {
+    final aParts = a.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    final bParts = b.split('.').map((s) => int.tryParse(s) ?? 0).toList();
+    for (int i = 0; i < 3; i++) {
+      final av = i < aParts.length ? aParts[i] : 0;
+      final bv = i < bParts.length ? bParts[i] : 0;
+      if (av != bv) return av.compareTo(bv);
+    }
+    return 0;
+  }
 }
 
 /// Uygulama feature bayrakları

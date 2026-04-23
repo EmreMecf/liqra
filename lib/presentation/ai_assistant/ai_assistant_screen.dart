@@ -88,39 +88,90 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   child: Row(
                     children: [
                       Container(
-                        width: 36, height: 36,
-                        decoration: const BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [AppColors.accentGreen, AppColors.accentBlue],
+                        width: 40, height: 40,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(
+                            colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: const Color(0xFF7C3AED).withAlpha(80),
+                              blurRadius: 14,
+                              spreadRadius: 1,
+                            )
+                          ],
                         ),
-                        child: const Icon(Icons.smart_toy_outlined,
-                            color: Colors.white, size: 18),
+                        child: const Icon(Icons.auto_awesome,
+                            color: Colors.white, size: 20),
                       ),
-                      const SizedBox(width: 10),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text('Liqra', style: AppTypography.headlineS),
-                          Text('Gemini · Çevrimiçi',
-                              style: AppTypography.labelS.copyWith(
-                                color: AppColors.accentGreen,
-                              )),
-                        ],
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Text('Liqra AI', style: AppTypography.headlineS),
+                                const SizedBox(width: 8),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 7, vertical: 2),
+                                  decoration: BoxDecoration(
+                                    color: AppColors.accentGreen.withAlpha(20),
+                                    borderRadius: BorderRadius.circular(6),
+                                    border: Border.all(
+                                      color: AppColors.accentGreen.withAlpha(50),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      Container(
+                                        width: 5, height: 5,
+                                        decoration: BoxDecoration(
+                                          color: AppColors.accentGreen,
+                                          shape: BoxShape.circle,
+                                          boxShadow: [
+                                            BoxShadow(
+                                              color: AppColors.accentGreen.withAlpha(120),
+                                              blurRadius: 4,
+                                            )
+                                          ],
+                                        ),
+                                      ),
+                                      const SizedBox(width: 4),
+                                      Text('Çevrimiçi',
+                                          style: AppTypography.labelS.copyWith(
+                                            color: AppColors.accentGreen,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w600,
+                                          )),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                            Text('Gemini 2.0 Flash',
+                                style: AppTypography.labelS.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                )),
+                          ],
+                        ),
                       ),
-                      const Spacer(),
                       GestureDetector(
                         onTap: () => _showClearDialog(context, vm),
                         child: Container(
-                          padding: const EdgeInsets.all(8),
+                          padding: const EdgeInsets.all(9),
                           decoration: BoxDecoration(
                             color: AppColors.bgTertiary,
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(11),
+                            border: Border.all(color: AppColors.borderSubtle),
                           ),
-                          child: const Icon(Icons.refresh,
+                          child: const Icon(Icons.restart_alt_rounded,
                               color: AppColors.textSecondary, size: 18),
                         ),
                       ),
@@ -130,47 +181,62 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
 
                 // ── Mod seçici ──────────────────────────────────────────────
                 SizedBox(
-                  height: 38,
+                  height: 40,
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    children: vm.modeLabels.entries.map((entry) =>
-                      GestureDetector(
+                    children: vm.modeLabels.entries.map((entry) {
+                      final isActive = vm.mode == entry.key;
+                      return GestureDetector(
                         onTap: () => vm.setMode(entry.key),
-                        child: Container(
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 220),
+                          curve: Curves.easeOutCubic,
                           margin: const EdgeInsets.only(right: 8),
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 8),
+                              horizontal: 14, vertical: 9),
                           decoration: BoxDecoration(
-                            color: vm.mode == entry.key
-                                ? AppColors.accentGreen.withOpacity(0.15)
+                            color: isActive
+                                ? AppColors.accentGreen.withAlpha(28)
                                 : AppColors.bgSecondary,
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                              color: vm.mode == entry.key
-                                  ? AppColors.accentGreen
+                              color: isActive
+                                  ? AppColors.accentGreen.withAlpha(160)
                                   : AppColors.borderSubtle,
                             ),
+                            boxShadow: isActive
+                                ? [
+                                    BoxShadow(
+                                      color: AppColors.accentGreen.withAlpha(30),
+                                      blurRadius: 10,
+                                      spreadRadius: 1,
+                                    )
+                                  ]
+                                : null,
                           ),
                           child: Row(
                             children: [
                               Text(vm.modeIcons[entry.key]!,
                                   style: const TextStyle(fontSize: 13)),
-                              const SizedBox(width: 4),
-                              Text(entry.value,
-                                  style: AppTypography.labelS.copyWith(
-                                    color: vm.mode == entry.key
-                                        ? AppColors.accentGreen
-                                        : AppColors.textSecondary,
-                                    fontWeight: vm.mode == entry.key
-                                        ? FontWeight.w700
-                                        : FontWeight.w500,
-                                  )),
+                              const SizedBox(width: 5),
+                              AnimatedDefaultTextStyle(
+                                duration: const Duration(milliseconds: 220),
+                                style: AppTypography.labelS.copyWith(
+                                  color: isActive
+                                      ? AppColors.accentGreen
+                                      : AppColors.textSecondary,
+                                  fontWeight: isActive
+                                      ? FontWeight.w700
+                                      : FontWeight.w500,
+                                ),
+                                child: Text(entry.value),
+                              ),
                             ],
                           ),
                         ),
-                      ),
-                    ).toList(),
+                      );
+                    }).toList(),
                   ),
                 ),
                 const SizedBox(height: 12),
@@ -189,7 +255,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.error_outline,
+                        const Icon(Icons.error_rounded,
                             color: AppColors.accentRed, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
@@ -301,16 +367,27 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           Container(
             width: 72, height: 72,
             decoration: BoxDecoration(
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.accentGreen.withOpacity(0.2),
-                  AppColors.accentBlue.withOpacity(0.1),
-                ],
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C3AED).withAlpha(80),
+                  blurRadius: 20,
+                  spreadRadius: 2,
+                ),
+                BoxShadow(
+                  color: const Color(0xFF3B82F6).withAlpha(40),
+                  blurRadius: 36,
+                  spreadRadius: 4,
+                ),
+              ],
             ),
-            child: const Icon(Icons.smart_toy_outlined,
-                color: AppColors.accentGreen, size: 36),
+            child: const Icon(Icons.auto_awesome,
+                color: Colors.white, size: 32),
           ),
           const SizedBox(height: 16),
           Text('Ne sormak istersiniz?',
@@ -329,16 +406,30 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             child: Container(
               width: double.infinity,
               margin: const EdgeInsets.only(bottom: 8),
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(14),
                 border: Border.all(color: AppColors.borderSubtle),
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withAlpha(30),
+                    blurRadius: 6,
+                    offset: const Offset(0, 2),
+                  ),
+                ],
               ),
               child: Row(
                 children: [
-                  const Icon(Icons.arrow_forward_ios,
-                      color: AppColors.accentBlue, size: 12),
+                  Container(
+                    width: 28, height: 28,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFF7C3AED).withAlpha(25),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.keyboard_arrow_right_rounded,
+                        color: Color(0xFF7C3AED), size: 18),
+                  ),
                   const SizedBox(width: 10),
                   Expanded(child: Text(s, style: AppTypography.bodyM.copyWith(
                     color: AppColors.textPrimary,
@@ -410,15 +501,22 @@ class _MessageBubble extends StatelessWidget {
           if (!isUser) ...[
             Container(
               width: 32, height: 32,
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [AppColors.accentGreen, AppColors.accentBlue],
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
+                boxShadow: [
+                  BoxShadow(
+                    color: const Color(0xFF7C3AED).withAlpha(60),
+                    blurRadius: 8,
+                    spreadRadius: 1,
+                  ),
+                ],
               ),
-              child: const Icon(Icons.smart_toy_outlined,
+              child: const Icon(Icons.auto_awesome,
                   color: Colors.white, size: 16),
             ),
             const SizedBox(width: 8),
@@ -551,13 +649,22 @@ class _TypingIndicatorState extends State<_TypingIndicator>
         children: [
           Container(
             width: 32, height: 32,
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                colors: [AppColors.accentGreen, AppColors.accentBlue],
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF7C3AED).withAlpha(60),
+                  blurRadius: 8,
+                  spreadRadius: 1,
+                ),
+              ],
             ),
-            child: const Icon(Icons.smart_toy_outlined,
+            child: const Icon(Icons.auto_awesome,
                 color: Colors.white, size: 16),
           ),
           const SizedBox(width: 8),

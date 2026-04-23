@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 import '../../../../core/services/auth_service.dart';
@@ -26,6 +27,7 @@ class PortfolioViewModel extends ChangeNotifier {
 
   /// market/live_prices stream aboneliği
   StreamSubscription<DocumentSnapshot>? _marketSub;
+  StreamSubscription<User?>? _authSub;
 
   /// Son yüklenen ham portföy (fiyat uygulanmadan önce)
   List<AssetEntity> _rawAssets = [];
@@ -40,23 +42,47 @@ class PortfolioViewModel extends ChangeNotifier {
         _updateAsset  = updateAsset,
         _deleteAsset  = deleteAsset {
     _startMarketSync();
+    // Çıkış yapıldığında stream'i durdur, portföyü sıfırla
+    _authSub = FirebaseAuth.instance.authStateChanges().listen((user) {
+      if (user == null) {
+        _marketSub?.cancel();
+        _marketSub = null;
+        _rawAssets = [];
+        _liveData = {};
+        _state = const PortfolioState.initial();
+        notifyListeners();
+      } else if (_marketSub == null) {
+        _startMarketSync();
+      }
+    });
   }
 
   PortfolioState _state = const PortfolioState.initial();
   PortfolioState get state => _state;
 
+  /// Yüklü portföy varlıkları (kolay erişim için kısayol)
+  List<AssetEntity> get assets {
+    final s = _state;
+    return s is PortfolioLoaded ? s.portfolio.assets : const [];
+  }
+
   // ── Market Sync ─────────────────────────────────────────────────────────────
 
   /// market/live_prices dökümanını dinler; her güncellemede portföy fiyatlarını yeniler.
   void _startMarketSync() {
+    _marketSub?.cancel();
     _marketSub = FirebaseFirestore.instance
         .doc(_mktDoc)
         .snapshots()
-        .listen((snap) {
-      if (!snap.exists) return;
-      _liveData = (snap.data() as Map<String, dynamic>?) ?? {};
-      _rebuildWithLivePrices();
-    });
+        .listen(
+      (snap) {
+        if (!snap.exists) return;
+        final data = snap.data();
+        _liveData = (data is Map<String, dynamic>) ? data : {};
+        _rebuildWithLivePrices();
+      },
+      onError: (_) {}, // market verisi herkese açık — sessizce yoksay
+    );
   }
 
   /// Ham asset listesine canlı fiyatları uygular, state'i günceller.
@@ -99,9 +125,35 @@ class PortfolioViewModel extends ChangeNotifier {
         case 'gold':
           final map   = _liveData['gold'] as Map<String, dynamic>?;
           final entry = map?[key] as Map<String, dynamic>?;
-          final alis  = _toDouble(entry?['alis']);
-          final satis = _toDouble(entry?['satis']);
-          return alis > 0 ? alis : satis;
+          if (entry != null) {
+            if (key.startsWith('bilezik')) {
+              // 22/18/14 ayar → alisgram / satisgram
+              final alis  = _toDouble(entry['alisgram']);
+              final satis = _toDouble(entry['satisgram']);
+              if (alis > 0 || satis > 0) return alis > 0 ? alis : satis;
+            } else {
+              final alis  = _toDouble(entry['alis']);
+              final satis = _toDouble(entry['satis']);
+              if (alis > 0 || satis > 0) return alis > 0 ? alis : satis;
+            }
+          }
+          // Fallback: bilezik verisi yoksa gram altından hesapla
+          if (key.startsWith('bilezik')) {
+            final gramEntry = map?['gram'] as Map<String, dynamic>?;
+            final gramAlis  = _toDouble(gramEntry?['alis']);
+            final gramSatis = _toDouble(gramEntry?['satis']);
+            final gramPrice = gramAlis > 0 ? gramAlis : gramSatis;
+            if (gramPrice > 0) {
+              final ratio = switch (key) {
+                'bilezik22' => 22.0 / 24.0,
+                'bilezik18' => 18.0 / 24.0,
+                'bilezik14' => 14.0 / 24.0,
+                _           => 0.0,
+              };
+              if (ratio > 0) return gramPrice * ratio;
+            }
+          }
+          return 0;
 
         case 'funds':
           final map = _liveData['funds'] as Map<String, dynamic>?;
@@ -248,6 +300,7 @@ class PortfolioViewModel extends ChangeNotifier {
 
   @override
   void dispose() {
+    _authSub?.cancel();
     _marketSub?.cancel();
     super.dispose();
   }

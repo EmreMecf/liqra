@@ -7,6 +7,9 @@ import '../../../../core/constants/app_colors.dart';
 import '../../domain/entities/financial_account_entity.dart';
 import '../viewmodels/accounts_viewmodel.dart';
 
+// Kredi türü — AccountType enum'una eklenmediği için lokal sabit
+const _kLoanType = 'loan';
+
 /// Hesap ekleme bottom sheet — 3 adım: tip → banka → detaylar
 Future<void> showAddAccountSheet(BuildContext context) {
   return showModalBottomSheet(
@@ -27,10 +30,11 @@ class _AddAccountSheet extends StatefulWidget {
 class _AddAccountSheetState extends State<_AddAccountSheet> {
   int _step = 0;
   AccountType? _type;
+  String? _typeExtra; // '_kLoanType' için
   BankName? _bank;
   bool _saving = false;
 
-  // Form controllers
+  // Form controllers — banka/kart
   final _nameCtrl = TextEditingController();
   final _balanceCtrl = TextEditingController();
   final _ibanCtrl = TextEditingController();
@@ -42,11 +46,23 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
   int _closingDay = 15;
   int _dueDay = 5;
 
+  // Form controllers — kredi
+  final _loanNameCtrl = TextEditingController();
+  final _loanTotalCtrl = TextEditingController();
+  final _loanMonthlyCtrl = TextEditingController();
+  final _loanInstallmentsCtrl = TextEditingController();
+  final _loanInterestCtrl = TextEditingController();
+  final _loanNoteCtrl = TextEditingController();
+  int _loanDueDay = 10;
+
   @override
   void dispose() {
     _nameCtrl.dispose(); _balanceCtrl.dispose(); _ibanCtrl.dispose();
     _limitCtrl.dispose(); _usedCtrl.dispose(); _statementCtrl.dispose();
     _minPayCtrl.dispose(); _cardNoCtrl.dispose();
+    _loanNameCtrl.dispose(); _loanTotalCtrl.dispose();
+    _loanMonthlyCtrl.dispose(); _loanInstallmentsCtrl.dispose();
+    _loanInterestCtrl.dispose(); _loanNoteCtrl.dispose();
     super.dispose();
   }
 
@@ -128,36 +144,88 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
     switch (_step) {
       case 0: return 'Hesap Türü';
       case 1: return 'Banka Seç';
-      case 2: return _type == AccountType.bankAccount
-          ? 'Hesap Bilgileri'
-          : 'Kart Bilgileri';
+      case 2:
+        if (_typeExtra == _kLoanType) return 'Kredi Bilgileri';
+        return _type == AccountType.bankAccount
+            ? 'Hesap Bilgileri'
+            : 'Kart Bilgileri';
       default: return '';
     }
   }
 
   Widget _buildStep() {
     switch (_step) {
-      case 0:  return _StepType(onSelect: (t) { setState(() { _type = t; _step = 1; }); });
-      case 1:  return _StepBank(onSelect: (b) { setState(() { _bank = b; _step = 2; }); });
-      case 2:  return _type == AccountType.bankAccount
-          ? _StepBankDetails(
-              nameCtrl: _nameCtrl, balanceCtrl: _balanceCtrl, ibanCtrl: _ibanCtrl,
-              bank: _bank!, saving: _saving, onSave: _save)
-          : _StepCardDetails(
-              nameCtrl: _nameCtrl, limitCtrl: _limitCtrl, usedCtrl: _usedCtrl,
-              statementCtrl: _statementCtrl, minPayCtrl: _minPayCtrl,
-              cardNoCtrl: _cardNoCtrl, bank: _bank!,
-              closingDay: _closingDay, dueDay: _dueDay,
-              onClosingDayChanged: (v) => setState(() => _closingDay = v),
-              onDueDayChanged: (v) => setState(() => _dueDay = v),
-              saving: _saving, onSave: _save);
-      default: return const SizedBox.shrink();
+      case 0:
+        return _StepType(
+          onSelect: (t) {
+            setState(() { _type = t; _typeExtra = null; _step = 1; });
+          },
+          onSelectLoan: () {
+            setState(() { _type = null; _typeExtra = _kLoanType; _step = 1; });
+          },
+        );
+      case 1:
+        return _StepBank(onSelect: (b) { setState(() { _bank = b; _step = 2; }); });
+      case 2:
+        if (_typeExtra == _kLoanType) {
+          return _StepLoanDetails(
+            nameCtrl: _loanNameCtrl,
+            totalCtrl: _loanTotalCtrl,
+            monthlyCtrl: _loanMonthlyCtrl,
+            installmentsCtrl: _loanInstallmentsCtrl,
+            interestCtrl: _loanInterestCtrl,
+            noteCtrl: _loanNoteCtrl,
+            bank: _bank!,
+            dueDay: _loanDueDay,
+            onDueDayChanged: (v) => setState(() => _loanDueDay = v),
+            saving: _saving,
+            onSave: _save,
+          );
+        }
+        return _type == AccountType.bankAccount
+            ? _StepBankDetails(
+                nameCtrl: _nameCtrl, balanceCtrl: _balanceCtrl, ibanCtrl: _ibanCtrl,
+                bank: _bank!, saving: _saving, onSave: _save)
+            : _StepCardDetails(
+                nameCtrl: _nameCtrl, limitCtrl: _limitCtrl, usedCtrl: _usedCtrl,
+                statementCtrl: _statementCtrl, minPayCtrl: _minPayCtrl,
+                cardNoCtrl: _cardNoCtrl, bank: _bank!,
+                closingDay: _closingDay, dueDay: _dueDay,
+                onClosingDayChanged: (v) => setState(() => _closingDay = v),
+                onDueDayChanged: (v) => setState(() => _dueDay = v),
+                saving: _saving, onSave: _save);
+      default:
+        return const SizedBox.shrink();
     }
   }
 
   Future<void> _save() async {
     final vm = context.read<AccountsViewModel>();
     setState(() => _saving = true);
+
+    if (_typeExtra == _kLoanType) {
+      await vm.addLoan(
+        name: _loanNameCtrl.text.trim().isEmpty
+            ? '${_bank!.displayName} Kredisi'
+            : _loanNameCtrl.text.trim(),
+        bank: _bank!,
+        totalAmount:
+            double.tryParse(_loanTotalCtrl.text.replaceAll(',', '.')) ?? 0,
+        monthlyPayment:
+            double.tryParse(_loanMonthlyCtrl.text.replaceAll(',', '.')) ?? 0,
+        interestRate:
+            double.tryParse(_loanInterestCtrl.text.replaceAll(',', '.')) ?? 0,
+        totalInstallments:
+            int.tryParse(_loanInstallmentsCtrl.text) ?? 0,
+        paymentDueDay: _loanDueDay,
+        note: _loanNoteCtrl.text.trim().isEmpty
+            ? null
+            : _loanNoteCtrl.text.trim(),
+      );
+      setState(() => _saving = false);
+      if (mounted) Navigator.pop(context);
+      return;
+    }
 
     bool ok = false;
     if (_type == AccountType.bankAccount) {
@@ -194,7 +262,8 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
 
 class _StepType extends StatelessWidget {
   final void Function(AccountType) onSelect;
-  const _StepType({required this.onSelect});
+  final VoidCallback onSelectLoan;
+  const _StepType({required this.onSelect, required this.onSelectLoan});
 
   @override
   Widget build(BuildContext context) {
@@ -214,6 +283,14 @@ class _StepType extends StatelessWidget {
           subtitle: 'Limit, ekstre ve son ödeme takibi',
           color: const Color(0xFFE4B84A),
           onTap: () => onSelect(AccountType.creditCard),
+        ),
+        const SizedBox(height: 12),
+        _TypeCard(
+          icon: Icons.account_balance_wallet_outlined,
+          title: 'Kredi',
+          subtitle: 'İhtiyaç, konut veya taşıt kredisi takibi',
+          color: const Color(0xFFFF6B7A),
+          onTap: onSelectLoan,
         ),
         const SizedBox(height: 8),
       ],
@@ -433,6 +510,77 @@ class _StepCardDetails extends StatelessWidget {
   }
 }
 
+// ── Adım 3c: Kredi Detayları ───────────────────────────────────────────────
+
+class _StepLoanDetails extends StatelessWidget {
+  final TextEditingController nameCtrl, totalCtrl, monthlyCtrl,
+      installmentsCtrl, interestCtrl, noteCtrl;
+  final BankName bank;
+  final int dueDay;
+  final void Function(int) onDueDayChanged;
+  final bool saving;
+  final VoidCallback onSave;
+
+  const _StepLoanDetails({
+    required this.nameCtrl,
+    required this.totalCtrl,
+    required this.monthlyCtrl,
+    required this.installmentsCtrl,
+    required this.interestCtrl,
+    required this.noteCtrl,
+    required this.bank,
+    required this.dueDay,
+    required this.onDueDayChanged,
+    required this.saving,
+    required this.onSave,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _Field(ctrl: nameCtrl, label: 'Kredi Adı',
+              hint: '${bank.displayName} İhtiyaç Kredisi'),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: _Field(ctrl: totalCtrl,
+                label: 'Toplam Kredi Tutarı (₺)',
+                hint: '0', keyboardType: TextInputType.number)),
+            const SizedBox(width: 10),
+            Expanded(child: _Field(ctrl: monthlyCtrl,
+                label: 'Aylık Taksit (₺)',
+                hint: '0', keyboardType: TextInputType.number)),
+          ]),
+          const SizedBox(height: 12),
+          Row(children: [
+            Expanded(child: _Field(ctrl: installmentsCtrl,
+                label: 'Toplam Taksit Sayısı',
+                hint: '12', keyboardType: TextInputType.number)),
+            const SizedBox(width: 10),
+            Expanded(child: _Field(ctrl: interestCtrl,
+                label: 'Faiz Oranı % (opsiyonel)',
+                hint: '0.00', keyboardType: TextInputType.number)),
+          ]),
+          const SizedBox(height: 12),
+          _Field(ctrl: noteCtrl, label: 'Not (opsiyonel)',
+              hint: 'Kredi hakkında not...'),
+          const SizedBox(height: 16),
+          _DaySelector(
+            label: 'Ödeme Günü',
+            value: dueDay,
+            onChanged: onDueDayChanged,
+          ),
+          const SizedBox(height: 24),
+          _LoanSaveButton(saving: saving, onTap: onSave),
+          const SizedBox(height: 8),
+        ],
+      ),
+    );
+  }
+}
+
 // ── Ortak widget'lar ───────────────────────────────────────────────────────
 
 class _Field extends StatelessWidget {
@@ -564,6 +712,48 @@ class _SaveButton extends StatelessWidget {
                     'Hesabı Ekle',
                     style: GoogleFonts.outfit(
                       fontSize: 15, fontWeight: FontWeight.w700,
+                      color: const Color(0xFF05080F),
+                    ),
+                  ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _LoanSaveButton extends StatelessWidget {
+  final bool saving;
+  final VoidCallback onTap;
+
+  const _LoanSaveButton({required this.saving, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 50,
+      child: GestureDetector(
+        onTap: saving ? null : onTap,
+        child: Container(
+          decoration: BoxDecoration(
+            color: saving
+                ? const Color(0xFFFF6B7A).withValues(alpha: 0.5)
+                : const Color(0xFFFF6B7A),
+            borderRadius: BorderRadius.circular(14),
+          ),
+          child: Center(
+            child: saving
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                        strokeWidth: 2, color: Color(0xFF05080F)))
+                : Text(
+                    'Krediyi Ekle',
+                    style: GoogleFonts.outfit(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
                       color: const Color(0xFF05080F),
                     ),
                   ),

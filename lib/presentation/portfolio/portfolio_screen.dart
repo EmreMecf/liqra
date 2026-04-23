@@ -12,6 +12,8 @@ import '../../features/portfolio/domain/entities/market_data_entity.dart';
 import '../../features/portfolio/presentation/viewmodel/portfolio_viewmodel.dart';
 import '../../features/portfolio/presentation/viewmodel/market_viewmodel.dart';
 import '../../features/portfolio/presentation/viewmodel/portfolio_state.dart';
+import '../../data/providers/app_provider.dart';
+import '../main_scaffold.dart';
 import '../widgets/app_card.dart';
 import '../widgets/animated_counter.dart';
 import '../widgets/delta_chip.dart';
@@ -57,12 +59,29 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                   GestureDetector(
                     onTap: () => _showAddAssetSheet(context),
                     child: Container(
-                      padding: const EdgeInsets.all(8),
+                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
-                        color: AppColors.accentGreen.withOpacity(0.12),
-                        borderRadius: BorderRadius.circular(10),
+                        color: AppColors.accentGreen.withAlpha(20),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: AppColors.accentGreen.withAlpha(50),
+                        ),
                       ),
-                      child: const Icon(Icons.add, color: AppColors.accentGreen, size: 20),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.add_rounded,
+                              color: AppColors.accentGreen, size: 16),
+                          const SizedBox(width: 4),
+                          Text(
+                            'Varlık Ekle',
+                            style: AppTypography.labelS.copyWith(
+                              color: AppColors.accentGreen,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
@@ -75,26 +94,68 @@ class _PortfolioScreenState extends State<PortfolioScreen>
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: AppColors.borderSubtle, width: 0.5),
               ),
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  color: AppColors.bgTertiary,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1A2A20), Color(0xFF162520)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(9),
+                  border: Border.all(
+                    color: AppColors.accentGreen.withAlpha(50),
+                    width: 0.5,
+                  ),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
-                labelColor: AppColors.textPrimary,
+                labelColor: AppColors.accentGreen,
                 unselectedLabelColor: AppColors.textSecondary,
+                labelPadding: EdgeInsets.zero,
                 labelStyle: AppTypography.labelS.copyWith(
-                  color: AppColors.textPrimary, fontWeight: FontWeight.w600,
+                  color: AppColors.accentGreen,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
                 ),
-                unselectedLabelStyle: AppTypography.labelS,
+                unselectedLabelStyle: AppTypography.labelS.copyWith(fontSize: 10),
                 dividerColor: Colors.transparent,
                 tabs: const [
-                  Tab(text: 'Portföyüm'),
-                  Tab(text: 'Piyasa'),
-                  Tab(text: 'Keşfet'),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.account_balance_wallet_rounded, size: 12),
+                        SizedBox(width: 4),
+                        Text('Portföyüm'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.show_chart_rounded, size: 12),
+                        SizedBox(width: 4),
+                        Text('Piyasa'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.explore_rounded, size: 12),
+                        SizedBox(width: 4),
+                        Text('Keşfet'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -152,18 +213,42 @@ class _PortfolioTabState extends State<_PortfolioTab> {
 
         if (portfolio == null || portfolio.assets.isEmpty) {
           return Center(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                const Icon(Icons.account_balance_wallet_outlined,
-                    color: AppColors.textSecondary, size: 48),
-                const SizedBox(height: 12),
-                Text('Portföyünüz boş', style: AppTypography.headlineS),
-                const SizedBox(height: 6),
-                Text('Sağ üstteki + ile varlık ekleyin', style: AppTypography.bodyM),
-                const SizedBox(height: 16),
-                _QuickAddButtons(),
-              ],
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 32),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentGreen.withAlpha(15),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.accentGreen.withAlpha(40),
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.candlestick_chart_outlined,
+                      color: AppColors.accentGreen,
+                      size: 38,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Portföyünüz boş', style: AppTypography.headlineS),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Altın, hisse, kripto veya fon ekleyerek\nyatırımlarınızı takip edin.',
+                    style: AppTypography.bodyM.copyWith(
+                      color: AppColors.textSecondary,
+                      height: 1.5,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  _QuickAddButtons(),
+                ],
+              ),
             ),
           );
         }
@@ -425,7 +510,12 @@ class _AssetRow extends StatelessWidget {
           ],
         ),
       ),
-      onDismissed: (_) => vm.deleteAsset(asset.id),
+      onDismissed: (_) {
+        // deleteAsset _rawAssets'i senkron olarak günceller, ardından Firestore'a yazar.
+        // vm.assets sileceğimiz varlık olmadan güncel listeyi döner.
+        vm.deleteAsset(asset.id);
+        context.read<AppProvider>().syncGoalWithPortfolio(vm.assets);
+      },
       child: GestureDetector(
         onTap: () => _showAssetDetail(context),
         child: Padding(
@@ -886,7 +976,7 @@ class _MarketTabState extends State<_MarketTab> {
                     prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 18),
                     suffixIcon: _searchQuery.isNotEmpty
                         ? IconButton(
-                            icon: const Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+                            icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textSecondary),
                             onPressed: () => setState(() {
                               _searchCtrl.clear();
                               _searchQuery = '';
@@ -1123,7 +1213,7 @@ class _GoldSummaryRow extends StatelessWidget {
             Text('🥇 Altın Fiyatları', style: AppTypography.headlineS),
             const Spacer(),
             GestureDetector(
-              onTap: () {/* TODO: navigate to gold tab */},
+              onTap: () {},
               child: Text('Tümünü Gör →', style: AppTypography.labelS.copyWith(
                 color: AppColors.accentGreen, fontWeight: FontWeight.w600,
               )),
@@ -1715,7 +1805,7 @@ class _DiscoverTab extends StatelessWidget {
                           ),
                           const Spacer(),
                           GestureDetector(
-                            onTap: () {},
+                            onTap: () => MainScaffold.switchTab(4),
                             child: Text('Detaylı Analiz →',
                               style: AppTypography.labelM.copyWith(
                                 color: AppColors.accentBlue, fontWeight: FontWeight.w600,

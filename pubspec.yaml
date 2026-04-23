@@ -1,7 +1,7 @@
 name: muhasebe
 description: "Liqra — Kişisel Finans & Yatırım Asistanı"
 publish_to: 'none'
-version: 1.0.0+1
+version: 1.1.0+2
 
 environment:
   sdk: ^3.8.1
@@ -69,6 +69,9 @@ dependencies:
   # URL açma — kampanya detay linkleri
   url_launcher: ^6.3.0
 
+  # Güvenli yerel depolama (API key, token) — SharedPreferences şifrelenmez
+  flutter_secure_storage: ^9.2.4
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -94,9 +97,9 @@ flutter_launcher_icons:
   background_color_ios: "#05080F"
 
 flutter_native_splash:
-  color: "#05080F"
+  color: "#0C1E30"
   image: assets/images/liqra_splash.png
-  color_dark: "#05080F"
+  color_dark: "#0C1E30"
   image_dark: assets/images/liqra_splash.png
   fullscreen: false
 

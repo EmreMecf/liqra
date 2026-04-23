@@ -77,9 +77,10 @@ class SpendingRepositoryImpl implements SpendingRepository {
         if (tx.isIncome) {
           income += tx.amount;
         } else {
-          expenses += tx.amount;
           byCategory[tx.category] =
               (byCategory[tx.category] ?? 0) + tx.amount;
+          // Yatırım harcaması net nakiti etkilemez (servet transferi)
+          if (tx.category != 'yatirim') expenses += tx.amount;
         }
       }
 

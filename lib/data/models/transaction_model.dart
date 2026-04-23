@@ -9,6 +9,7 @@ enum TransactionCategory {
   giyim,
   egitim,
   teknoloji,
+  yatirim,
   diger,
   gelir,
 }
@@ -25,6 +26,7 @@ extension TransactionCategoryExt on TransactionCategory {
       case TransactionCategory.giyim:     return 'Giyim';
       case TransactionCategory.egitim:    return 'Eğitim';
       case TransactionCategory.teknoloji: return 'Teknoloji';
+      case TransactionCategory.yatirim:   return 'Yatırım';
       case TransactionCategory.gelir:     return 'Gelir';
       case TransactionCategory.diger:     return 'Diğer';
     }
@@ -41,6 +43,7 @@ extension TransactionCategoryExt on TransactionCategory {
       case TransactionCategory.giyim:     return '👕';
       case TransactionCategory.egitim:    return '📚';
       case TransactionCategory.teknoloji: return '💻';
+      case TransactionCategory.yatirim:   return '📈';
       case TransactionCategory.gelir:     return '💰';
       case TransactionCategory.diger:     return '📦';
     }

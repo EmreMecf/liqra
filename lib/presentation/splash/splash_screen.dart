@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import '../../core/constants/app_colors.dart';
 import '../widgets/liqra_logo.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -21,14 +20,21 @@ class _SplashScreenState extends State<SplashScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return const Scaffold(
-      backgroundColor: AppColors.bgPrimary,
-      body: Center(
-        child: LiqraLogo(
-          fontSize: 52,
-          showTagline: true,
-          centered: true,
-          showRing: true,
+    return Scaffold(
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: RadialGradient(
+            center: Alignment(-0.2, -0.4),
+            radius: 0.9,
+            colors: [Color(0xFF0C1E30), Color(0xFF05080F)],
+          ),
+        ),
+        child: const Center(
+          child: LiqraLogo(
+            fontSize: 52,
+            showTagline: true,
+            centered: true,
+          ),
         ),
       ),
     );

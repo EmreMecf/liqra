@@ -1,3 +1,5 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter/material.dart';
@@ -66,14 +68,38 @@ class NotificationService {
     // Arka plan handler (top-level fonksiyon olmalı)
     FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
 
-    debugPrint('[FCM] Token: ${await getToken()}');
+    // Token'ı al ve Firestore'a kaydet
+    final token = await getToken();
+    if (token != null) {
+      await _saveTokenToFirestore(token);
+      debugPrint('[FCM] Token: $token');
+    }
+
+    // Token yenilenince Firestore'u güncelle
+    _fcm.onTokenRefresh.listen(_saveTokenToFirestore);
   }
 
   // ── Token ─────────────────────────────────────────────────────────────────
 
   Future<String?> getToken() => _fcm.getToken();
 
-  /// Token değişince backend'e kaydet
+  Future<void> _saveTokenToFirestore(String token) async {
+    final uid = FirebaseAuth.instance.currentUser?.uid;
+    if (uid == null) return;
+    try {
+      await FirebaseFirestore.instance.collection('users').doc(uid).set(
+        {
+          'fcmToken': token,
+          'fcmTokenUpdatedAt': FieldValue.serverTimestamp(),
+        },
+        SetOptions(merge: true),
+      );
+    } catch (e) {
+      debugPrint('[FCM] Token Firestore kaydı başarısız: $e');
+    }
+  }
+
+  /// Token değişince callback çalıştır (isteğe bağlı ek listener)
   void onTokenRefresh(void Function(String token) callback) {
     _fcm.onTokenRefresh.listen(callback);
   }

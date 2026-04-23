@@ -7,8 +7,10 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../data/providers/app_provider.dart';
 import '../../../features/portfolio/data/datasources/tefas_datasource.dart';
 import '../../../features/portfolio/presentation/viewmodel/portfolio_viewmodel.dart';
+import '../../../features/spending/presentation/viewmodel/spending_viewmodel.dart';
 
 // ── Meta tablolar ─────────────────────────────────────────────────────────────
 
@@ -26,10 +28,14 @@ const _popularBist = [
 /// Altın tipleri: (priceKey, displayName, icon)
 const _goldTypes = [
   ('gram',        'Gram Altın',         '🥇'),
+  ('bilezik22',   '22 Ayar Altın',      '💛'),
+  ('bilezik18',   '18 Ayar Altın',      '🟡'),
+  ('bilezik14',   '14 Ayar Altın',      '🔶'),
   ('ceyrek',      'Çeyrek Altın',       '🪙'),
   ('yarim',       'Yarım Altın',        '🪙'),
   ('tam',         'Tam Altın',          '🥇'),
   ('cumhuriyet',  'Cumhuriyet Altını',  '🏅'),
+  ('resat',       'Reşat Altını',       '🏅'),
   ('ons',         'Ons Altın',          '🥇'),
   ('gumus',       'Gümüş',              '🔘'),
 ];
@@ -244,9 +250,38 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
       double price = 0;
 
       if (section == 'gold') {
-        final entry = (data['gold'] as Map?)?[priceKey] as Map<String, dynamic>?;
-        final alis  = _toDouble(entry?['alis']);
-        final satis = _toDouble(entry?['satis']);
+        final goldMap = data['gold'] as Map?;
+        final entry   = goldMap?[priceKey] as Map<String, dynamic>?;
+        double alis = 0, satis = 0;
+
+        const bilezikCodes = {'bilezik22', 'bilezik18', 'bilezik14'};
+        if (entry != null) {
+          if (bilezikCodes.contains(priceKey)) {
+            alis  = _toDouble(entry['alisgram']);
+            satis = _toDouble(entry['satisgram']);
+          } else {
+            alis  = _toDouble(entry['alis']);
+            satis = _toDouble(entry['satis']);
+          }
+        }
+
+        // Bilezik fiyatı yoksa gram altından hesapla
+        if (bilezikCodes.contains(priceKey) && alis <= 0 && satis <= 0) {
+          final gramEntry = goldMap?['gram'] as Map<String, dynamic>?;
+          final gramAlis  = _toDouble(gramEntry?['alis']);
+          final gramSatis = _toDouble(gramEntry?['satis']);
+          final gramPrice = gramAlis > 0 ? gramAlis : gramSatis;
+          if (gramPrice > 0) {
+            final ratio = switch (priceKey) {
+              'bilezik22' => 22.0 / 24.0,
+              'bilezik18' => 18.0 / 24.0,
+              'bilezik14' => 14.0 / 24.0,
+              _           => 0.0,
+            };
+            if (ratio > 0) alis = satis = gramPrice * ratio;
+          }
+        }
+
         price = alis > 0 ? alis : satis;
       } else {
         // prices (kripto + döviz)
@@ -283,12 +318,17 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
 
     setState(() => _isLoading = true);
 
+    final qty      = double.parse(_qtyCtrl.text.replaceAll(',', '.'));
+    final buyPrice = double.parse(_priceCtrl.text.replaceAll(',', '.'));
+    final assetName = _nameCtrl.text.trim();
+    final investedAmount = qty * buyPrice;
+
     final vm  = context.read<PortfolioViewModel>();
     final err = await vm.addAsset(
       type:         _selectedType,
-      name:         _nameCtrl.text.trim(),
-      quantity:     double.parse(_qtyCtrl.text.replaceAll(',', '.')),
-      buyPrice:     double.parse(_priceCtrl.text.replaceAll(',', '.')),
+      name:         assetName,
+      quantity:     qty,
+      buyPrice:     buyPrice,
       currentPrice: _isFon && _selectedFund != null && _selectedFund!.currentPrice > 0
           ? _selectedFund!.currentPrice
           : _livePrice > 0 ? _livePrice : null,
@@ -304,6 +344,35 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
         content: Text(err), backgroundColor: AppColors.accentRed,
       ));
     } else {
+      // ── Harcama kaydı ve hedef güncelleme ────────────────────────────────
+      if (investedAmount > 0) {
+        // context referanslarını async öncesinde al
+        final spendingVm  = context.read<SpendingViewModel>();
+        final appProvider = context.read<AppProvider>();
+
+        await spendingVm.addTransaction(
+          amount:   investedAmount,
+          category: 'Yatırım',
+          type:     'gider',
+          source:   'portfolio',
+          note:     assetName,
+          reload:   false,
+        );
+        await spendingVm.reload();
+
+        // Aktif hedefin birikimini artır
+        final goal = appProvider.primaryGoal;
+        if (goal != null) {
+          final newCurrent = (goal.currentAmount + investedAmount)
+              .clamp(0.0, goal.targetAmount);
+          await appProvider.updateGoal(goal.copyWith(
+            currentAmount: newCurrent,
+            status: newCurrent >= goal.targetAmount ? 'completed' : 'active',
+          ));
+        }
+      }
+
+      if (!mounted) return;
       Navigator.pop(context);
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
         content: Text('Varlık portföye eklendi ✓'),
@@ -626,7 +695,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
           prefixIcon: const Icon(Icons.search, color: AppColors.textSecondary, size: 18),
           suffixIcon: controller.text.isNotEmpty
               ? IconButton(
-                  icon: const Icon(Icons.close, size: 16, color: AppColors.textSecondary),
+                  icon: const Icon(Icons.close_rounded, size: 16, color: AppColors.textSecondary),
                   onPressed: () {
                     controller.clear();
                     setState(() {

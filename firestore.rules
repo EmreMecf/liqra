@@ -15,33 +15,33 @@ service cloud.firestore {
       }
     }
 
-    // Piyasa verileri: tüm giriş yapmış kullanıcılar okuyabilir, yazma yok
+    // Piyasa verileri: herkes okuyabilir (hisse/altın/kur fiyatları — kişisel veri yok)
     match /market/{docId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false; // Sadece Cloud Functions yazar
     }
 
     // TEFAS fon verileri (Cloud Functions tarafından yazılır)
     match /tefas_funds/{fundCode} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false;
     }
 
     // Banka kampanyaları (Cloud Functions tarafından yazılır, tüm kullanıcılar okur)
     match /bank_campaigns/{docId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false;
     }
 
     // Piyasa haberleri (Cloud Functions tarafından yazılır, tüm kullanıcılar okur)
     match /news/{docId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false;
     }
 
     // Meta koleksiyonu (kampanya/haber son güncelleme bilgisi)
     match /meta/{docId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow write: if false;
     }
   }

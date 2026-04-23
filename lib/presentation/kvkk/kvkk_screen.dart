@@ -717,7 +717,7 @@ class _WarningItem extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Icon(Icons.close, color: AppColors.accentRed, size: 14),
+          const Icon(Icons.close_rounded, color: AppColors.accentRed, size: 14),
           const SizedBox(width: 8),
           Expanded(
             child: Text(text, style: AppTypography.bodyS),

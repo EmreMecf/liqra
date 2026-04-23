@@ -51,34 +51,77 @@ class _KesfetScreenState extends State<KesfetScreen>
             SafeArea(
               bottom: false,
               child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                child: Container(
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: AppColors.bgSecondary,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: TabBar(
-                    controller: _tabCtrl,
-                    indicator: BoxDecoration(
-                      color: AppColors.accentGreen.withValues(alpha: 0.15),
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                          color: AppColors.accentGreen.withValues(alpha: 0.4)),
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Keşfet', style: AppTypography.headlineL),
+                    const SizedBox(height: 14),
+                    Container(
+                      height: 44,
+                      decoration: BoxDecoration(
+                        color: AppColors.bgSecondary,
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: AppColors.borderSubtle, width: 0.5),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withAlpha(30),
+                            blurRadius: 8,
+                            offset: const Offset(0, 2),
+                          ),
+                        ],
+                      ),
+                      child: TabBar(
+                        controller: _tabCtrl,
+                        indicator: BoxDecoration(
+                          gradient: LinearGradient(
+                            colors: [
+                              AppColors.accentGreen.withAlpha(35),
+                              AppColors.accentGreen.withAlpha(18),
+                            ],
+                          ),
+                          borderRadius: BorderRadius.circular(11),
+                          border: Border.all(
+                              color: AppColors.accentGreen.withAlpha(120)),
+                        ),
+                        indicatorSize: TabBarIndicatorSize.tab,
+                        dividerColor: Colors.transparent,
+                        labelPadding: EdgeInsets.zero,
+                        labelColor: AppColors.accentGreen,
+                        unselectedLabelColor: AppColors.textSecondary,
+                        tabs: const [
+                          Tab(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.newspaper_rounded, size: 14),
+                                SizedBox(width: 5),
+                                Text('Haberler',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                          Tab(
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.local_offer_rounded, size: 14),
+                                SizedBox(width: 5),
+                                Text('Kampanyalar',
+                                    style: TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600)),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    indicatorSize: TabBarIndicatorSize.tab,
-                    dividerColor: Colors.transparent,
-                    labelStyle: AppTypography.labelS.copyWith(
-                        fontWeight: FontWeight.w700, fontSize: 12),
-                    unselectedLabelStyle: AppTypography.labelS.copyWith(
-                        fontWeight: FontWeight.w500, fontSize: 12),
-                    labelColor: AppColors.accentGreen,
-                    unselectedLabelColor: AppColors.textSecondary,
-                    tabs: const [
-                      Tab(text: '📰  Haberler'),
-                      Tab(text: '🎯  Kampanyalar'),
-                    ],
-                  ),
+                  ],
                 ),
               ),
             ),

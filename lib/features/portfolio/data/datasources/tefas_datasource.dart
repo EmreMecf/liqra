@@ -73,13 +73,10 @@ class TefasDataSourceImpl implements TefasDataSource {
   Future<List<TefasFund>> searchFunds(String query) async {
     if (query.trim().length < 2) return [];
     final all = await getAllFunds();
-    final q   = query.toUpperCase().trim();
-    return all
-        .where((f) =>
-            f.code.toUpperCase().contains(q) ||
-            f.name.toUpperCase().contains(q))
-        .take(20)
-        .toList();
+    if (all.isEmpty) return [];
+    final q = query.toUpperCase().trim();
+    // Arama filtresini arka planda çalıştır (büyük liste)
+    return compute(_filterFunds, _FilterParams(all, q));
   }
 
   @override
@@ -222,10 +219,8 @@ class TefasDataSourceImpl implements TefasDataSource {
       final json = prefs.getString(_prefKeyData);
       if (json == null) return null;
 
-      final list = (jsonDecode(json) as List)
-          .cast<Map<String, dynamic>>()
-          .map(_parseItem)
-          .toList();
+      // Büyük JSON'u (3000+ fon) arka planda ayrıştır — UI thread'i bloklamaz
+      final list = await compute(_decodeJsonToFunds, json);
       return list.isEmpty ? null : list;
     } catch (e) {
       debugPrint('[TEFAS] Disk okuma hatası: $e');
@@ -301,4 +296,54 @@ class TefasDataSourceImpl implements TefasDataSource {
     if (v is num)  return v.toDouble();
     return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
   }
+}
+
+// ── Isolate yardımcıları ─────────────────────────────────────────────────────
+
+class _FilterParams {
+  final List<TefasFund> funds;
+  final String query;
+  const _FilterParams(this.funds, this.query);
+}
+
+List<TefasFund> _filterFunds(_FilterParams p) {
+  return p.funds
+      .where((f) =>
+          f.code.toUpperCase().contains(p.query) ||
+          f.name.toUpperCase().contains(p.query))
+      .take(20)
+      .toList();
+}
+
+// ── Isolate fonksiyonu — JSON parse background'da çalışır ───────────────────
+/// compute() ile çağrılır; ~3000+ fon JSON'unu main thread'i bloklamadan ayrıştırır.
+List<TefasFund> _decodeJsonToFunds(String json) {
+  try {
+    final raw = jsonDecode(json) as List;
+    return raw
+        .cast<Map<String, dynamic>>()
+        .map(_parseItemIsolate)
+        .where((f) => f.code.isNotEmpty)
+        .toList();
+  } catch (_) {
+    return [];
+  }
+}
+
+TefasFund _parseItemIsolate(Map<String, dynamic> item) {
+  double toDouble(dynamic v) {
+    if (v == null) return 0;
+    if (v is num) return v.toDouble();
+    return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
+  }
+  String toStr(dynamic v) => v?.toString().trim() ?? '';
+  return TefasFund(
+    code:          toStr(item['FONKODU']        ?? item['fundCode'] ?? item['code']     ?? ''),
+    name:          toStr(item['FONUNVAN']       ?? item['fundName'] ?? item['name']     ?? ''),
+    type:          toStr(item['FONTUR']         ?? item['category'] ?? item['fundType'] ?? 'Fon'),
+    currentPrice:  toDouble(item['BIRIMPAYDEGERI'] ?? item['price']    ?? 0),
+    dailyReturn:   toDouble(item['GUNLUK']         ?? item['return1d'] ?? 0),
+    monthlyReturn: toDouble(item['AYLIK']          ?? item['return1m'] ?? 0),
+    yearlyReturn:  toDouble(item['YILLIK']         ?? item['return1y'] ?? 0),
+  );
 }

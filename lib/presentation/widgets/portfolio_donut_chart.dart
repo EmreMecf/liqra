@@ -54,8 +54,12 @@ class _PortfolioDonutChartState extends State<PortfolioDonutChart> {
 
     final grouped   = _groupByType();
     final total     = grouped.values.fold(0.0, (s, v) => s + v);
-    final entries   = grouped.entries.toList()
+    if (total <= 0) return const SizedBox.shrink();
+
+    final entries   = grouped.entries.where((e) => e.value > 0).toList()
       ..sort((a, b) => b.value.compareTo(a.value));
+
+    if (entries.isEmpty) return const SizedBox.shrink();
 
     return Column(
       children: [

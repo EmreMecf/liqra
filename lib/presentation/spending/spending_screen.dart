@@ -79,7 +79,7 @@ class _SpendingScreenState extends State<SpendingScreen>
                     ),
                   ),
                   IconButton(
-                    icon: Icon(Icons.chevron_right, size: 22,
+                    icon: Icon(Icons.chevron_right_rounded, size: 22,
                         color: _isCurrentOrFuture
                             ? AppColors.borderSubtle
                             : AppColors.textSecondary),
@@ -96,29 +96,79 @@ class _SpendingScreenState extends State<SpendingScreen>
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(13),
+                border: Border.all(color: AppColors.borderSubtle, width: 0.5),
               ),
               child: TabBar(
                 controller: _tabController,
                 indicator: BoxDecoration(
-                  color: AppColors.bgTertiary,
+                  gradient: const LinearGradient(
+                    colors: [Color(0xFF1A2A20), Color(0xFF162520)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                   borderRadius: BorderRadius.circular(9),
+                  border: Border.all(
+                    color: AppColors.accentGreen.withAlpha(50),
+                    width: 0.5,
+                  ),
                 ),
                 indicatorSize: TabBarIndicatorSize.tab,
-                labelColor: AppColors.textPrimary,
+                labelColor: AppColors.accentGreen,
                 unselectedLabelColor: AppColors.textSecondary,
+                labelPadding: EdgeInsets.zero,
                 labelStyle: AppTypography.labelS.copyWith(
-                  color: AppColors.textPrimary,
-                  fontWeight: FontWeight.w600,
-                  fontSize: 11,
+                  color: AppColors.accentGreen,
+                  fontWeight: FontWeight.w700,
+                  fontSize: 10,
                 ),
-                unselectedLabelStyle: AppTypography.labelS,
+                unselectedLabelStyle: AppTypography.labelS.copyWith(fontSize: 10),
                 dividerColor: Colors.transparent,
                 tabs: const [
-                  Tab(text: 'Özet'),
-                  Tab(text: 'İşlemler'),
-                  Tab(text: 'Sabit'),
-                  Tab(text: 'Ekle'),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.pie_chart_outline_rounded, size: 12),
+                        SizedBox(width: 4),
+                        Text('Özet'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.list_alt_rounded, size: 12),
+                        SizedBox(width: 4),
+                        Text('İşlemler'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.repeat_rounded, size: 12),
+                        SizedBox(width: 4),
+                        Text('Sabit'),
+                      ],
+                    ),
+                  ),
+                  Tab(
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.add_rounded, size: 12),
+                        SizedBox(width: 4),
+                        Text('Ekle'),
+                      ],
+                    ),
+                  ),
                 ],
               ),
             ),
@@ -288,24 +338,33 @@ class _SummaryTab extends StatelessWidget {
                       children: [
                         PieChart(
                           PieChartData(
-                            sections: entries.asMap().entries.map((e) {
-                              final isTouched = e.key == touchedIndex;
-                              return PieChartSectionData(
-                                color: AppColors.chartColors[e.key % AppColors.chartColors.length],
-                                value: e.value.value,
-                                title: isTouched ? e.value.key.label : '',
-                                radius: isTouched ? 65 : 55,
-                                titleStyle: AppTypography.labelS.copyWith(
-                                  color: AppColors.bgPrimary,
-                                  fontWeight: FontWeight.w700,
-                                ),
-                              );
-                            }).toList(),
+                            sections: entries.isEmpty
+                              ? [PieChartSectionData(
+                                  color: AppColors.borderSubtle,
+                                  value: 1,
+                                  title: '',
+                                  radius: 55,
+                                  showTitle: false,
+                                )]
+                              : entries.asMap().entries.map((e) {
+                                  final isTouched = e.key == touchedIndex;
+                                  return PieChartSectionData(
+                                    color: AppColors.chartColors[e.key % AppColors.chartColors.length],
+                                    value: e.value.value > 0 ? e.value.value : 0.001,
+                                    title: isTouched ? e.value.key.label : '',
+                                    radius: isTouched ? 65 : 55,
+                                    titleStyle: AppTypography.labelS.copyWith(
+                                      color: AppColors.bgPrimary,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  );
+                                }).toList(),
                             centerSpaceRadius: 55,
                             sectionsSpace: 2,
                             pieTouchData: PieTouchData(
+                              enabled: entries.isNotEmpty,
                               touchCallback: (event, response) {
-                                if (response?.touchedSection != null) {
+                                if (entries.isNotEmpty && response?.touchedSection != null) {
                                   onTouch(response!.touchedSection!.touchedSectionIndex);
                                 }
                               },
@@ -928,15 +987,29 @@ class _AddTabState extends State<_AddTab> {
                             : AppColors.borderSubtle,
                       ),
                     ),
-                    child: Text(
-                      t == 'income' ? '↑ Gelir' : '↓ Gider',
-                      textAlign: TextAlign.center,
-                      style: AppTypography.labelM.copyWith(
-                        color: _type == t
-                            ? (t == 'income' ? AppColors.accentGreen : AppColors.accentRed)
-                            : AppColors.textSecondary,
-                        fontWeight: FontWeight.w700,
-                      ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(
+                          t == 'income'
+                              ? Icons.arrow_upward_rounded
+                              : Icons.arrow_downward_rounded,
+                          size: 15,
+                          color: _type == t
+                              ? (t == 'income' ? AppColors.accentGreen : AppColors.accentRed)
+                              : AppColors.textSecondary,
+                        ),
+                        const SizedBox(width: 5),
+                        Text(
+                          t == 'income' ? 'Gelir' : 'Gider',
+                          style: AppTypography.labelM.copyWith(
+                            color: _type == t
+                                ? (t == 'income' ? AppColors.accentGreen : AppColors.accentRed)
+                                : AppColors.textSecondary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
@@ -1015,39 +1088,92 @@ class _AddTabState extends State<_AddTab> {
           ] else ...[
             // OCR modu
             Container(
-              height: 200,
+              padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(16),
-                border: Border.all(color: AppColors.borderActive, width: 1.5,
-                    style: BorderStyle.solid),
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(
+                  color: AppColors.accentBlue.withAlpha(80),
+                  width: 1,
+                ),
+                gradient: LinearGradient(
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [
+                    AppColors.accentBlue.withAlpha(8),
+                    AppColors.bgSecondary,
+                  ],
+                ),
               ),
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(Icons.document_scanner_outlined,
-                      color: AppColors.accentBlue, size: 48),
-                  const SizedBox(height: 12),
-                  Text('Fiş veya Ekstre Tarayın',
-                      style: AppTypography.bodyM.copyWith(color: AppColors.textPrimary)),
-                  const SizedBox(height: 8),
-                  Text('Google Cloud Vision ile analiz edilir',
-                      style: AppTypography.labelS),
-                  const SizedBox(height: 16),
-                  ElevatedButton.icon(
-                    onPressed: () => Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                          builder: (_) => const OcrScreen()),
+                  Container(
+                    width: 72,
+                    height: 72,
+                    decoration: BoxDecoration(
+                      color: AppColors.accentBlue.withAlpha(20),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: AppColors.accentBlue.withAlpha(60),
+                      ),
+                      boxShadow: [
+                        BoxShadow(
+                          color: AppColors.accentBlue.withAlpha(40),
+                          blurRadius: 20,
+                          spreadRadius: 2,
+                        )
+                      ],
                     ),
-                    icon: const Icon(Icons.camera_alt_outlined, size: 18),
-                    label: const Text('Fiş Tara'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accentBlue,
-                      foregroundColor: Colors.white,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10)),
-                      elevation: 0,
+                    child: const Icon(Icons.document_scanner_rounded,
+                        color: AppColors.accentBlue, size: 34),
+                  ),
+                  const SizedBox(height: 16),
+                  Text('Fiş veya Ekstre Tarayın',
+                      style: AppTypography.headlineS.copyWith(fontSize: 16)),
+                  const SizedBox(height: 6),
+                  Text('Gemini Vision ile otomatik analiz',
+                      style: AppTypography.labelS.copyWith(
+                        color: AppColors.textSecondary,
+                      )),
+                  const SizedBox(height: 20),
+                  GestureDetector(
+                    onTap: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (_) => const OcrScreen()),
+                    ),
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 28, vertical: 12),
+                      decoration: BoxDecoration(
+                        gradient: const LinearGradient(
+                          colors: [AppColors.accentBlue, Color(0xFF2563EB)],
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                        ),
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: AppColors.accentBlue.withAlpha(80),
+                            blurRadius: 14,
+                            offset: const Offset(0, 4),
+                          )
+                        ],
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.camera_alt_rounded,
+                              color: Colors.white, size: 18),
+                          const SizedBox(width: 8),
+                          Text('Fiş Tara',
+                              style: GoogleFonts.outfit(
+                                color: Colors.white,
+                                fontSize: 14,
+                                fontWeight: FontWeight.w700,
+                              )),
+                        ],
+                      ),
                     ),
                   ),
                 ],

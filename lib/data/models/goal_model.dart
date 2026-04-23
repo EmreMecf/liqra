@@ -38,6 +38,7 @@ class GoalModel {
     double? currentAmount,
     DateTime? deadline,
     String? status,
+    String? emoji,
   }) {
     return GoalModel(
       id: id,
@@ -47,7 +48,7 @@ class GoalModel {
       currentAmount: currentAmount ?? this.currentAmount,
       deadline: deadline ?? this.deadline,
       status: status ?? this.status,
-      emoji: emoji,
+      emoji: emoji ?? this.emoji,
     );
   }
 }

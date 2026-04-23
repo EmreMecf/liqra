@@ -152,6 +152,8 @@ class AppProvider extends ChangeNotifier {
         notifyListeners();
       },
       onError: (e) {
+        // Çıkış yapıldıktan sonra Firestore son bir hata gönderebilir — yoksay
+        if (AuthService.instance.userId == null) return;
         debugPrint('[AppProvider] transactions stream error: $e');
         _txLoaded = true;
         notifyListeners();
@@ -320,7 +322,8 @@ class AppProvider extends ChangeNotifier {
 
   double expensesForMonth(int year, int month) =>
       transactionsForMonth(year, month)
-          .where((t) => t.isExpense)
+          // Yatırım harcaması net nakiti etkilemez (servet transferi)
+          .where((t) => t.isExpense && t.category != TransactionCategory.yatirim)
           .fold(0.0, (acc, t) => acc + t.amount);
 
   double get monthlyIncome =>
@@ -363,9 +366,30 @@ class AppProvider extends ChangeNotifier {
   GoalModel? get primaryGoal =>
       _goals.where((g) => g.status == 'active').firstOrNull;
 
-  void addGoal(GoalModel goal) {
+  Future<void> addGoal(GoalModel goal) async {
     _goals.add(goal);
     notifyListeners();
+    final uid = AuthService.instance.userId;
+    if (uid != null) {
+      await FirestoreService.instance.goals(uid).doc(goal.id).set({
+        'title':         goal.title,
+        'targetAmount':  goal.targetAmount,
+        'currentAmount': goal.currentAmount,
+        'deadline':      Timestamp.fromDate(goal.deadline),
+        'status':        goal.status,
+        'emoji':         goal.emoji ?? '🎯',
+        'createdAt':     FieldValue.serverTimestamp(),
+      });
+    }
+  }
+
+  Future<void> deleteGoal(String goalId) async {
+    _goals.removeWhere((g) => g.id == goalId);
+    notifyListeners();
+    final uid = AuthService.instance.userId;
+    if (uid != null) {
+      await FirestoreService.instance.goals(uid).doc(goalId).delete();
+    }
   }
 
   Future<void> updateGoal(GoalModel updated) async {
@@ -376,14 +400,41 @@ class AppProvider extends ChangeNotifier {
       if (uid != null) {
         await FirestoreService.instance.goals(uid).doc(updated.id).update({
           'currentAmount': updated.currentAmount,
-          'status': updated.status,
-          'title': updated.title,
-          'targetAmount': updated.targetAmount,
-          'deadline': Timestamp.fromDate(updated.deadline),
+          'status':        updated.status,
+          'title':         updated.title,
+          'targetAmount':  updated.targetAmount,
+          'deadline':      Timestamp.fromDate(updated.deadline),
+          'emoji':         updated.emoji ?? '🎯',
         });
       }
       notifyListeners();
     }
+  }
+
+  /// Mevcut portföy varlıklarını hedefe senkronize eder.
+  /// Her iki yönde de çalışır: varlık eklenince artar, silinince azalır.
+  Future<void> syncGoalWithPortfolio(List<dynamic> assets) async {
+    final goal = primaryGoal;
+    if (goal == null) return;
+
+    // Her varlık için miktar × alış fiyatı = yatırılan tutar
+    double totalInvested = 0;
+    for (final a in assets) {
+      final qty      = (a.quantity  as num?)?.toDouble() ?? 0;
+      final buyPrice = (a.buyPrice  as num?)?.toDouble() ?? 0;
+      totalInvested += qty * buyPrice;
+    }
+
+    // Tüm varlıklar silindi → sıfıra eşitle
+    // Yön fark etmeksizin her zaman gerçek toplama senkronize et
+    final newAmount = totalInvested.clamp(0.0, goal.targetAmount);
+    if (newAmount == goal.currentAmount) return; // değişiklik yoksa atla
+
+    await updateGoal(goal.copyWith(
+      currentAmount: newAmount,
+      status: newAmount >= goal.targetAmount ? 'completed' : 'active',
+    ));
+    debugPrint('[AppProvider] Goal synced: $newAmount / ${goal.targetAmount}');
   }
 
   // ── Kullanıcı Güncellemesi ──────────────────────────────────────────────────

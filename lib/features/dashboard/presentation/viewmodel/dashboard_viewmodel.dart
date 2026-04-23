@@ -95,15 +95,19 @@ class DashboardViewModel extends ChangeNotifier {
       if (tx.isIncome) {
         income += tx.amount;
       } else {
-        expenses += tx.amount;
         byCat[tx.category] = (byCat[tx.category] ?? 0) + tx.amount;
+        // Yatırım harcaması net nakiti etkilemez (servet transferi)
+        if (tx.category != 'yatirim') expenses += tx.amount;
       }
     }
 
     double prevIncome = 0, prevExpenses = 0;
     for (final tx in prevTransactions) {
-      if (tx.isIncome) prevIncome += tx.amount;
-      else prevExpenses += tx.amount;
+      if (tx.isIncome) {
+        prevIncome += tx.amount;
+      } else if (tx.category != 'yatirim') {
+        prevExpenses += tx.amount;
+      }
     }
 
     // ── Uyarı tespiti ─────────────────────────────────────────────────────────

@@ -1,20 +1,30 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:file_picker/file_picker.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
+import 'package:uuid/uuid.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/services/gemini_service.dart';
+import '../../features/accounts/domain/entities/account_transaction_entity.dart';
+import '../../features/accounts/presentation/viewmodels/accounts_viewmodel.dart';
 import '../../features/spending/presentation/viewmodel/spending_viewmodel.dart';
 
 /// OCR Fiş / Fatura Tarama Ekranı
 /// Kamera · Galeri · PDF — Gemini Vision ile doğrudan analiz
+///
+/// [accountId] verilirse banka ekstresi işlemleri AccountsViewModel'e kaydedilir.
+/// Verilmezse (spending modu) SpendingViewModel'e kaydedilir.
 class OcrScreen extends StatefulWidget {
-  const OcrScreen({super.key});
+  final String? accountId;
+  final String? accountName;
+
+  const OcrScreen({super.key, this.accountId, this.accountName});
 
   @override
   State<OcrScreen> createState() => _OcrScreenState();
@@ -289,25 +299,81 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
       return;
     }
 
+    // Fiş sonucunda categoryLabel yoksa merchant adından çıkar
+    final merchant = _result!['merchant'] as String? ?? '';
+    final category = _result!['categoryLabel'] as String?
+        ?? _inferCategory(merchant, 'gider');
+
     final vm = context.read<SpendingViewModel>();
-    await vm.addTransaction(
+    final ok = await vm.addTransaction(
       amount:   total,
-      category: _result!['categoryLabel'] as String? ?? 'Diğer',
+      category: category,
       type:     'gider',
       source:   'ocr',
-      note:     _result!['merchant'] as String?,
+      note:     merchant.isNotEmpty ? merchant : null,
       date:     DateTime.tryParse(_result!['date'] ?? '') ?? DateTime.now(),
+      reload:   false, // Cache'i atlamak için manuel reload yapacağız
+    );
+
+    // 60 saniyelik cache'i sıfırlayarak zorla yenile
+    await vm.reload();
+
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok ? 'Harcama kaydedildi ✓' : 'Kayıt başarısız, tekrar dene'),
+      backgroundColor: ok ? AppColors.accentGreen : AppColors.accentRed,
+    ));
+    if (ok) Navigator.pop(context);
+  }
+
+  // Account mode: banka ekstresi → AccountsViewModel.importStatement()
+  Future<void> _saveStatementToAccount() async {
+    if (_transactions == null || _transactions!.isEmpty) return;
+    setState(() => _isProcessing = true);
+
+    const uuid = Uuid();
+    final uid  = FirebaseAuth.instance.currentUser?.uid ?? '';
+    final validTx = _transactions!
+        .where((tx) => ((tx['amount'] as num?)?.toDouble() ?? 0) > 0)
+        .toList();
+
+    final entities = validTx.map((tx) => AccountTransactionEntity(
+      id:          uuid.v4(),
+      accountId:   widget.accountId!,
+      userId:      uid,
+      amount:      (tx['amount'] as num).toDouble(),
+      description: tx['description'] as String? ?? '',
+      date:        DateTime.tryParse(tx['date'] as String? ?? '') ?? DateTime.now(),
+      type:        tx['transactionType'] == 'gelir' ? 'income' : 'expense',
+      category:    tx['categoryLabel'] as String? ?? 'Diğer',
+      source:      'ocr',
+    )).toList();
+
+    final vm = context.read<AccountsViewModel>();
+    final ok = await vm.importStatement(
+      accountId: widget.accountId!,
+      transactions: entities,
     );
 
     if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
-      content: Text('Harcama kaydedildi ✓'),
-      backgroundColor: AppColors.accentGreen,
+    setState(() => _isProcessing = false);
+
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(ok
+          ? '${entities.length} hareket hesaba kaydedildi ✓'
+          : 'Kayıt başarısız, tekrar dene'),
+      backgroundColor: ok ? AppColors.accentGreen : AppColors.accentRed,
     ));
-    Navigator.pop(context);
+    if (ok) Navigator.pop(context);
   }
 
   Future<void> _saveAllTransactions() async {
+    // Account mode → AccountsViewModel'e kaydet
+    if (widget.accountId != null) {
+      await _saveStatementToAccount();
+      return;
+    }
+
     if (_transactions == null || _transactions!.isEmpty) return;
 
     setState(() => _isProcessing = true);
@@ -342,7 +408,7 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
 
     // AppProvider real-time stream sayesinde otomatik güncellenir
 
-    // İşlemlerin tarih aralığını bul ve o dönemi yükle
+    // Cache'i sıfırla ve işlemlerin tarih aralığını yükle
     final dates = validTx
         .map((tx) => DateTime.tryParse(tx['date'] as String? ?? ''))
         .whereType<DateTime>()
@@ -354,7 +420,7 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
         DateTime(dates.last.year, dates.last.month + 1, 1),
       );
     } else {
-      await vm.loadCurrentMonth();
+      await vm.reload(); // loadCurrentMonth yerine reload — 60s cache'i atlar
     }
 
     if (!mounted) return;
@@ -388,7 +454,21 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
       appBar: AppBar(
         backgroundColor: AppColors.bgPrimary,
         elevation: 0,
-        title: Text('Belge Tara', style: AppTypography.headlineS),
+        title: widget.accountId != null
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Ekstre Yükle', style: AppTypography.headlineS),
+                  Text(
+                    widget.accountName ?? '',
+                    style: AppTypography.labelS.copyWith(
+                      color: AppColors.accentAmber,
+                      fontSize: 11,
+                    ),
+                  ),
+                ],
+              )
+            : Text('Belge Tara', style: AppTypography.headlineS),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios,
               color: AppColors.textSecondary, size: 18),
@@ -1055,17 +1135,16 @@ class _TxRow extends StatelessWidget {
 class _TipsSection extends StatelessWidget {
   const _TipsSection();
 
-  @override
-  Widget build(BuildContext context) {
+  @override  Widget build(BuildContext context) {
     const tips = [
       (Icons.camera_alt_outlined,         'Net fotoğraf çekin',
-       'Düz yüzey, iyi ışık, tüm fiş görünür olsun'),
+      'Düz yüzey, iyi ışık, tüm fiş görünür olsun'),
       (Icons.picture_as_pdf_outlined,     'Banka ekstresi veya fatura',
-       'PDF ekstreler otomatik algılanır, tüm hareketler listelenir'),
+      'PDF ekstreler otomatik algılanır, tüm hareketler listelenir'),
       (Icons.wb_sunny_outlined,           'Aydınlık ortam',
-       'Gölge ve yansımalardan kaçının'),
+      'Gölge ve yansımalardan kaçının'),
       (Icons.crop_free_outlined,          'Tüm belge görünsün',
-       'Kenarlar kesilmesin, metin okunabilir olsun'),
+      'Kenarlar kesilmesin, metin okunabilir olsun'),
     ];
 
     return Column(
@@ -1098,3 +1177,4 @@ class _TipsSection extends StatelessWidget {
     );
   }
 }
+

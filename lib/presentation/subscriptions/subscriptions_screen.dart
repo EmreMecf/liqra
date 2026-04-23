@@ -188,12 +188,32 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           );
         },
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: _openAddSheet,
-        backgroundColor: AppColors.accentGreen,
-        foregroundColor: AppColors.bgPrimary,
-        icon: const Icon(Icons.add),
-        label: Text('Abonelik Ekle', style: AppTypography.button.copyWith(color: AppColors.bgPrimary)),
+      floatingActionButton: Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: AppColors.accentGreen.withAlpha(100),
+              blurRadius: 18,
+              spreadRadius: 1,
+              offset: const Offset(0, 4),
+            ),
+            BoxShadow(
+              color: AppColors.accentGreen.withAlpha(40),
+              blurRadius: 32,
+              spreadRadius: 4,
+              offset: const Offset(0, 6),
+            ),
+          ],
+        ),
+        child: FloatingActionButton.extended(
+          onPressed: _openAddSheet,
+          backgroundColor: AppColors.accentGreen,
+          foregroundColor: AppColors.bgPrimary,
+          elevation: 0,
+          icon: const Icon(Icons.add_rounded),
+          label: Text('Abonelik Ekle', style: AppTypography.button.copyWith(color: AppColors.bgPrimary)),
+        ),
       ),
     );
   }
@@ -293,7 +313,7 @@ class _HeaderSection extends StatelessWidget {
                   ),
                   child: Row(
                     children: [
-                      const Icon(Icons.subscriptions_outlined,
+                      const Icon(Icons.autorenew_rounded,
                           color: AppColors.accentGreen, size: 14),
                       const SizedBox(width: 6),
                       Text(
@@ -753,12 +773,30 @@ class _EmptyActive extends StatelessWidget {
         ),
         child: Column(
           children: [
-            const Text('📱', style: TextStyle(fontSize: 48)),
+            Container(
+              width: 72, height: 72,
+              decoration: BoxDecoration(
+                color: AppColors.accentGreen.withAlpha(22),
+                shape: BoxShape.circle,
+                border: Border.all(
+                  color: AppColors.accentGreen.withAlpha(50),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.accentGreen.withAlpha(30),
+                    blurRadius: 20,
+                    spreadRadius: 2,
+                  ),
+                ],
+              ),
+              child: const Icon(Icons.loop_rounded,
+                  color: AppColors.accentGreen, size: 32),
+            ),
             const SizedBox(height: 16),
             Text('Henüz abonelik yok', style: AppTypography.headlineS),
             const SizedBox(height: 8),
             Text(
-              'Netflix, Spotify, YouTube gibi aylık aboneliklerinizi\ntakip etmek için ekleyin.',
+              'Netflix, Spotify, YouTube gibi aylık\naboneliklerinizi takip etmek için ekleyin.',
               style: AppTypography.bodyS.copyWith(color: AppColors.textSecondary),
               textAlign: TextAlign.center,
             ),
@@ -771,8 +809,9 @@ class _EmptyActive extends StatelessWidget {
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12),
                 ),
+                elevation: 0,
               ),
-              icon: const Icon(Icons.add, size: 18),
+              icon: const Icon(Icons.add_rounded, size: 18),
               label: Text('İlk Aboneliği Ekle', style: AppTypography.button.copyWith(color: AppColors.bgPrimary)),
             ),
           ],
@@ -881,8 +920,15 @@ class _PresetGrid extends StatelessWidget {
                 const Spacer(),
                 GestureDetector(
                   onTap: () => Navigator.pop(context),
-                  child: const Icon(Icons.close,
-                      color: AppColors.textSecondary, size: 22),
+                  child: Container(
+                    padding: const EdgeInsets.all(6),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgTertiary,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: const Icon(Icons.close_rounded,
+                        color: AppColors.textSecondary, size: 18),
+                  ),
                 ),
               ],
             ),
@@ -1110,8 +1156,8 @@ class _SubFormState extends State<_SubForm> {
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.calendar_today_outlined,
-                        color: AppColors.textSecondary, size: 18),
+                    const Icon(Icons.calendar_month_rounded,
+                        color: AppColors.accentGreen, size: 18),
                     const SizedBox(width: 12),
                     Text(
                       '${_nextDate.day.toString().padLeft(2, '0')}.${_nextDate.month.toString().padLeft(2, '0')}.${_nextDate.year}',

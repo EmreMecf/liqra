@@ -65,44 +65,9 @@ class _AuthScreenState extends State<AuthScreen>
               children: [
                 const SizedBox(height: 56),
 
-                // ── Liqra Wordmark Logo ───────────────────────────────
-                Column(
-                  children: [
-                    // Glow halkası
-                    Container(
-                      width: 80,
-                      height: 80,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        border: Border.all(
-                          color: AppColors.accentGreen.withValues(alpha: 0.18),
-                          width: 1,
-                        ),
-                      ),
-                      child: Center(
-                        child: Container(
-                          width: 56,
-                          height: 56,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: AppColors.liqraBg,
-                            border: Border.all(
-                              color: AppColors.liqraBdr,
-                              width: 1,
-                            ),
-                          ),
-                          child: const Icon(
-                            Icons.currency_exchange_rounded,
-                            color: AppColors.accentGreen,
-                            size: 24,
-                          ),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 20),
-                    const LiqraLogo(fontSize: 44, showTagline: true, centered: true, showRing: true),
-                  ],
-                ).animate().fadeIn(duration: 500.ms).slideY(begin: -0.08, end: 0),
+                // ── Liqra Logo ────────────────────────────────────────
+                const LiqraLogo(fontSize: 44, showTagline: true, centered: true)
+                  .animate().fadeIn(duration: 500.ms).slideY(begin: -0.08, end: 0),
 
             const SizedBox(height: 40),
 

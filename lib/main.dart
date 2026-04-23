@@ -65,23 +65,24 @@ class LiqraApp extends StatelessWidget {
     return MultiProvider(
       providers: [
         ChangeNotifierProvider(create: (_) => AppProvider()),
+        // ViewModel'ler kullanıcı girişi öncesi load() çağırmaz — auth sonrası yüklenir
         ChangeNotifierProvider<DashboardViewModel>(
-          create: (_) => getIt<DashboardViewModel>()..load(),
+          create: (_) => getIt<DashboardViewModel>(),
         ),
         ChangeNotifierProvider<SpendingViewModel>(
-          create: (_) => getIt<SpendingViewModel>()..loadCurrentMonth(),
+          create: (_) => getIt<SpendingViewModel>(),
         ),
         ChangeNotifierProvider<PortfolioViewModel>(
-          create: (_) => getIt<PortfolioViewModel>()..load(),
+          create: (_) => getIt<PortfolioViewModel>(),
         ),
         ChangeNotifierProvider<MarketViewModel>(
-          create: (_) => getIt<MarketViewModel>()..load(),
+          create: (_) => getIt<MarketViewModel>(), // auth değişiminde otomatik load
         ),
         ChangeNotifierProvider<AiAssistantViewModel>(
           create: (_) => getIt<AiAssistantViewModel>(),
         ),
         ChangeNotifierProvider<AccountsViewModel>(
-          create: (_) => getIt<AccountsViewModel>()..load(),
+          create: (_) => getIt<AccountsViewModel>(),
         ),
       ],
       child: MaterialApp(
@@ -183,25 +184,60 @@ class _AppEntryState extends State<_AppEntry> {
 ///  Giriş yok           → AuthScreen
 ///  Giriş var, profil yok → OnboardingScreen
 ///  Giriş var, profil var → MainScaffold
-class _AuthGate extends StatelessWidget {
+class _AuthGate extends StatefulWidget {
   const _AuthGate();
+
+  @override
+  State<_AuthGate> createState() => _AuthGateState();
+}
+
+class _AuthGateState extends State<_AuthGate> {
+  String? _lastLoadedUid; // hangi uid için load yapıldığını takip et
+
+  /// Kullanıcı verilerini tek seferlik yükler (her rebuild'de tekrar çağrılmaz)
+  void _loadUserData(BuildContext context) {
+    final uid = AuthService.instance.userId;
+    if (uid == null || uid == _lastLoadedUid) return;
+    _lastLoadedUid = uid;
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      context.read<AppProvider>().loadUserProfile();
+      context.read<DashboardViewModel>().load();
+      context.read<SpendingViewModel>().loadCurrentMonth();
+      context.read<AccountsViewModel>().load();
+
+      // Portföy yüklenince mevcut varlıkları hedefe bir kez senkronize et
+      final portfolioVm = context.read<PortfolioViewModel>();
+      final appProvider = context.read<AppProvider>();
+
+      void syncOnce() {
+        final assets = portfolioVm.assets;
+        if (assets.isNotEmpty) {
+          portfolioVm.removeListener(syncOnce);
+          appProvider.syncGoalWithPortfolio(assets);
+        }
+      }
+
+      portfolioVm.addListener(syncOnce);
+      portfolioVm.load(); // load tamamlanınca syncOnce çağrılır
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     return StreamBuilder<User?>(
       stream: AuthService.instance.authStateChanges,
       builder: (context, snapshot) {
-        // Firebase bağlantısı kurulana kadar boş ekran
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Scaffold(
-            backgroundColor: AppColors.bgPrimary,
-          );
+          return const Scaffold(backgroundColor: AppColors.bgPrimary);
         }
 
         final user = snapshot.data;
 
         // Giriş yapılmamış
         if (user == null) {
+          _lastLoadedUid = null; // çıkış yapıldı, reset
           return const AuthScreen();
         }
 
@@ -210,22 +246,15 @@ class _AuthGate extends StatelessWidget {
           listenable: AuthService.instance,
           builder: (context, _) {
             if (!AuthService.instance.profileComplete) {
-              // İlk kez giriş veya profil eksik → onboarding
-              // AppProvider'ı da bilgilendir
+              // Profil eksik → onboarding (AppProvider profil yüklemeyi dene)
               WidgetsBinding.instance.addPostFrameCallback((_) {
-                context.read<AppProvider>().loadUserProfile();
+                if (mounted) context.read<AppProvider>().loadUserProfile();
               });
               return const OnboardingScreen();
             }
 
-            // Her şey tamam → ana uygulama
-            WidgetsBinding.instance.addPostFrameCallback((_) {
-              context.read<AppProvider>().loadUserProfile();
-              context.read<DashboardViewModel>().load();
-              context.read<SpendingViewModel>().reload();
-              context.read<PortfolioViewModel>().load();
-              context.read<AccountsViewModel>().load();
-            });
+            // Profil tamam → verileri bir kez yükle
+            _loadUserData(context);
             return MainScaffold();
           },
         );

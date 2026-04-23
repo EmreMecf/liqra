@@ -1,22 +1,39 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'feature_flag_service.dart';
 
 /// Doğrudan Anthropic API istemcisi — backend gerektirmez.
 ///
 /// API anahtarı öncelik sırası:
-///   1. SharedPreferences  (`anthropic_api_key`)
-///   2. Compile-time kDartDefine (`--dart-define=ANTHROPIC_KEY=...`)
+///   1. FlutterSecureStorage (`anthropic_api_key`)
+///   2. Compile-time dart-define (`--dart-define=ANTHROPIC_KEY=...`)
 ///   3. Boş ise hata fırlatır
+///
+/// Model adları Firebase Remote Config'den gelir:
+///   claude_chat_model → varsayılan: claude-sonnet-4-6
+///   claude_fast_model → varsayılan: claude-haiku-4-5-20251001
 class ClaudeApiService {
   ClaudeApiService._();
   static final instance = ClaudeApiService._();
 
-  static const _prefKey     = 'anthropic_api_key';
-  static const _baseUrl     = 'https://api.anthropic.com';
-  static const _apiVersion  = '2023-06-01';
-  static const _chatModel   = 'claude-opus-4-5';
-  static const _fastModel   = 'claude-haiku-4-5';
+  static const _prefKey    = 'anthropic_api_key';
+  static const _baseUrl    = 'https://api.anthropic.com';
+  static const _apiVersion = '2023-06-01';
+
+  static const _storage = FlutterSecureStorage(
+    aOptions: AndroidOptions(encryptedSharedPreferences: true),
+  );
+
+  String get _chatModel {
+    final remote = FeatureFlagService.instance.getString('claude_chat_model');
+    return remote.isNotEmpty ? remote : 'claude-sonnet-4-6';
+  }
+
+  String get _fastModel {
+    final remote = FeatureFlagService.instance.getString('claude_fast_model');
+    return remote.isNotEmpty ? remote : 'claude-haiku-4-5-20251001';
+  }
 
   late final Dio _dio = Dio(
     BaseOptions(
@@ -32,8 +49,7 @@ class ClaudeApiService {
 
   /// Kayıtlı API key'i döner (null = henüz girilmedi)
   Future<String?> getApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    final key   = prefs.getString(_prefKey) ?? '';
+    final key = await _storage.read(key: _prefKey) ?? '';
     if (key.isNotEmpty) return key;
     // Compile-time dart-define fallback
     const defined = String.fromEnvironment('ANTHROPIC_KEY');
@@ -41,11 +57,15 @@ class ClaudeApiService {
     return null;
   }
 
-  /// API key'i SharedPreferences'a kaydet
+  /// API key'i güvenli depoya yaz
   Future<void> setApiKey(String key) async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString(_prefKey, key.trim());
+    await _storage.write(key: _prefKey, value: key.trim());
     debugPrint('[ClaudeAPI] API key kaydedildi.');
+  }
+
+  /// API key sil
+  Future<void> clearApiKey() async {
+    await _storage.delete(key: _prefKey);
   }
 
   /// API key girilmiş mi?

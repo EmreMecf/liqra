@@ -8,8 +8,8 @@ module.exports = {
 
   anthropic: {
     apiKey: process.env.ANTHROPIC_API_KEY,
-    model:  'claude-sonnet-4-5',
-    maxTokens: 2000,
+    model:  process.env.CLAUDE_MODEL || 'claude-sonnet-4-6',
+    maxTokens: parseInt(process.env.CLAUDE_MAX_TOKENS || '2000', 10),
   },
 
   db: {

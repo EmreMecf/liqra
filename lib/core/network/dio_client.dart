@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
 import '../error/app_exception.dart';
 
@@ -50,8 +51,12 @@ class DioClient {
 
 /// Uygulama konfigürasyonu
 class AppConfig {
-  // TODO: .env veya remote config'ten al
-  static const String apiBaseUrl = 'http://localhost:3000/api';
+  // dart-define ile override edilebilir:
+  //   flutter run --dart-define=API_BASE_URL=https://api.example.com
+  static const String apiBaseUrl = String.fromEnvironment(
+    'API_BASE_URL',
+    defaultValue: 'http://localhost:3000/api',
+  );
 
   // Rate limit — kullanıcı başı saatte 20 istek (ücretsiz tier)
   static const int aiRateLimitPerHour = 20;
@@ -59,17 +64,23 @@ class AppConfig {
 
 // ── Interceptors ──────────────────────────────────────────────────────────────
 
-/// JWT token header'a ekler
+/// Firebase Auth ID token'ını her isteğe ekler
 class _AuthInterceptor extends Interceptor {
   @override
-  void onRequest(
+  Future<void> onRequest(
     RequestOptions options,
     RequestInterceptorHandler handler,
-  ) {
-    // TODO: SharedPreferences'tan token al
-    const token = ''; // SecureStorage'dan gelecek
-    if (token.isNotEmpty) {
-      options.headers['Authorization'] = 'Bearer $token';
+  ) async {
+    try {
+      final user = FirebaseAuth.instance.currentUser;
+      if (user != null) {
+        final token = await user.getIdToken();
+        if (token != null && token.isNotEmpty) {
+          options.headers['Authorization'] = 'Bearer $token';
+        }
+      }
+    } catch (_) {
+      // Auth hatası isteği durdurmasın
     }
     handler.next(options);
   }

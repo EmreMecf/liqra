@@ -133,30 +133,77 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
         'resat':       ('Reşat Altın',      '🏅'),
         'ons':         ('Ons Altın',        '🥇'),
         'gumus':       ('Gümüş',            '🔘'),
+        'bilezik22':   ('22 Ayar Altın',    '💛'),
+        'bilezik18':   ('18 Ayar Altın',    '🟡'),
+        'bilezik14':   ('14 Ayar Altın',    '🔶'),
       };
+
+      double gramPrice = 0; // fallback hesaplama için
+
       for (final entry in goldMap.entries) {
         final key   = entry.key;
         final value = entry.value;
         if (value is! Map<String, dynamic>) continue;
-        // Bilezik anahtarları (bilezik22/18/14) alisgram/satisgram kullanır
-        if (key.startsWith('bilezik')) continue;
 
-        final meta  = goldMeta[key];
-        final alis  = _toDouble(value['alis']);
-        final satis = _toDouble(value['satis']);
-        final price = alis > 0 ? alis : satis;
-        if (price <= 0) continue;
+        final meta = goldMeta[key];
 
-        result.add(MarketDataDto(
-          symbol:        key.toUpperCase(),
-          name:          meta?.$1 ?? key,
-          icon:          meta?.$2 ?? '🥇',
-          price:         price,
-          changePercent: _toDouble(value['degisim']),
-          currency:      'TRY',
-          subLabel:      'emtia',
-          lastUpdated:   value['lastUpdated'] as String?,
-        ));
+        if (key.startsWith('bilezik')) {
+          // bilezik22/18/14 → alisgram / satisgram alanlarını kullan
+          final alis  = _toDouble(value['alisgram']);
+          final satis = _toDouble(value['satisgram']);
+          final price = alis > 0 ? alis : satis;
+          if (price <= 0) continue;
+          result.add(MarketDataDto(
+            symbol:        key.toUpperCase(),
+            name:          meta?.$1 ?? key,
+            icon:          meta?.$2 ?? '💛',
+            price:         price,
+            changePercent: _toDouble(value['degisim']),
+            currency:      'TRY',
+            subLabel:      'emtia',
+            lastUpdated:   value['lastUpdated'] as String?,
+          ));
+        } else {
+          final alis  = _toDouble(value['alis']);
+          final satis = _toDouble(value['satis']);
+          final price = alis > 0 ? alis : satis;
+          if (price <= 0) continue;
+          if (key == 'gram') gramPrice = price;
+          result.add(MarketDataDto(
+            symbol:        key.toUpperCase(),
+            name:          meta?.$1 ?? key,
+            icon:          meta?.$2 ?? '🥇',
+            price:         price,
+            changePercent: _toDouble(value['degisim']),
+            currency:      'TRY',
+            subLabel:      'emtia',
+            lastUpdated:   value['lastUpdated'] as String?,
+          ));
+        }
+      }
+
+      // Bilezik verileri Firestore'da yoksa gram altından hesapla
+      if (gramPrice > 0) {
+        const ayarlar = [
+          ('bilezik22', '22 Ayar Altın', '💛', 22.0 / 24.0),
+          ('bilezik18', '18 Ayar Altın', '🟡', 18.0 / 24.0),
+          ('bilezik14', '14 Ayar Altın', '🔶', 14.0 / 24.0),
+        ];
+        final existingSymbols = result.map((d) => d.symbol).toSet();
+        for (final (key, name, icon, ratio) in ayarlar) {
+          if (!existingSymbols.contains(key.toUpperCase())) {
+            result.add(MarketDataDto(
+              symbol:        key.toUpperCase(),
+              name:          name,
+              icon:          icon,
+              price:         gramPrice * ratio,
+              changePercent: 0,
+              currency:      'TRY',
+              subLabel:      'hesaplama',
+              lastUpdated:   null,
+            ));
+          }
+        }
       }
     }
 

@@ -87,7 +87,7 @@ class _NewsScreenState extends State<NewsScreen> {
                           color: AppColors.textSecondary, size: 18),
                       suffixIcon: _searchCtrl.text.isNotEmpty
                           ? IconButton(
-                              icon: const Icon(Icons.close,
+                              icon: const Icon(Icons.close_rounded,
                                   size: 16,
                                   color: AppColors.textSecondary),
                               onPressed: () {
@@ -424,8 +424,9 @@ class _NewsCard extends StatelessWidget {
   Future<void> _openUrl(String url) async {
     if (url.isEmpty) return;
     final uri = Uri.tryParse(url);
-    if (uri != null && await canLaunchUrl(uri)) {
+    if (uri == null) return;
+    try {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
-    }
+    } catch (_) {}
   }
 }

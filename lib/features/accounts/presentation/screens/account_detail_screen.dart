@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../domain/entities/financial_account_entity.dart';
 import '../viewmodels/accounts_viewmodel.dart';
 import '../widgets/account_transaction_tile.dart';
+import '../widgets/accounting_transaction_sheet.dart';
 
 class AccountDetailScreen extends StatefulWidget {
   final FinancialAccountEntity account;
@@ -131,7 +132,17 @@ class _BankAccountDetail extends StatelessWidget {
     );
   }
 
-  void _showAddTx(BuildContext context) => _AddTransactionSheet.show(context, id);
+  void _showAddTx(BuildContext context) {
+    final vm = context.read<AccountsViewModel>();
+    AccountingTransactionSheet.show(
+      context,
+      vm: vm,
+      bankAccounts: vm.bankAccounts,
+      creditCards: vm.creditCards,
+      preSelectedAccountId: id,
+      preSelectedType: 'bank',
+    );
+  }
 }
 
 // ── Kredi Kartı Detay ──────────────────────────────────────────────────────
@@ -254,18 +265,185 @@ class _CreditCardDetail extends StatelessWidget {
             ),
           ),
 
+          // Ekstre güncelle butonu
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: GestureDetector(
+                onTap: () => _showUpdateStatement(context),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 16),
+                  decoration: BoxDecoration(
+                    color: bankColor.withValues(alpha: 0.06),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: bankColor.withValues(alpha: 0.2)),
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.receipt_long_rounded, color: bankColor, size: 16),
+                      const SizedBox(width: 8),
+                      Text(
+                        'Ekstre Güncelle',
+                        style: GoogleFonts.outfit(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w600,
+                          color: bankColor,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+
           _TransactionsList(accountId: id),
-          const SliverToBoxAdapter(child: SizedBox(height: 80)),
+          const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
-      floatingActionButton: FloatingActionButton.extended(
-        backgroundColor: bankColor,
-        foregroundColor: Colors.white,
-        onPressed: () => _AddTransactionSheet.show(context, id),
-        icon: const Icon(Icons.add),
-        label: Text('İşlem Ekle', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+      floatingActionButton: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          FloatingActionButton.extended(
+            heroTag: 'pay_card',
+            backgroundColor: const Color(0xFF3B82F6),
+            foregroundColor: Colors.white,
+            onPressed: () => _showCardPayment(context),
+            icon: const Icon(Icons.payment_rounded, size: 18),
+            label: Text('Ödeme Yap', style: GoogleFonts.outfit(fontWeight: FontWeight.w600, fontSize: 13)),
+          ),
+          const SizedBox(height: 10),
+          FloatingActionButton.extended(
+            heroTag: 'add_card_tx',
+            backgroundColor: bankColor,
+            foregroundColor: Colors.white,
+            onPressed: () => _showAddTx(context),
+            icon: const Icon(Icons.add),
+            label: Text('İşlem Ekle', style: GoogleFonts.outfit(fontWeight: FontWeight.w600)),
+          ),
+        ],
       ),
     );
+  }
+
+  void _showAddTx(BuildContext context) {
+    final vm = context.read<AccountsViewModel>();
+    AccountingTransactionSheet.show(
+      context,
+      vm: vm,
+      bankAccounts: vm.bankAccounts,
+      creditCards: vm.creditCards,
+      preSelectedAccountId: id,
+      preSelectedType: 'creditCard',
+    );
+  }
+
+  void _showCardPayment(BuildContext context) {
+    final vm = context.read<AccountsViewModel>();
+    AccountingTransactionSheet.show(
+      context,
+      vm: vm,
+      bankAccounts: vm.bankAccounts,
+      creditCards: vm.creditCards,
+      preSelectedAccountId: id,
+      preSelectedType: 'creditCard',
+    );
+  }
+
+  void _showUpdateStatement(BuildContext context) {
+    final stmtCtrl = TextEditingController(text: statementBalance.toStringAsFixed(2));
+    final minCtrl = TextEditingController(text: minimumPayment.toStringAsFixed(2));
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (ctx) {
+        final bottom = MediaQuery.of(ctx).viewInsets.bottom;
+        return Container(
+          decoration: const BoxDecoration(
+            color: Color(0xFF0C1120),
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + bottom),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Center(
+                child: Container(
+                  width: 36, height: 4,
+                  margin: const EdgeInsets.only(top: 12, bottom: 16),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.15),
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+              ),
+              Text('Ekstre Güncelle',
+                  style: GoogleFonts.fraunces(
+                      fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
+              const SizedBox(height: 4),
+              Text('Aylık ekstrenizi alınca buradaki değerleri güncelleyin.',
+                  style: GoogleFonts.outfit(fontSize: 12, color: Colors.white54)),
+              const SizedBox(height: 20),
+
+              Text('EKSTRE BORCU',
+                  style: GoogleFonts.dmMono(fontSize: 10, color: Colors.white38, letterSpacing: 1.4)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: stmtCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: GoogleFonts.dmMono(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  prefixText: '₺  ',
+                  prefixStyle: GoogleFonts.dmMono(fontSize: 18, color: Colors.white38),
+                  filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 12),
+
+              Text('ASGARİ ÖDEME',
+                  style: GoogleFonts.dmMono(fontSize: 10, color: Colors.white38, letterSpacing: 1.4)),
+              const SizedBox(height: 6),
+              TextField(
+                controller: minCtrl,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                style: GoogleFonts.dmMono(fontSize: 18, color: Colors.white, fontWeight: FontWeight.w600),
+                decoration: InputDecoration(
+                  prefixText: '₺  ',
+                  prefixStyle: GoogleFonts.dmMono(fontSize: 18, color: Colors.white38),
+                  filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
+                  border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+                  focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5)),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
+                ),
+              ),
+              const SizedBox(height: 20),
+
+              _StatementSaveButton(
+                stmtCtrl: stmtCtrl,
+                minCtrl: minCtrl,
+                statementBalance: statementBalance,
+                minimumPayment: minimumPayment,
+                cardId: id,
+                sheetContext: ctx,
+              ),
+            ],
+          ),
+        );
+      },
+    ).then((_) {
+      stmtCtrl.dispose();
+      minCtrl.dispose();
+    });
   }
 }
 
@@ -453,6 +631,89 @@ class _DayBadge extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+// ── Ekstre Kaydet Butonu ──────────────────────────────────────────────────
+
+class _StatementSaveButton extends StatefulWidget {
+  final TextEditingController stmtCtrl;
+  final TextEditingController minCtrl;
+  final double statementBalance;
+  final double minimumPayment;
+  final String cardId;
+  final BuildContext sheetContext;
+
+  const _StatementSaveButton({
+    required this.stmtCtrl,
+    required this.minCtrl,
+    required this.statementBalance,
+    required this.minimumPayment,
+    required this.cardId,
+    required this.sheetContext,
+  });
+
+  @override
+  State<_StatementSaveButton> createState() => _StatementSaveButtonState();
+}
+
+class _StatementSaveButtonState extends State<_StatementSaveButton> {
+  bool _saving = false;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      width: double.infinity,
+      height: 48,
+      child: GestureDetector(
+        onTap: _saving ? null : _save,
+        child: Container(
+          decoration: BoxDecoration(
+            color: _saving
+                ? const Color(0xFF3B82F6).withValues(alpha: 0.5)
+                : const Color(0xFF3B82F6),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Center(
+            child: _saving
+                ? const SizedBox(
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                : Text('Kaydet',
+                    style: GoogleFonts.outfit(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white)),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _save() async {
+    final newStmt = double.tryParse(
+            widget.stmtCtrl.text.replaceAll(',', '.')) ??
+        widget.statementBalance;
+    final newMin = double.tryParse(
+            widget.minCtrl.text.replaceAll(',', '.')) ??
+        widget.minimumPayment;
+    setState(() => _saving = true);
+
+    final vm = widget.sheetContext.read<AccountsViewModel>();
+    final cards = vm.creditCards.where((c) => c.id == widget.cardId);
+    if (cards.isNotEmpty) {
+      await vm.updateStatement(
+        card: cards.first,
+        statementBalance: newStmt,
+        minimumPayment: newMin,
+      );
+    }
+
+    if (mounted) setState(() => _saving = false);
+    if (widget.sheetContext.mounted) {
+      Navigator.pop(widget.sheetContext);
+    }
   }
 }
 

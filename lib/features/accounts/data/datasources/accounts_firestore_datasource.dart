@@ -15,6 +15,39 @@ abstract class AccountsFirestoreDataSource {
   Future<AccountTransactionDto> addTransaction(AccountTransactionDto dto);
   Future<void> addTransactions(List<AccountTransactionDto> dtos);
   Future<void> deleteTransaction(String accountId, String txId);
+
+  // ── Atomik muhasebe işlemleri ──────────────────────────────────────────────
+  Future<void> addTransactionWithBalanceUpdate({
+    required AccountTransactionDto tx,
+    required String accountId,
+    required double balanceDelta,
+    String balanceField,
+  });
+  Future<void> addCreditPaymentBatch({
+    required String bankAccountId,
+    required String creditCardId,
+    required double amount,
+    required String txId,
+    required DateTime date,
+    required String uid,
+  });
+  Future<void> addTransferBatch({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    required String txId,
+    required DateTime date,
+    required String description,
+  });
+  Future<void> updateStatementBalance({
+    required String cardId,
+    required double statementBalance,
+    required double minimumPayment,
+  });
+  Future<void> updateBankBalance({
+    required String accountId,
+    required double newBalance,
+  });
 }
 
 /// Firestore tabanlı hesap veri kaynağı
@@ -116,5 +149,157 @@ class AccountsFirestoreDataSourceImpl implements AccountsFirestoreDataSource {
   Future<void> deleteTransaction(String accountId, String txId) async {
     if (_uid.isEmpty) return;
     await _fs.accountTransactions(_uid, accountId).doc(txId).delete();
+  }
+
+  // ── Atomik muhasebe işlemleri ──────────────────────────────────────────────
+
+  /// Atomik: işlem yaz + hesap bakiyesini güncelle
+  @override
+  Future<void> addTransactionWithBalanceUpdate({
+    required AccountTransactionDto tx,
+    required String accountId,
+    required double balanceDelta,
+    String balanceField = 'balance',
+  }) async {
+    if (_uid.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    final data = tx.toJson()..remove('id');
+    batch.set(_fs.accountTransactions(_uid, accountId).doc(tx.id), data);
+    batch.update(_fs.accounts(_uid).doc(accountId), {
+      balanceField: FieldValue.increment(balanceDelta),
+    });
+    await batch.commit();
+  }
+
+  /// Atomik: kredi kartı ödemesi — banka bakiyesi düşer, kart borcu azalır
+  @override
+  Future<void> addCreditPaymentBatch({
+    required String bankAccountId,
+    required String creditCardId,
+    required double amount,
+    required String txId,
+    required DateTime date,
+    required String uid,
+  }) async {
+    if (_uid.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    final now = Timestamp.fromDate(date);
+
+    // Banka: gider işlemi
+    batch.set(_fs.accountTransactions(_uid, bankAccountId).doc('${txId}_b'), {
+      'accountId': bankAccountId,
+      'userId': _uid,
+      'amount': amount,
+      'description': 'Kredi Kartı Ödemesi',
+      'date': now,
+      'type': 'creditPayment',
+      'category': creditCardId,
+      'isInstallment': false,
+      'installmentCount': 1,
+      'installmentNumber': 1,
+      'source': 'manual',
+    });
+    batch.update(_fs.accounts(_uid).doc(bankAccountId), {
+      'balance': FieldValue.increment(-amount),
+    });
+
+    // Kart: ödeme alındı işlemi
+    batch.set(_fs.accountTransactions(_uid, creditCardId).doc('${txId}_c'), {
+      'accountId': creditCardId,
+      'userId': _uid,
+      'amount': amount,
+      'description': 'Ödeme Alındı',
+      'date': now,
+      'type': 'income',
+      'category': 'odeme',
+      'isInstallment': false,
+      'installmentCount': 1,
+      'installmentNumber': 1,
+      'source': 'manual',
+    });
+    batch.update(_fs.accounts(_uid).doc(creditCardId), {
+      'usedAmount': FieldValue.increment(-amount),
+      'statementBalance': FieldValue.increment(-amount),
+    });
+
+    await batch.commit();
+  }
+
+  /// Atomik: iki banka hesabı arasında transfer
+  @override
+  Future<void> addTransferBatch({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    required String txId,
+    required DateTime date,
+    required String description,
+  }) async {
+    if (_uid.isEmpty) return;
+    final batch = FirebaseFirestore.instance.batch();
+    final now = Timestamp.fromDate(date);
+
+    // Gönderen hesap: gider
+    batch.set(
+        _fs.accountTransactions(_uid, fromAccountId).doc('${txId}_from'), {
+      'accountId': fromAccountId,
+      'userId': _uid,
+      'amount': amount,
+      'description': description.isEmpty ? 'Transfer Gönderildi' : description,
+      'date': now,
+      'type': 'transfer',
+      'category': toAccountId,
+      'isInstallment': false,
+      'installmentCount': 1,
+      'installmentNumber': 1,
+      'source': 'manual',
+    });
+    batch.update(_fs.accounts(_uid).doc(fromAccountId), {
+      'balance': FieldValue.increment(-amount),
+    });
+
+    // Alıcı hesap: gelir
+    batch.set(_fs.accountTransactions(_uid, toAccountId).doc('${txId}_to'), {
+      'accountId': toAccountId,
+      'userId': _uid,
+      'amount': amount,
+      'description': description.isEmpty ? 'Transfer Alındı' : description,
+      'date': now,
+      'type': 'income',
+      'category': fromAccountId,
+      'isInstallment': false,
+      'installmentCount': 1,
+      'installmentNumber': 1,
+      'source': 'manual',
+    });
+    batch.update(_fs.accounts(_uid).doc(toAccountId), {
+      'balance': FieldValue.increment(amount),
+    });
+
+    await batch.commit();
+  }
+
+  /// Ekstre değerlerini güncelle
+  @override
+  Future<void> updateStatementBalance({
+    required String cardId,
+    required double statementBalance,
+    required double minimumPayment,
+  }) async {
+    if (_uid.isEmpty) return;
+    await _fs.accounts(_uid).doc(cardId).update({
+      'statementBalance': statementBalance,
+      'minimumPayment': minimumPayment,
+    });
+  }
+
+  /// Banka bakiyesini direkt güncelle
+  @override
+  Future<void> updateBankBalance({
+    required String accountId,
+    required double newBalance,
+  }) async {
+    if (_uid.isEmpty) return;
+    await _fs.accounts(_uid).doc(accountId).update({'balance': newBalance});
   }
 }

@@ -153,7 +153,7 @@ class SpendingViewModel extends ChangeNotifier {
     );
 
     return result.when(
-      success: (_) { if (reload) loadCurrentMonth(); return true; },
+      success: (_) { if (reload) this.reload(); return true; },
       failure: (f) {
         _state = SpendingState.error(
           message: f.message,

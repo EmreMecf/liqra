@@ -12,8 +12,10 @@ import '../viewmodels/accounts_state.dart';
 import '../widgets/add_account_sheet.dart';
 import '../widgets/bank_account_card.dart';
 import '../widgets/credit_card_widget.dart';
+import '../widgets/loan_card_widget.dart';
 import '../widgets/account_transaction_tile.dart';
 import 'account_detail_screen.dart';
+import '../../../../presentation/ocr/ocr_screen.dart';
 
 class AccountsScreen extends StatefulWidget {
   const AccountsScreen({super.key});
@@ -152,8 +154,29 @@ class _AccountsScreenState extends State<AccountsScreen> {
                   ),
                 ],
 
+                // ── 7. Krediler ───────────────────────────────────────────
+                if (vm.loans.isNotEmpty) ...[
+                  SliverToBoxAdapter(
+                    child: _SectionHeader(
+                        title: 'Krediler',
+                        count: vm.loans.length),
+                  ),
+                  SliverPadding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    sliver: SliverList(
+                      delegate: SliverChildBuilderDelegate(
+                        (_, i) => LoanCardWidget(loan: vm.loans[i])
+                            .animate(delay: (i * 60).ms)
+                            .fadeIn(duration: 300.ms)
+                            .slideY(begin: 0.08, end: 0),
+                        childCount: vm.loans.length,
+                      ),
+                    ),
+                  ),
+                ],
+
                 // ── Boş durum ─────────────────────────────────────────────
-                if (vm.accounts.isEmpty)
+                if (vm.accounts.isEmpty && vm.loans.isEmpty)
                   SliverToBoxAdapter(
                     child: _EmptyState(
                         onAdd: () => showAddAccountSheet(context)),
@@ -203,22 +226,85 @@ class _AccountsScreenState extends State<AccountsScreen> {
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
           Text('Finansal Merkez', style: AppTypography.headlineL),
-          GestureDetector(
-            onTap: () => showAddAccountSheet(context),
-            child: Container(
-              width: 38,
-              height: 38,
-              decoration: BoxDecoration(
-                color: AppColors.accentGreen.withValues(alpha: 0.12),
-                shape: BoxShape.circle,
-                border: Border.all(
-                    color: AppColors.accentGreen.withValues(alpha: 0.3)),
+          Row(
+            children: [
+              // Ekstre Yükle butonu
+              GestureDetector(
+                onTap: () => _openStatementImport(vm),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  margin: const EdgeInsets.only(right: 8),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentAmber.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: AppColors.accentAmber.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(Icons.upload_file_outlined,
+                      color: AppColors.accentAmber, size: 18),
+                ),
               ),
-              child: const Icon(Icons.add,
-                  color: AppColors.accentGreen, size: 20),
-            ),
+              // Yeni hesap ekle butonu
+              GestureDetector(
+                onTap: () => showAddAccountSheet(context),
+                child: Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.accentGreen.withValues(alpha: 0.12),
+                    shape: BoxShape.circle,
+                    border: Border.all(
+                        color: AppColors.accentGreen.withValues(alpha: 0.3)),
+                  ),
+                  child: const Icon(Icons.add,
+                      color: AppColors.accentGreen, size: 20),
+                ),
+              ),
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  void _openStatementImport(AccountsViewModel vm) {
+    final accounts = vm.bankAccounts;
+    if (accounts.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Önce bir banka hesabı ekleyin.')),
+      );
+      return;
+    }
+    if (accounts.length == 1) {
+      _navigateToOcr(accounts.first.id, accounts.first.name);
+      return;
+    }
+    // Birden fazla hesap → seçim sheet'i göster
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: AppColors.bgSecondary,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (_) => _AccountPickerSheet(
+        accounts: accounts,
+        onSelected: (id, name) {
+          Navigator.pop(context);
+          _navigateToOcr(id, name);
+        },
+      ),
+    );
+  }
+
+  void _navigateToOcr(String accountId, String accountName) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => OcrScreen(
+          accountId: accountId,
+          accountName: accountName,
+        ),
       ),
     );
   }
@@ -257,6 +343,88 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 style: TextStyle(color: AppColors.accentRed)),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// ─── Hesap Seçim Sheet'i (Ekstre Yükle) ──────────────────────────────────────
+
+class _AccountPickerSheet extends StatelessWidget {
+  final List<BankAccountEntity> accounts;
+  final void Function(String id, String name) onSelected;
+
+  const _AccountPickerSheet({
+    required this.accounts,
+    required this.onSelected,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return SafeArea(
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Hangi hesap için ekstre?',
+                style: AppTypography.headlineS),
+            const SizedBox(height: 4),
+            Text('Seçilen hesaba işlemler yüklenecek.',
+                style: AppTypography.bodyS.copyWith(
+                    color: AppColors.textSecondary)),
+            const SizedBox(height: 16),
+            ...accounts.map((acc) => GestureDetector(
+              onTap: () => onSelected(acc.id, acc.name),
+              child: Container(
+                margin: const EdgeInsets.only(bottom: 10),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
+                decoration: BoxDecoration(
+                  color: AppColors.bgPrimary,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: AppColors.borderSubtle),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 36, height: 36,
+                      decoration: BoxDecoration(
+                        color: AppColors.accentAmber.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(Icons.account_balance_outlined,
+                          color: AppColors.accentAmber, size: 18),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(acc.name, style: AppTypography.labelS.copyWith(
+                              color: AppColors.textPrimary)),
+                          Text(acc.bank.displayName,
+                              style: AppTypography.bodyS.copyWith(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 11)),
+                        ],
+                      ),
+                    ),
+                    Text(
+                      Formatters.currency(acc.balance),
+                      style: GoogleFonts.dmMono(
+                          fontSize: 13, color: AppColors.textSecondary),
+                    ),
+                    const SizedBox(width: 8),
+                    const Icon(Icons.chevron_right,
+                        color: AppColors.textDisabled, size: 18),
+                  ],
+                ),
+              ),
+            )),
+          ],
+        ),
       ),
     );
   }
