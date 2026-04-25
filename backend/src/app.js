@@ -10,8 +10,11 @@ const aiRoutes        = require('./routes/ai.routes');
 const marketRoutes    = require('./routes/market.routes');
 const portfolioRoutes = require('./routes/portfolio.routes');
 const ocrRoutes       = require('./routes/ocr.routes');
-const tefasRoutes        = require('./routes/tefas.routes');
+const tefasRoutes     = require('./routes/tefas.routes');
 const notificationRoutes = require('./routes/notification.routes');
+const merchantRoutes  = require('./routes/merchant.routes');
+const authRoutes     = require('./routes/auth.routes');
+const authTestRoutes = require('./routes/auth.test.routes');
 const { generateMonthlyReport } = require('./services/claude.service');
 const { seedDemoPortfolio }     = require('./services/portfolio.service');
 
@@ -24,7 +27,7 @@ app.use(helmet());
 app.use(cors({
   origin: config.isDev ? '*' : ['https://muhasebe.app'],
   methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'X-Super-Admin-Key'],
 }));
 app.use(express.json({ limit: '10mb' }));  // OCR base64 için artırıldı
 app.use(globalLimiter);
@@ -41,6 +44,9 @@ app.use('/api/portfolio', portfolioRoutes);
 app.use('/api/ocr',       ocrRoutes);
 app.use('/api/tefas',         tefasRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/merchant',   merchantRoutes);
+app.use('/api/auth',       authRoutes);
+app.use('/api/auth',       authTestRoutes);
 
 // ── Demo seed (geliştirme ortamı) ─────────────────────────────────────────────
 if (process.env.NODE_ENV !== 'production') {

@@ -1,48 +1,134 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Kullanıcı kendi verisine tam erişim, başkasına erişemez
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // HELPER FUNCTIONS
+    // ════════════════════════════════════════════════════════════════════════════
+
+    // Giriş yapan user'ı kontrol et
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    // Kendi dokumentine mi erişiyor?
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    // User'ın rolünü al
+    function getUserRole(userId) {
+      return get(/databases/$(database)/documents/users/$(userId)).data.role;
+    }
+
+    // Merchant admin mı?
+    function isMerchantAdmin(userId) {
+      return getUserRole(userId) == 'merchant_admin';
+    }
+
+    // Merchant cashier mı?
+    function isMerchantCashier(userId) {
+      return getUserRole(userId) == 'merchant_cashier';
+    }
+
+    // Merchant employee mi? (admin veya cashier)
+    function isMerchantEmployee(userId) {
+      return isMerchantAdmin(userId) || isMerchantCashier(userId);
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // PERSONAL USER DATA — Kişiye özel veriler
+    // ════════════════════════════════════════════════════════════════════════════
+
     match /users/{userId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
-
-      match /{subcollection}/{docId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
-      }
-
-      // Abonelikler
-      match /subscriptions/{subId} {
-        allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Tüm sub-collections: Owner sadece
+      match /{document=**} {
+        allow read, write: if isSignedIn() && isOwner(userId);
       }
     }
 
-    // Piyasa verileri: herkes okuyabilir (hisse/altın/kur fiyatları — kişisel veri yok)
-    match /market/{docId} {
-      allow read: if true;
-      allow write: if false; // Sadece Cloud Functions yazar
+    // ════════════════════════════════════════════════════════════════════════════
+    // MERCHANT OPERATIONS — İşletme verileri
+    // ════════════════════════════════════════════════════════════════════════════
+
+    match /merchant_operations/{merchantId} {
+      // Dashboard: merchant_admin sadece
+      match /dashboard {
+        allow read, write: if isSignedIn() && 
+          request.auth.uid == merchantId && 
+          isMerchantAdmin(request.auth.uid);
+      }
+
+      // Transactions: admin yazabilir, admin+cashier okuyabilir
+      match /transactions/{transactionId} {
+        allow read: if isSignedIn() && 
+          request.auth.uid == merchantId && 
+          isMerchantEmployee(request.auth.uid);
+        allow create: if isSignedIn() && 
+          request.auth.uid == merchantId && 
+          isMerchantEmployee(request.auth.uid);
+        allow update, delete: if isSignedIn() && 
+          request.auth.uid == merchantId && 
+          isMerchantAdmin(request.auth.uid);
+      }
+
+      // Reports: merchant_admin sadece
+      match /reports/{reportId} {
+        allow read, write: if isSignedIn() && 
+          request.auth.uid == merchantId && 
+          isMerchantAdmin(request.auth.uid);
+      }
+
+      // Staff: merchant_admin sadece
+      match /staff/{staffId} {
+        allow read, write: if isSignedIn() && 
+          request.auth.uid == merchantId && 
+          isMerchantAdmin(request.auth.uid);
+      }
+
+      // Settings: merchant_admin sadece
+      match /settings {
+        allow read, write: if isSignedIn() && 
+          request.auth.uid == merchantId && 
+          isMerchantAdmin(request.auth.uid);
+      }
     }
 
-    // TEFAS fon verileri (Cloud Functions tarafından yazılır)
+    // ════════════════════════════════════════════════════════════════════════════
+    // PUBLIC DATA — Tüm kullanıcılar okuyabilir
+    // ════════════════════════════════════════════════════════════════════════════
+
+    match /market/live_prices {
+      allow read: if isSignedIn();
+      allow write: if false;
+    }
+
     match /tefas_funds/{fundCode} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow write: if false;
     }
 
-    // Banka kampanyaları (Cloud Functions tarafından yazılır, tüm kullanıcılar okur)
-    match /bank_campaigns/{docId} {
-      allow read: if true;
+    match /bank_campaigns/{campaignId} {
+      allow read: if isSignedIn();
       allow write: if false;
     }
 
-    // Piyasa haberleri (Cloud Functions tarafından yazılır, tüm kullanıcılar okur)
-    match /news/{docId} {
-      allow read: if true;
+    match /news/{newsId} {
+      allow read: if isSignedIn();
       allow write: if false;
     }
 
-    // Meta koleksiyonu (kampanya/haber son güncelleme bilgisi)
     match /meta/{docId} {
-      allow read: if true;
+      allow read: if isSignedIn();
       allow write: if false;
+    }
+
+    // ════════════════════════════════════════════════════════════════════════════
+    // DEFAULT: HER ŞEY YASAK
+    // ════════════════════════════════════════════════════════════════════════════
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

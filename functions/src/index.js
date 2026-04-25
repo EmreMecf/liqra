@@ -14,5 +14,6 @@ initializeApp();
 const { fetchMarketData } = require("./market/fetchMarketData");
 const { fetchCampaigns }  = require("./campaigns/fetchCampaigns");
 const { fetchNews }       = require("./news/fetchNews");
+const { onUserCreated }   = require("./auth/onUserCreated");
 
-module.exports = { fetchMarketData, fetchCampaigns, fetchNews };
+module.exports = { fetchMarketData, fetchCampaigns, fetchNews, onUserCreated };
