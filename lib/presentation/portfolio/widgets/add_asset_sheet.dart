@@ -7,6 +7,8 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/constants/app_typography.dart';
+import '../../../data/models/money_flow.dart';
+import '../../../data/models/transaction_model.dart';
 import '../../../data/providers/app_provider.dart';
 import '../../../features/portfolio/data/datasources/tefas_datasource.dart';
 import '../../../features/portfolio/presentation/viewmodel/portfolio_viewmodel.dart';
@@ -95,6 +97,10 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
 
   String _selectedType = 'hisse';
   bool   _isLoading    = false;
+
+  /// "Bu tutarı hesabımdan çıkış olarak kaydet" — varsayılan açık.
+  /// Kullanıcı parayı zaten kaydettiyse (Midas'a EFT gibi) kapatır.
+  bool   _recordCashOut = true;
 
   bool get _isFon    => _selectedType == 'fon';
   bool get _isHisse  => _selectedType == 'hisse';
@@ -344,33 +350,31 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
         content: Text(err), backgroundColor: AppColors.accentRed,
       ));
     } else {
-      // ── Harcama kaydı ve hedef güncelleme ────────────────────────────────
-      if (investedAmount > 0) {
-        // context referanslarını async öncesinde al
-        final spendingVm  = context.read<SpendingViewModel>();
-        final appProvider = context.read<AppProvider>();
+      // ── Nakit çıkışı kaydı (opsiyonel) ve hedef senkronu ─────────────────
+      //
+      // ÇİFT SAYIM UYARISI: Eskiden burada KOŞULSUZ olarak bir gider kaydı
+      // yazılıyordu. Kullanıcı parayı zaten hesabından çıkarıp kaydettiyse
+      // (Midas'a EFT, IBAN ile altın alımı) aynı para iki kez düşülüyordu.
+      // Artık kullanıcı bunu kendisi seçiyor ve kayıt `investment` akışıyla
+      // yazılıyor — nakit azalır ama GİDER sayılmaz.
+      final appProvider = context.read<AppProvider>();
 
+      if (investedAmount > 0 && _recordCashOut) {
+        final spendingVm = context.read<SpendingViewModel>();
         await spendingVm.addTransaction(
           amount:   investedAmount,
-          category: 'Yatırım',
-          type:     'gider',
+          category: TransactionCategory.yatirim.slug,
+          type:     'expense',
+          flow:     MoneyFlow.investment,
           source:   'portfolio',
           note:     assetName,
           reload:   false,
         );
         await spendingVm.reload();
-
-        // Aktif hedefin birikimini artır
-        final goal = appProvider.primaryGoal;
-        if (goal != null) {
-          final newCurrent = (goal.currentAmount + investedAmount)
-              .clamp(0.0, goal.targetAmount);
-          await appProvider.updateGoal(goal.copyWith(
-            currentAmount: newCurrent,
-            status: newCurrent >= goal.targetAmount ? 'completed' : 'active',
-          ));
-        }
       }
+
+      // Hedef birikimi portföyden türetilir — elle eklenen tutar korunur
+      await appProvider.syncGoalWithPortfolio(vm.assets);
 
       if (!mounted) return;
       Navigator.pop(context);
@@ -436,7 +440,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                         margin: const EdgeInsets.only(right: 8),
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
-                          color: sel ? AppColors.accentGreen.withOpacity(0.15) : AppColors.bgTertiary,
+                          color: sel ? AppColors.accentGreen.withValues(alpha: 0.15) : AppColors.bgTertiary,
                           borderRadius: BorderRadius.circular(22),
                           border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
                         ),
@@ -506,7 +510,53 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                     child: Center(child: SizedBox(width: 20, height: 20,
                       child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.accentGreen)))),
                 if (_fundResults.isNotEmpty) _buildFundResults(),
-                if (_selectedFund != null && _fundResults.isEmpty) _buildSelectedFundChip(),
+                if (_selectedFund != null && _fundResults.isEmpty) ...[
+                  _buildSelectedFundChip(),
+                  // TEFAS ücretsiz katalog ucu birim pay değeri vermiyor —
+                  // kullanıcı fiyatı kendisi girer. Bunu açıkça söyle.
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.edit_outlined,
+                            size: 14, color: AppColors.accentAmber),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Fon fiyatı otomatik alınamıyor — birim pay '
+                            'değerini aşağıya elle girin.',
+                            style: AppTypography.labelS
+                                .copyWith(color: AppColors.accentAmber),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+                // Sessiz boş sonuç yerine nedenini söyle — fon verisi
+                // Cloud Functions üzerinden gelir, kaynak kapalıysa liste boştur.
+                if (!_searchLoading &&
+                    _fundResults.isEmpty &&
+                    _selectedFund == null &&
+                    _searchCtrl.text.trim().length >= 2)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline,
+                            size: 14, color: AppColors.textDisabled),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text(
+                            'Fon bulunamadı. Fon verisi şu anda alınamıyor '
+                            'olabilir — fiyatı elle girerek de ekleyebilirsiniz.',
+                            style: AppTypography.labelS
+                                .copyWith(color: AppColors.textDisabled),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
                 const SizedBox(height: 14),
               ],
 
@@ -592,6 +642,73 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
               if (!_isFon)
                 _TotalPreview(qtyCtrl: _qtyCtrl, priceCtrl: _priceCtrl, livePrice: _livePrice),
 
+              const SizedBox(height: 16),
+
+              // ── Nakit çıkışı kaydı ──────────────────────────────────────────
+              // Çift sayımı önler: parayı zaten kaydettiyseniz kapatın.
+              GestureDetector(
+                onTap: () => setState(() => _recordCashOut = !_recordCashOut),
+                behavior: HitTestBehavior.opaque,
+                child: Container(
+                  padding: const EdgeInsets.all(14),
+                  decoration: BoxDecoration(
+                    color: AppColors.bgTertiary,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: _recordCashOut
+                          ? AppColors.accentGreen.withValues(alpha: 0.35)
+                          : AppColors.borderSubtle,
+                    ),
+                  ),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      SizedBox(
+                        width: 22, height: 22,
+                        child: Checkbox(
+                          value: _recordCashOut,
+                          onChanged: (v) =>
+                              setState(() => _recordCashOut = v ?? true),
+                          activeColor: AppColors.accentGreen,
+                          checkColor: AppColors.bgPrimary,
+                          side: const BorderSide(
+                              color: AppColors.textSecondary, width: 1.5),
+                          materialTapTargetSize:
+                              MaterialTapTargetSize.shrinkWrap,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'Bu tutarı hesabımdan çıkış olarak kaydet',
+                              style: AppTypography.labelM.copyWith(
+                                color: AppColors.textPrimary,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              _recordCashOut
+                                  ? 'Yatırım hareketi olarak yazılır — nakdinizden '
+                                      'düşer ama gider olarak sayılmaz.'
+                                  : 'Kayıt oluşturulmaz. Parayı zaten harcama '
+                                      'olarak girdiyseniz bunu kapalı bırakın.',
+                              style: AppTypography.labelS.copyWith(
+                                color: AppColors.textSecondary,
+                                height: 1.4,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+
               const SizedBox(height: 24),
 
               // ── Kaydet ──────────────────────────────────────────────────────
@@ -638,7 +755,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
               duration: const Duration(milliseconds: 180),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
-                color: sel ? AppColors.accentGreen.withOpacity(0.15) : AppColors.bgTertiary,
+                color: sel ? AppColors.accentGreen.withValues(alpha: 0.15) : AppColors.bgTertiary,
                 borderRadius: BorderRadius.circular(20),
                 border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
               ),
@@ -663,9 +780,9 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
   Widget _buildSelectedChip(String code) => Container(
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
     decoration: BoxDecoration(
-      color: AppColors.accentGreen.withOpacity(0.08),
+      color: AppColors.accentGreen.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(10),
-      border: Border.all(color: AppColors.accentGreen.withOpacity(0.3)),
+      border: Border.all(color: AppColors.accentGreen.withValues(alpha: 0.3)),
     ),
     child: Row(children: [
       const Icon(Icons.check_circle_outline, color: AppColors.accentGreen, size: 16),
@@ -757,7 +874,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
             child: Row(children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: AppColors.accentBlue.withOpacity(0.15),
+                decoration: BoxDecoration(color: AppColors.accentBlue.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6)),
                 child: Text(f.code, style: GoogleFonts.dmMono(
                     color: AppColors.accentBlue, fontSize: 11, fontWeight: FontWeight.w700)),
@@ -789,9 +906,9 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
 
   Widget _buildSelectedFundChip() => Container(
     padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(color: AppColors.accentGreen.withOpacity(0.08),
+    decoration: BoxDecoration(color: AppColors.accentGreen.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.accentGreen.withOpacity(0.3))),
+        border: Border.all(color: AppColors.accentGreen.withValues(alpha: 0.3))),
     child: Row(children: [
       const Icon(Icons.check_circle_outline, color: AppColors.accentGreen, size: 16),
       const SizedBox(width: 8),
@@ -822,7 +939,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
             child: Row(children: [
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: AppColors.accentBlue.withOpacity(0.15),
+                decoration: BoxDecoration(color: AppColors.accentBlue.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6)),
                 child: Text(s.code, style: GoogleFonts.dmMono(
                     color: AppColors.accentBlue, fontSize: 11, fontWeight: FontWeight.w700)),
@@ -857,7 +974,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
             margin: const EdgeInsets.only(right: 8),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
-              color: sel ? AppColors.accentGreen.withOpacity(0.15) : AppColors.bgTertiary,
+              color: sel ? AppColors.accentGreen.withValues(alpha: 0.15) : AppColors.bgTertiary,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
             ),
@@ -898,9 +1015,9 @@ class _LivePriceChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
-        color: AppColors.accentBlue.withOpacity(0.08),
+        color: AppColors.accentBlue.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.accentBlue.withOpacity(0.25)),
+        border: Border.all(color: AppColors.accentBlue.withValues(alpha: 0.25)),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -967,8 +1084,8 @@ class _FundPnlPreviewState extends State<_FundPnlPreview> {
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: c.withOpacity(0.08), borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: c.withOpacity(0.3)),
+        color: c.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: c.withValues(alpha: 0.3)),
       ),
       child: Column(children: [
         _row('Maliyet', _fmt(cost)),
@@ -1047,9 +1164,9 @@ class _TotalPreviewState extends State<_TotalPreview> {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: AppColors.accentGreen.withOpacity(0.06),
+        color: AppColors.accentGreen.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.accentGreen.withOpacity(0.2)),
+        border: Border.all(color: AppColors.accentGreen.withValues(alpha: 0.2)),
       ),
       child: Column(children: [
         Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [

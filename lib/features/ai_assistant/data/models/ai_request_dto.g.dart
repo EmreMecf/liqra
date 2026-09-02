@@ -8,48 +8,22 @@ part of 'ai_request_dto.dart';
 
 _$AiRequestDtoImpl _$$AiRequestDtoImplFromJson(Map<String, dynamic> json) =>
     _$AiRequestDtoImpl(
+      systemPrompt: json['systemPrompt'] as String,
       message: json['message'] as String,
-      mode: json['mode'] as String,
-      context: AiContextDto.fromJson(json['context'] as Map<String, dynamic>),
       history:
           (json['history'] as List<dynamic>?)
               ?.map((e) => Map<String, String>.from(e as Map))
               .toList() ??
           const [],
+      maxTokens: (json['maxTokens'] as num?)?.toInt() ?? 2048,
     );
 
 Map<String, dynamic> _$$AiRequestDtoImplToJson(_$AiRequestDtoImpl instance) =>
     <String, dynamic>{
+      'systemPrompt': instance.systemPrompt,
       'message': instance.message,
-      'mode': instance.mode,
-      'context': instance.context,
       'history': instance.history,
-    };
-
-_$AiContextDtoImpl _$$AiContextDtoImplFromJson(Map<String, dynamic> json) =>
-    _$AiContextDtoImpl(
-      riskProfile: json['riskProfile'] as String,
-      monthlyIncome: (json['monthlyIncome'] as num).toDouble(),
-      monthlyExpenses: (json['monthlyExpenses'] as num).toDouble(),
-      netCash: (json['netCash'] as num).toDouble(),
-      portfolioSummary: json['portfolioSummary'] as String,
-      transactionsSummary: json['transactionsSummary'] as String,
-      goalTitle: json['goalTitle'] as String?,
-      goalProgress: (json['goalProgress'] as num?)?.toDouble(),
-      goalDeadline: json['goalDeadline'] as String?,
-    );
-
-Map<String, dynamic> _$$AiContextDtoImplToJson(_$AiContextDtoImpl instance) =>
-    <String, dynamic>{
-      'riskProfile': instance.riskProfile,
-      'monthlyIncome': instance.monthlyIncome,
-      'monthlyExpenses': instance.monthlyExpenses,
-      'netCash': instance.netCash,
-      'portfolioSummary': instance.portfolioSummary,
-      'transactionsSummary': instance.transactionsSummary,
-      'goalTitle': instance.goalTitle,
-      'goalProgress': instance.goalProgress,
-      'goalDeadline': instance.goalDeadline,
+      'maxTokens': instance.maxTokens,
     };
 
 _$AiResponseDtoImpl _$$AiResponseDtoImplFromJson(Map<String, dynamic> json) =>

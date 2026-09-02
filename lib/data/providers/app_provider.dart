@@ -3,8 +3,10 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/foundation.dart';
 import '../models/user_model.dart';
+import '../models/money_flow.dart';
 import '../models/transaction_model.dart';
 import '../models/recurring_item_model.dart';
+import '../models/budget_model.dart';
 import '../models/goal_model.dart';
 import '../models/portfolio_model.dart';
 import '../../core/services/auth_service.dart';
@@ -29,6 +31,11 @@ class AppProvider extends ChangeNotifier {
     currency: 'TRY',
   );
 
+  /// Kullanıcı rolü — Cloud Functions (onUserCreated) users/{uid}.role alanına yazar.
+  /// 'personal' | 'merchant_admin' | 'merchant_cashier'
+  String _userRole = 'personal';
+  String get userRole => _userRole;
+
   List<TransactionModel> _transactions = [];
   List<TransactionModel> get transactions => List.unmodifiable(_transactions);
   bool _txLoaded = false;
@@ -48,7 +55,8 @@ class AppProvider extends ChangeNotifier {
     for (final t in txs) {
       if (t.isIncome) {
         income += t.amount;
-      } else {
+      } else if (t.isExpense) {
+        // isExpense artık flow tabanlı: yatırım/transfer/kart ödemesi hariç
         expenses += t.amount;
         byCategory[t.category.label] = (byCategory[t.category.label] ?? 0) + t.amount;
       }
@@ -101,8 +109,11 @@ class AppProvider extends ChangeNotifier {
         currency: 'TRY',
       );
 
-      // Hedefler alt koleksiyonu
+      _userRole = userData?['role'] as String? ?? 'personal';
+
+      // Hedefler ve bütçe limitleri
       await _loadGoalsFromFirestore(uid);
+      await _loadBudget(uid);
 
       _recurringItems = [];
       _portfolio = PortfolioModel(id: 'p_$uid', userId: uid, assets: []);
@@ -127,6 +138,7 @@ class AppProvider extends ChangeNotifier {
           title: d['title'] as String? ?? '',
           targetAmount: (d['targetAmount'] as num?)?.toDouble() ?? 0,
           currentAmount: (d['currentAmount'] as num?)?.toDouble() ?? 0,
+          manualAmount:  (d['manualAmount'] as num?)?.toDouble() ?? 0,
           deadline: (d['deadline'] as Timestamp?)?.toDate() ?? DateTime.now(),
           status: d['status'] as String? ?? 'active',
           emoji: d['emoji'] as String? ?? '🎯',
@@ -171,31 +183,20 @@ class AppProvider extends ChangeNotifier {
       id:       doc.id,
       userId:   d['userId'] as String? ?? '',
       amount:   (d['amount'] as num?)?.toDouble() ?? 0,
-      category: _mapCategory((d['category'] as String? ?? '').toLowerCase()),
+      // Tek ayrıştırıcı: hem slug hem eski Türkçe etiketleri tanır
+      category: TransactionCategoryX.parse(d['category'] as String?),
       type:     type,
       source:   d['source'] as String? ?? 'manual',
       date:     DateTime.tryParse(d['date'] as String? ?? '') ?? DateTime.now(),
       note:     d['note'] as String?,
+      // Eski kayıtlarda `flow` yok — type + kategoriden türetilir
+      flow: MoneyFlowParser.parse(
+        rawFlow: d['flow'] as String?,
+        rawType: type,
+        categorySlug: TransactionCategoryX.slugOf(d['category'] as String?),
+      ),
+      accountId: d['accountId'] as String?,
     );
-  }
-
-  TransactionCategory _mapCategory(String label) {
-    switch (label) {
-      case 'yeme-içme':
-      case 'yeme-icme':  return TransactionCategory.yemeicme;
-      case 'alışveriş':
-      case 'alisveris':
-      case 'market':     return TransactionCategory.market;
-      case 'ulaşım':
-      case 'ulasim':     return TransactionCategory.ulasim;
-      case 'fatura':     return TransactionCategory.fatura;
-      case 'sağlık':
-      case 'saglik':     return TransactionCategory.saglik;
-      case 'eğlence':
-      case 'eglence':    return TransactionCategory.eglence;
-      case 'gelir':      return TransactionCategory.gelir;
-      default:           return TransactionCategory.diger;
-    }
   }
 
 
@@ -214,14 +215,17 @@ class AppProvider extends ChangeNotifier {
 
     final fs = FirestoreService.instance;
 
-    // Kullanıcı profilini Firestore'a kaydet
+    // Kullanıcı profilini Firestore'a kaydet.
+    // merge:true ZORUNLU — aksi halde onUserCreated'ın yazdığı 'role' ve
+    // NotificationService'in yazdığı 'fcmToken' alanları silinir; güvenlik
+    // kuralı da 'role' alanına dokunan istemci yazımını reddeder.
     await fs.userDoc(uid).set({
       'name': name,
       'riskProfile': riskProfile,
       'monthlyIncome': monthlyIncome,
       'currency': 'TRY',
       'createdAt': FieldValue.serverTimestamp(),
-    });
+    }, SetOptions(merge: true));
 
     // İlk hedefi Firestore'a kaydet
     final goalId = 'goal_${uid}_0';
@@ -274,6 +278,7 @@ class AppProvider extends ChangeNotifier {
     _txSub = null;
     _txLoaded = false;
     _user = null;
+    _userRole = 'personal';
     _transactions = [];
     _recurringItems = [];
     _goals = [];
@@ -290,9 +295,22 @@ class AppProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void deleteTransaction(String id) {
+  /// İşlemi Firestore'dan siler. Önce yerel listeden kaldırır (optimistic),
+  /// silme başarısız olursa stream bir sonraki snapshot'ta kaydı geri getirir.
+  ///
+  /// Not: Eskiden yalnızca yerel listeyi temizliyordu; Firestore stream'i
+  /// kaydı anında geri yüklediği için silme işlemi kalıcı olmuyordu.
+  Future<void> deleteTransaction(String id) async {
+    final uid = AuthService.instance.userId;
     _transactions.removeWhere((t) => t.id == id);
     notifyListeners();
+
+    if (uid == null) return;
+    try {
+      await FirestoreService.instance.transactions(uid).doc(id).delete();
+    } catch (e) {
+      debugPrint('[AppProvider] deleteTransaction error: $e');
+    }
   }
 
   List<TransactionModel> get currentMonthTransactions {
@@ -305,6 +323,9 @@ class AppProvider extends ChangeNotifier {
   Map<TransactionCategory, double> get monthlyExpensesByCategory =>
       expensesByCategoryForMonth(DateTime.now().year, DateTime.now().month);
 
+  /// Kategori dağılımı — gider sayılan hareketler (flow.countsAsExpense).
+  /// Yatırım/transfer/kart ödemesi burada GÖRÜNMEZ; böylece pastanın
+  /// dilimlerinin toplamı [expensesForMonth] ile birebir aynı olur.
   Map<TransactionCategory, double> expensesByCategoryForMonth(int year, int month) {
     final Map<TransactionCategory, double> totals = {};
     for (final tx in transactionsForMonth(year, month)) {
@@ -320,10 +341,18 @@ class AppProvider extends ChangeNotifier {
           .where((t) => t.isIncome)
           .fold(0.0, (acc, t) => acc + t.amount);
 
+  /// TEK gider tanımı — [TransactionModel.isExpense] (flow tabanlı).
+  /// Eskiden burada `category != yatirim` özel kontrolü vardı ve uygulamanın
+  /// başka yerlerinde bu kontrol YOKTU; aynı ay için farklı toplamlar çıkıyordu.
   double expensesForMonth(int year, int month) =>
       transactionsForMonth(year, month)
-          // Yatırım harcaması net nakiti etkilemez (servet transferi)
-          .where((t) => t.isExpense && t.category != TransactionCategory.yatirim)
+          .where((t) => t.isExpense)
+          .fold(0.0, (acc, t) => acc + t.amount);
+
+  /// Yatırıma aktarılan tutar — gider değildir, ayrı gösterilir.
+  double investedForMonth(int year, int month) =>
+      transactionsForMonth(year, month)
+          .where((t) => t.flow == MoneyFlow.investment)
           .fold(0.0, (acc, t) => acc + t.amount);
 
   double get monthlyIncome =>
@@ -334,17 +363,26 @@ class AppProvider extends ChangeNotifier {
 
   double get netCash => monthlyIncome - monthlyExpenses;
 
-  /// Tüm zamanların birikimli bakiyesi (gelir − gider)
+  /// Tüm zamanların NAKİT bakiyesi.
+  ///
+  /// Akış tipinin nakit yönüne göre hesaplanır: kart harcaması nakdi
+  /// etkilemez, kart ödemesi ve yatırım azaltır. Eskiden her gider kaydı
+  /// (yatırım dahil) körü körüne düşülüyordu.
   double get totalBalance =>
-      _transactions.fold(0.0, (acc, t) => acc + (t.isIncome ? t.amount : -t.amount));
+      _transactions.fold(0.0, (acc, t) => acc + t.cashEffect);
 
   /// Tüm zamanların toplam geliri
   double get totalIncomeAllTime =>
       _transactions.where((t) => t.isIncome).fold(0.0, (acc, t) => acc + t.amount);
 
-  /// Tüm zamanların toplam gideri
+  /// Tüm zamanların toplam gideri — [expensesForMonth] ile aynı tanım
   double get totalExpenseAllTime =>
       _transactions.where((t) => t.isExpense).fold(0.0, (acc, t) => acc + t.amount);
+
+  /// Tüm zamanlarda yatırıma aktarılan tutar (gider değil)
+  double get totalInvestedAllTime => _transactions
+      .where((t) => t.flow == MoneyFlow.investment)
+      .fold(0.0, (acc, t) => acc + t.amount);
 
   // ── Sabit Kalemler ──────────────────────────────────────────────────────────
 
@@ -361,6 +399,73 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
+
+  // ── Bütçe Limitleri ────────────────────────────────────────────────────────
+
+  BudgetModel _budget = BudgetModel.empty;
+  BudgetModel get budget => _budget;
+
+  Future<void> _loadBudget(String uid) async {
+    try {
+      final snap = await FirestoreService.instance.budgets(uid).get();
+      _budget = BudgetModel.fromMap(snap.data());
+    } catch (e) {
+      debugPrint('[AppProvider] bütçe okunamadı: $e');
+      _budget = BudgetModel.empty;
+    }
+  }
+
+  /// Bir kategorinin aylık limitini belirler. `null` veya 0 limiti kaldırır.
+  Future<void> setBudgetLimit(TransactionCategory category, double? limit) async {
+    final uid = AuthService.instance.userId;
+    if (uid == null) return;
+
+    final previous = _budget;
+    _budget = _budget.withLimit(category, limit);
+    notifyListeners();
+
+    try {
+      await FirestoreService.instance
+          .budgets(uid)
+          .set(_budget.toMap(), SetOptions(merge: false));
+    } catch (e) {
+      // Yazma başarısızsa eski hâle dön — kullanıcı kaydedilmemiş bir limiti
+      // kaydedilmiş sanmasın.
+      debugPrint('[AppProvider] bütçe yazılamadı: $e');
+      _budget = previous;
+      notifyListeners();
+    }
+  }
+
+  /// Verilen ayın bütçe durumu — yalnızca limiti olan kategoriler.
+  /// Aşım oranına göre sıralanır: en kritik başta.
+  List<BudgetStatus> budgetStatusForMonth(int year, int month) {
+    if (_budget.isEmpty) return const [];
+
+    final spent = expensesByCategoryForMonth(year, month);
+    final out = <BudgetStatus>[];
+
+    for (final entry in _budget.limits.entries) {
+      final category = TransactionCategoryX.parse(entry.key);
+      out.add(BudgetStatus(
+        category: category,
+        limit: entry.value,
+        spent: spent[category] ?? 0,
+      ));
+    }
+
+    out.sort((a, b) => b.rawRatio.compareTo(a.rawRatio));
+    return out;
+  }
+
+  /// Bu ayın bütçe durumu.
+  List<BudgetStatus> get budgetStatus =>
+      budgetStatusForMonth(DateTime.now().year, DateTime.now().month);
+
+  /// Limiti aşılmış kategoriler.
+  List<BudgetStatus> get overBudget =>
+      budgetStatus.where((b) => b.isOver).toList();
+
   // ── Hedefler ───────────────────────────────────────────────────────────────
 
   GoalModel? get primaryGoal =>
@@ -375,6 +480,7 @@ class AppProvider extends ChangeNotifier {
         'title':         goal.title,
         'targetAmount':  goal.targetAmount,
         'currentAmount': goal.currentAmount,
+        'manualAmount':  goal.manualAmount,
         'deadline':      Timestamp.fromDate(goal.deadline),
         'status':        goal.status,
         'emoji':         goal.emoji ?? '🎯',
@@ -400,6 +506,7 @@ class AppProvider extends ChangeNotifier {
       if (uid != null) {
         await FirestoreService.instance.goals(uid).doc(updated.id).update({
           'currentAmount': updated.currentAmount,
+          'manualAmount':  updated.manualAmount,
           'status':        updated.status,
           'title':         updated.title,
           'targetAmount':  updated.targetAmount,
@@ -411,8 +518,12 @@ class AppProvider extends ChangeNotifier {
     }
   }
 
-  /// Mevcut portföy varlıklarını hedefe senkronize eder.
-  /// Her iki yönde de çalışır: varlık eklenince artar, silinince azalır.
+  /// Portföy bileşenini hedefe senkronize eder.
+  ///
+  /// ÖNEMLİ: [GoalModel.manualAmount] (kullanıcının "Para Ekle" ile eklediği
+  /// nakit birikim) korunur. Eskiden bu fonksiyon currentAmount'ı doğrudan
+  /// portföy toplamıyla EZİYORDU; uygulama her açıldığında elle eklenen
+  /// birikim siliniyordu.
   Future<void> syncGoalWithPortfolio(List<dynamic> assets) async {
     final goal = primaryGoal;
     if (goal == null) return;
@@ -425,9 +536,9 @@ class AppProvider extends ChangeNotifier {
       totalInvested += qty * buyPrice;
     }
 
-    // Tüm varlıklar silindi → sıfıra eşitle
-    // Yön fark etmeksizin her zaman gerçek toplama senkronize et
-    final newAmount = totalInvested.clamp(0.0, goal.targetAmount);
+    // Hedef birikimi = elle eklenen nakit + portföye aktarılan tutar
+    final newAmount =
+        (goal.manualAmount + totalInvested).clamp(0.0, goal.targetAmount);
     if (newAmount == goal.currentAmount) return; // değişiklik yoksa atla
 
     await updateGoal(goal.copyWith(

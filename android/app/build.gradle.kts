@@ -10,12 +10,19 @@ plugins {
     id("com.google.firebase.crashlytics")
 }
 
-// key.properties dosyasından imzalama bilgilerini oku
+// key.properties dosyasından imzalama bilgilerini oku.
+// Dosya yoksa (CI, yeni klon, debug geliştirme) imzalama yapılandırması
+// tamamen atlanır — aksi halde configure aşamasında build çöker.
 val keyPropertiesFile = rootProject.file("key.properties")
 val keyProperties = Properties()
 if (keyPropertiesFile.exists()) {
     keyProperties.load(FileInputStream(keyPropertiesFile))
 }
+val hasReleaseSigning = keyPropertiesFile.exists() &&
+    keyProperties["storeFile"] != null &&
+    keyProperties["storePassword"] != null &&
+    keyProperties["keyAlias"] != null &&
+    keyProperties["keyPassword"] != null
 
 android {
     namespace  = "com.emrec.muhasebe"
@@ -47,19 +54,23 @@ android {
     }
 
     signingConfigs {
-        create("release") {
-            storeFile     = file(keyProperties["storeFile"] as String)
-            storePassword = keyProperties["storePassword"] as String
-            keyAlias      = keyProperties["keyAlias"] as String
-            keyPassword   = keyProperties["keyPassword"] as String
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile     = file(keyProperties["storeFile"] as String)
+                storePassword = keyProperties["storePassword"] as String
+                keyAlias      = keyProperties["keyAlias"] as String
+                keyPassword   = keyProperties["keyPassword"] as String
+            }
         }
     }
 
     buildTypes {
         debug {
-            applicationIdSuffix = ".debug"
-            versionNameSuffix   = "-debug"
-            isDebuggable        = true
+            // applicationIdSuffix KULLANMA — google-services.json yalnızca
+            // com.emrec.muhasebe için kayıtlı; sonek eklenirse plugin
+            // "No matching client found" hatasıyla build'i keser.
+            versionNameSuffix = "-debug"
+            isDebuggable      = true
         }
         release {
             isMinifyEnabled   = true
@@ -68,7 +79,13 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("release")
+            // key.properties yoksa debug anahtarıyla imzala (build kesilmesin)
+            signingConfig = if (hasReleaseSigning) {
+                signingConfigs.getByName("release")
+            } else {
+                logger.warn("[liqra] key.properties bulunamadı — release build debug anahtarıyla imzalanıyor.")
+                signingConfigs.getByName("debug")
+            }
         }
     }
 

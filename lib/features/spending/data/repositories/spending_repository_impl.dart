@@ -1,5 +1,7 @@
 import 'package:uuid/uuid.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../data/models/money_flow.dart';
+import '../../../../data/models/transaction_model.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/repositories/spending_repository.dart';
 import '../datasources/spending_local_datasource.dart';
@@ -29,7 +31,11 @@ class SpendingRepositoryImpl implements SpendingRepository {
         entities = entities.where((t) => t.date.isBefore(to)).toList();
       }
       if (category != null) {
-        entities = entities.where((t) => t.category == category).toList();
+        // İki tarafı da slug'a normalize et — etiket/slug karışımı olabilir
+        final wanted = TransactionCategoryX.slugOf(category);
+        entities = entities
+            .where((t) => TransactionCategoryX.slugOf(t.category) == wanted)
+            .toList();
       }
 
       return Success(entities);
@@ -73,15 +79,19 @@ class SpendingRepositoryImpl implements SpendingRepository {
       double income = 0, expenses = 0;
       final Map<String, double> byCategory = {};
 
+      // TEK gider tanımı: flow.countsAsExpense.
+      // Yatırım, transfer ve kart ödemesi gider sayılmaz; kategori dağılımına
+      // da girmez — böylece pastanın dilimleri ortadaki toplamı tutar.
       for (final tx in monthly) {
-        if (tx.isIncome) {
+        if (tx.flow.countsAsIncome) {
           income += tx.amount;
-        } else {
-          byCategory[tx.category] =
-              (byCategory[tx.category] ?? 0) + tx.amount;
-          // Yatırım harcaması net nakiti etkilemez (servet transferi)
-          if (tx.category != 'yatirim') expenses += tx.amount;
+          continue;
         }
+        if (!tx.flow.countsAsExpense) continue;
+
+        expenses += tx.amount;
+        final slug = TransactionCategoryX.slugOf(tx.category);
+        byCategory[slug] = (byCategory[slug] ?? 0) + tx.amount;
       }
 
       return Success(MonthlySummaryEntity(
@@ -117,6 +127,13 @@ class SpendingRepositoryImpl implements SpendingRepository {
         source: dto.source,
         date: DateTime.tryParse(dto.date) ?? DateTime.now(),
         note: dto.note,
+        // Eski kayıtlarda `flow` yok — type + kategoriden türetilir.
+        flow: MoneyFlowParser.parse(
+          rawFlow: dto.flow,
+          rawType: dto.type,
+          categorySlug: TransactionCategoryX.slugOf(dto.category),
+        ),
+        accountId: dto.accountId,
       );
 
   TransactionDto _entityToDto(TransactionEntity entity) => TransactionDto(
@@ -128,5 +145,7 @@ class SpendingRepositoryImpl implements SpendingRepository {
         source: entity.source,
         date: entity.date.toIso8601String(),
         note: entity.note,
+        flow: entity.flow.slug,
+        accountId: entity.accountId,
       );
 }

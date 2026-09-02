@@ -29,6 +29,10 @@ mixin _$CampaignEntity {
   String? get endDate => throw _privateConstructorUsedError;
   DateTime? get fetchedAt => throw _privateConstructorUsedError;
 
+  /// true = Cloud Functions seed verisi (gerçek banka API'sinden gelmedi).
+  /// UI bunu "Örnek" rozetiyle gösterir.
+  bool get isSample => throw _privateConstructorUsedError;
+
   /// Create a copy of CampaignEntity
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -55,6 +59,7 @@ abstract class $CampaignEntityCopyWith<$Res> {
     String? imageUrl,
     String? endDate,
     DateTime? fetchedAt,
+    bool isSample,
   });
 }
 
@@ -84,6 +89,7 @@ class _$CampaignEntityCopyWithImpl<$Res, $Val extends CampaignEntity>
     Object? imageUrl = freezed,
     Object? endDate = freezed,
     Object? fetchedAt = freezed,
+    Object? isSample = null,
   }) {
     return _then(
       _value.copyWith(
@@ -131,6 +137,10 @@ class _$CampaignEntityCopyWithImpl<$Res, $Val extends CampaignEntity>
                 ? _value.fetchedAt
                 : fetchedAt // ignore: cast_nullable_to_non_nullable
                       as DateTime?,
+            isSample: null == isSample
+                ? _value.isSample
+                : isSample // ignore: cast_nullable_to_non_nullable
+                      as bool,
           )
           as $Val,
     );
@@ -158,6 +168,7 @@ abstract class _$$CampaignEntityImplCopyWith<$Res>
     String? imageUrl,
     String? endDate,
     DateTime? fetchedAt,
+    bool isSample,
   });
 }
 
@@ -186,6 +197,7 @@ class __$$CampaignEntityImplCopyWithImpl<$Res>
     Object? imageUrl = freezed,
     Object? endDate = freezed,
     Object? fetchedAt = freezed,
+    Object? isSample = null,
   }) {
     return _then(
       _$CampaignEntityImpl(
@@ -233,6 +245,10 @@ class __$$CampaignEntityImplCopyWithImpl<$Res>
             ? _value.fetchedAt
             : fetchedAt // ignore: cast_nullable_to_non_nullable
                   as DateTime?,
+        isSample: null == isSample
+            ? _value.isSample
+            : isSample // ignore: cast_nullable_to_non_nullable
+                  as bool,
       ),
     );
   }
@@ -253,6 +269,7 @@ class _$CampaignEntityImpl implements _CampaignEntity {
     this.imageUrl,
     this.endDate,
     this.fetchedAt,
+    this.isSample = false,
   });
 
   @override
@@ -278,9 +295,15 @@ class _$CampaignEntityImpl implements _CampaignEntity {
   @override
   final DateTime? fetchedAt;
 
+  /// true = Cloud Functions seed verisi (gerçek banka API'sinden gelmedi).
+  /// UI bunu "Örnek" rozetiyle gösterir.
+  @override
+  @JsonKey()
+  final bool isSample;
+
   @override
   String toString() {
-    return 'CampaignEntity(id: $id, bank: $bank, bankSlug: $bankSlug, bankColor: $bankColor, title: $title, description: $description, detailUrl: $detailUrl, category: $category, imageUrl: $imageUrl, endDate: $endDate, fetchedAt: $fetchedAt)';
+    return 'CampaignEntity(id: $id, bank: $bank, bankSlug: $bankSlug, bankColor: $bankColor, title: $title, description: $description, detailUrl: $detailUrl, category: $category, imageUrl: $imageUrl, endDate: $endDate, fetchedAt: $fetchedAt, isSample: $isSample)';
   }
 
   @override
@@ -305,7 +328,9 @@ class _$CampaignEntityImpl implements _CampaignEntity {
                 other.imageUrl == imageUrl) &&
             (identical(other.endDate, endDate) || other.endDate == endDate) &&
             (identical(other.fetchedAt, fetchedAt) ||
-                other.fetchedAt == fetchedAt));
+                other.fetchedAt == fetchedAt) &&
+            (identical(other.isSample, isSample) ||
+                other.isSample == isSample));
   }
 
   @override
@@ -322,6 +347,7 @@ class _$CampaignEntityImpl implements _CampaignEntity {
     imageUrl,
     endDate,
     fetchedAt,
+    isSample,
   );
 
   /// Create a copy of CampaignEntity
@@ -349,6 +375,7 @@ abstract class _CampaignEntity implements CampaignEntity {
     final String? imageUrl,
     final String? endDate,
     final DateTime? fetchedAt,
+    final bool isSample,
   }) = _$CampaignEntityImpl;
 
   @override
@@ -373,6 +400,11 @@ abstract class _CampaignEntity implements CampaignEntity {
   String? get endDate;
   @override
   DateTime? get fetchedAt;
+
+  /// true = Cloud Functions seed verisi (gerçek banka API'sinden gelmedi).
+  /// UI bunu "Örnek" rozetiyle gösterir.
+  @override
+  bool get isSample;
 
   /// Create a copy of CampaignEntity
   /// with the given fields replaced by the non-null parameter values.

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
+import '../../../../core/utils/formatters.dart';
 import '../../domain/entities/account_transaction_entity.dart';
 
 class AccountTransactionTile extends StatelessWidget {
@@ -15,7 +16,8 @@ class AccountTransactionTile extends StatelessWidget {
     final isIncome = tx.isIncome;
     final color = isIncome ? const Color(0xFF00C896) : const Color(0xFFFF4757);
     final fmt = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2);
-    final dateFmt = DateFormat('d MMM', 'tr_TR');
+    // DateFormat('...', 'tr_TR') initializeDateFormatting gerektirir ve
+    // LocaleDataException atar — Formatters'ın manuel ay isimleri kullanılıyor.
 
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
@@ -86,7 +88,7 @@ class AccountTransactionTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${dateFmt.format(tx.date)} · ${tx.category}',
+                  '${Formatters.shortDate(tx.date)} · ${tx.category}',
                   style: GoogleFonts.outfit(
                     fontSize: 11,
                     color: Colors.white.withValues(alpha: 0.35),

@@ -11,6 +11,8 @@ import 'package:uuid/uuid.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/services/gemini_service.dart';
+import '../../data/models/money_flow.dart';
+import '../../data/models/transaction_model.dart';
 import '../../features/accounts/domain/entities/account_transaction_entity.dart';
 import '../../features/accounts/presentation/viewmodels/accounts_viewmodel.dart';
 import '../../features/spending/presentation/viewmodel/spending_viewmodel.dart';
@@ -195,10 +197,10 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
           if (!m.containsKey('amount'))          m['amount'] = m['amt'] ?? 0.0;
           if (!m.containsKey('description'))     m['description'] = m['desc'] ?? '';
           if (!m.containsKey('transactionType')) m['transactionType'] = m['t'] == 'r' ? 'gelir' : 'gider';
-          m['categoryLabel'] = _inferCategory(
-            m['description'] as String? ?? '',
-            m['transactionType'] as String? ?? 'gider',
-          );
+          final desc = m['description'] as String? ?? '';
+          final txType = m['transactionType'] as String? ?? 'gider';
+          m['categoryLabel'] = _inferCategory(desc, txType);
+          m['flow']          = _inferFlow(desc, txType).slug;
           return m;
         }).toList();
         setState(() { _transactions = txList; _isProcessing = false; _bankMeta = parsed; });
@@ -215,37 +217,73 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
     }
   }
 
+  /// Açıklamadan para akışı türünü çıkarır.
+  ///
+  /// ÇİFT SAYIM UYARISI: Banka ekstresindeki "kredi kartı ödemesi" satırı
+  /// GİDER DEĞİLDİR — o harcamalar kart ekstresinde zaten gider olarak
+  /// kaydedilmiştir. İkisi birlikte yüklenirse aynı para iki kez sayılırdı.
+  MoneyFlow _inferFlow(String desc, String type) {
+    if (type == 'gelir' || type == 'income') return MoneyFlow.income;
+
+    final d = desc.toLowerCase();
+    final isCardPayment = d.contains('kredi karti') ||
+        d.contains('kredi kartı') ||
+        d.contains('kart ödemesi') ||
+        d.contains('kart odemesi') ||
+        d.contains('kart odeme') ||
+        d.contains('otomatik odeme') ||
+        d.contains('otomatik ödeme');
+    if (isCardPayment) return MoneyFlow.cardPayment;
+
+    return MoneyFlow.expense;
+  }
+
+  /// Açıklamadan kategori çıkarır — **kanonik slug** döner
+  /// (Firestore'a slug yazılır, UI'da TransactionCategory.label gösterilir).
   String _inferCategory(String desc, String type) {
-    if (type == 'gelir') return 'Gelir';
+    if (type == 'gelir' || type == 'income') {
+      return TransactionCategory.gelir.slug;
+    }
     final d = desc.toLowerCase();
     if (d.contains('kredi karti') || d.contains('kredi kartı') || d.contains('kart ödemesi') ||
-        d.contains('kart odeme') || d.contains('otomatik odeme') || d.contains('otomatik ödeme')) { return 'Fatura'; }
+        d.contains('kart odeme') || d.contains('otomatik odeme') || d.contains('otomatik ödeme')) {
+      return TransactionCategory.fatura.slug;
+    }
     if (d.contains('petrol') || d.contains('akaryakıt') || d.contains('akaryakit') ||
         d.contains('shell') || d.contains('bp ') || d.contains('opet') ||
         d.contains('mjet') || d.contains('metro') || d.contains('taksi') ||
         d.contains('uber') || d.contains('bilet') || d.contains('otobus') ||
-        d.contains('otobüs')) { return 'Ulaşım'; }
+        d.contains('otobüs')) {
+      return TransactionCategory.ulasim.slug;
+    }
     if (d.contains('cafe') || d.contains('pizza') || d.contains('burger') ||
         d.contains('restaurant') || d.contains('restoran') || d.contains('yemek') ||
         d.contains('pastane') || d.contains('çiğköfte') || d.contains('cigkofte') ||
         d.contains('chicken') || d.contains('yolda') || d.contains('döner') ||
-        d.contains('doner') || d.contains('kahve') || d.contains('coffee')) { return 'Yeme-İçme'; }
+        d.contains('doner') || d.contains('kahve') || d.contains('coffee')) {
+      return TransactionCategory.yemeicme.slug;
+    }
     if (d.contains('market') || d.contains('gıda') || d.contains('gida') ||
         d.contains('migros') || d.contains('a101') || d.contains('bim ') ||
         d.contains('carrefour') || d.contains('şok ') || d.contains('unlu') ||
         d.contains('kuruyem') || d.contains('kozmetik') || d.contains('çiçek') ||
-        d.contains('kral') || d.contains('mavi köşe')) { return 'Alışveriş'; }
+        d.contains('kral') || d.contains('mavi köşe')) {
+      return TransactionCategory.market.slug;
+    }
     if (d.contains('netflix') || d.contains('apple') || d.contains('google') ||
         d.contains('youtube') || d.contains('hbomax') || d.contains('todtv') ||
         d.contains('steam') || d.contains('fatura') || d.contains('iyzico') ||
         d.contains('spotify') || d.contains('abonelik') || d.contains('doğalgaz') ||
-        d.contains('elektrik') || d.contains('su fatura') || d.contains('internet')) { return 'Fatura'; }
+        d.contains('elektrik') || d.contains('su fatura') || d.contains('internet')) {
+      return TransactionCategory.fatura.slug;
+    }
     if (d.contains('eczane') || d.contains('hastane') || d.contains('doktor') ||
         d.contains('sağlık') || d.contains('saglik') || d.contains('ilaç') ||
-        d.contains('ilac') || d.contains('klinik') || d.contains('diş')) { return 'Sağlık'; }
-    if (d.contains('eft') || d.contains('havale') || d.contains('transfer') ||
-        d.contains('para gönder') || d.contains('para gonder')) { return 'Transfer'; }
-    return 'Diğer';
+        d.contains('ilac') || d.contains('klinik') || d.contains('diş')) {
+      return TransactionCategory.saglik.slug;
+    }
+    // EFT/havale gerçek bir harcama kategorisi değil — 'diger'e düşer
+    return TransactionCategory.diger.slug;
   }
 
   Map<String, dynamic>? _extractJson(String raw) {
@@ -301,14 +339,16 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
 
     // Fiş sonucunda categoryLabel yoksa merchant adından çıkar
     final merchant = _result!['merchant'] as String? ?? '';
-    final category = _result!['categoryLabel'] as String?
-        ?? _inferCategory(merchant, 'gider');
+    final category = TransactionCategoryX.slugOf(
+      _result!['categoryLabel'] as String? ?? _inferCategory(merchant, 'gider'),
+    );
 
     final vm = context.read<SpendingViewModel>();
     final ok = await vm.addTransaction(
       amount:   total,
       category: category,
-      type:     'gider',
+      type:     'expense',
+      flow:     MoneyFlow.expense,   // fiş = gerçek tüketim
       source:   'ocr',
       note:     merchant.isNotEmpty ? merchant : null,
       date:     DateTime.tryParse(_result!['date'] ?? '') ?? DateTime.now(),
@@ -345,8 +385,11 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
       description: tx['description'] as String? ?? '',
       date:        DateTime.tryParse(tx['date'] as String? ?? '') ?? DateTime.now(),
       type:        tx['transactionType'] == 'gelir' ? 'income' : 'expense',
-      category:    tx['categoryLabel'] as String? ?? 'Diğer',
+      category:    TransactionCategoryX.slugOf(tx['categoryLabel'] as String?),
       source:      'ocr',
+      // Akış tipi ana deftere de yazılır — banka ekstresindeki "kredi kartı
+      // ödemesi" satırı böylece gider olarak SAYILMAZ.
+      flow:        tx['flow'] as String?,
     )).toList();
 
     final vm = context.read<AccountsViewModel>();
@@ -393,8 +436,9 @@ IF NEITHER: {"type":"hata","error":"No receipt or statement found"}''';
           final txType = tx['transactionType'] as String? ?? 'gider';
           return await vm.addTransaction(
             amount:   (tx['amount'] as num).toDouble(),
-            category: tx['categoryLabel'] as String? ?? 'Diğer',
+            category: TransactionCategoryX.slugOf(tx['categoryLabel'] as String?),
             type:     txType == 'gelir' ? 'income' : 'expense',
+            flow:     MoneyFlowParser.parse(rawFlow: tx['flow'] as String?),
             source:   'ocr',
             note:     tx['description'] as String?,
             date:     DateTime.tryParse(tx['date'] as String? ?? '') ?? DateTime.now(),
@@ -774,7 +818,10 @@ class _ResultCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final total      = (result['total'] as num?)?.toDouble() ?? 0;
     final merchant   = result['merchant'] as String? ?? 'Bilinmeyen';
-    final category   = result['categoryLabel'] as String? ?? 'Diğer';
+    // Kayıtta slug tutulur, kullanıcıya Türkçe etiket gösterilir
+    final category   = TransactionCategoryX.parse(
+      result['categoryLabel'] as String?,
+    ).label;
     final date       = result['date'] as String? ?? '';
     final tax        = (result['tax'] as num?)?.toDouble() ?? 0;
     final confidence = (result['confidence'] as num?)?.toDouble() ?? 0;

@@ -25,6 +25,10 @@ class CampaignViewModel extends ChangeNotifier {
   CampaignCategory?    get selectedCategory => _selectedCategory;
   String               get search          => _search;
 
+  /// Filtreden geçmemiş tüm kampanyalar — asistan eşleştirmesi kullanıcının
+  /// ekrandaki filtresine bağlı olmamalı.
+  List<CampaignEntity> get allCampaigns => List.unmodifiable(_all);
+
   /// Benzersiz bankalar
   List<String> get banks {
     final seen = <String>{};

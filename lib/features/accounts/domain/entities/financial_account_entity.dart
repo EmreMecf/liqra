@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../billing_cycle.dart';
+
 part 'financial_account_entity.freezed.dart';
 
 enum AccountType { bankAccount, creditCard }
@@ -44,6 +46,9 @@ class FinancialAccountEntity with _$FinancialAccountEntity {
     required double minimumPayment,
     required int statementClosingDay,
     required int paymentDueDay,
+    /// Kayıtlı `statementBalance` değerinin ait olduğu kesim tarihi.
+    /// Ekstre devrinin ayda bir kez çalışmasını sağlar.
+    DateTime? statementClosedAt,
     String? maskedCardNumber,
     @Default('TRY') String currency,
     required DateTime createdAt,
@@ -138,23 +143,50 @@ extension BankNameExt on BankName {
 // ── CreditCard Extensions ──────────────────────────────────────────────────
 
 extension CreditCardEntityX on CreditCardEntity {
+  /// Kartın ekstre döngüsü — tüm tarih hesapları buradan gelir.
+  BillingCycle get cycle =>
+      BillingCycle(closingDay: statementClosingDay, dueDay: paymentDueDay);
+
+  /// Harcanabilir limit. Limit aşımında NEGATİF döner — gizlenmez.
   double get availableLimit => creditLimit - usedAmount;
 
-  double get usagePercent =>
-      creditLimit > 0 ? (usedAmount / creditLimit).clamp(0.0, 1.0) : 0.0;
+  /// Limit aşılmış mı? (kart borcu limitten büyük)
+  bool get isOverLimit => usedAmount > creditLimit;
 
-  DateTime get nextPaymentDueDate {
-    final now = DateTime.now();
-    var due = DateTime(now.year, now.month, paymentDueDay);
-    if (due.isBefore(now)) {
-      due = DateTime(now.year, now.month + 1, paymentDueDay);
-    }
-    return due;
-  }
+  /// Kullanım oranı. Göstergeler için 0–1 arasına kırpılır; aşımı görmek için
+  /// [isOverLimit] veya [rawUsagePercent] kullanın.
+  double get usagePercent => rawUsagePercent.clamp(0.0, 1.0);
 
-  int get daysUntilDue =>
-      nextPaymentDueDate.difference(DateTime.now()).inDays;
+  /// Kırpılmamış kullanım oranı — %100'ü aşabilir.
+  double get rawUsagePercent =>
+      creditLimit > 0 ? usedAmount / creditLimit : 0.0;
 
-  bool get isOverdue => daysUntilDue < 0;
-  bool get isDueSoon => daysUntilDue >= 0 && daysUntilDue <= 3;
+  /// Kesimden sonra yapılan, henüz ekstreye girmemiş harcamalar —
+  /// toplam borcun ekstreye yansımamış kısmı.
+  double get unbilledAmount =>
+      (usedAmount - statementBalance).clamp(0.0, double.infinity);
+
+  // ── Tarihler (bkz. BillingCycle) ─────────────────────────────────────────
+
+  DateTime get lastClosingDate => cycle.lastClosingDate;
+  DateTime get nextClosingDate => cycle.nextClosingDate;
+
+  /// Bir sonraki son ödeme tarihi — bugün son gün ise BUGÜNÜ döner.
+  DateTime get nextPaymentDueDate => cycle.nextDueDate;
+
+  /// Son ödeme tarihine kalan tam gün sayısı (bugün son gün ise 0).
+  int get daysUntilDue => cycle.daysUntilDue;
+
+  /// Ödeme gecikti mi? Son ödeme tarihi geçtiyse VE hâlâ ekstre borcu varsa.
+  ///
+  /// Eskiden `daysUntilDue < 0` diye tanımlıydı; son ödeme tarihi her zaman
+  /// gelecekte üretildiği için bu koşul asla sağlanmıyordu.
+  bool get isOverdue => statementBalance > 0 && cycle.isPastDue;
+
+  /// Gecikme kaç gündür sürüyor (gecikme yoksa 0).
+  int get daysPastDue => isOverdue ? cycle.daysPastDue : 0;
+
+  /// Son ödeme yaklaştı mı? (3 gün veya daha az kaldı ve ödenecek borç var)
+  bool get isDueSoon =>
+      statementBalance > 0 && !isOverdue && daysUntilDue <= 3;
 }

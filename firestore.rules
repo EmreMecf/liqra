@@ -40,9 +40,25 @@ service cloud.firestore {
     // PERSONAL USER DATA — Kişiye özel veriler
     // ════════════════════════════════════════════════════════════════════════════
 
+    // Profil belgesi — sahibi okur/yazar ANCAK 'role' alanına dokunamaz.
+    // Rol yalnızca Cloud Functions (onUserCreated) / Admin SDK tarafından
+    // yazılır; aksi halde kullanıcı kendini 'merchant_admin' yapıp
+    // merchant_operations alanına erişebilirdi.
     match /users/{userId} {
-      // Tüm sub-collections: Owner sadece
-      match /{document=**} {
+      allow read: if isSignedIn() && isOwner(userId);
+
+      allow create: if isSignedIn() && isOwner(userId)
+        && !request.resource.data.keys().hasAny(['role']);
+
+      allow update: if isSignedIn() && isOwner(userId)
+        && !request.resource.data.diff(resource.data)
+              .affectedKeys().hasAny(['role']);
+
+      allow delete: if isSignedIn() && isOwner(userId);
+
+      // Alt koleksiyonlar (transactions, assets, goals, accounts,
+      // subscriptions, loans …) — en az iki segment, profil belgesini kapsamaz
+      match /{subcollection}/{docId=**} {
         allow read, write: if isSignedIn() && isOwner(userId);
       }
     }

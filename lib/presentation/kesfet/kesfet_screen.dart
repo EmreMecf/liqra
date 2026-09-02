@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
-import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
-import '../../core/di/injection.dart';
-import '../../features/campaigns/presentation/viewmodel/campaign_viewmodel.dart';
-import '../../features/news/presentation/viewmodel/news_viewmodel.dart';
 import '../campaigns/campaigns_screen.dart';
 import '../news/news_screen.dart';
 
@@ -34,16 +30,11 @@ class _KesfetScreenState extends State<KesfetScreen>
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        ChangeNotifierProvider<NewsViewModel>(
-          create: (_) => getIt<NewsViewModel>(),
-        ),
-        ChangeNotifierProvider<CampaignViewModel>(
-          create: (_) => getIt<CampaignViewModel>(),
-        ),
-      ],
-      child: Scaffold(
+    // NewsViewModel ve CampaignViewModel artık uygulama kökünde sağlanıyor —
+    // asistanın da bunları görmesi gerekiyor. Burada yeniden oluşturulursa
+    // asistan boş bir kopyayı okur.
+    return Builder(
+      builder: (context) => Scaffold(
         backgroundColor: AppColors.bgPrimary,
         body: Column(
           children: [

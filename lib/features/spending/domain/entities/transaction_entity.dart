@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../../data/models/money_flow.dart';
+
 part 'transaction_entity.freezed.dart';
 
 /// Spending domain entity — iş mantığı katmanı
@@ -14,6 +16,10 @@ class TransactionEntity with _$TransactionEntity {
     required String source,
     required DateTime date,
     String? note,
+    /// Para hareketi türü. Eski kayıtlar için repository katmanında
+    /// type+category'den türetilir; bu yüzden burada zorunlu.
+    @Default(MoneyFlow.expense) MoneyFlow flow,
+    String? accountId,
   }) = _TransactionEntity;
 }
 
@@ -30,6 +36,12 @@ class MonthlySummaryEntity with _$MonthlySummaryEntity {
 }
 
 extension TransactionEntityX on TransactionEntity {
-  bool get isIncome  => type == 'income'  || type == 'gelir';
-  bool get isExpense => type == 'expense' || type == 'gider';
+  // NOT: isIncome/isExpense artık `flow` üzerinden çalışır. Eskiden ham `type`
+  // string'ine bakılıyordu; bu yüzden yatırım alımı ve kart ödemesi de gider
+  // sayılıyor, aynı para iki kez düşülüyordu.
+  bool get isIncome  => flow.countsAsIncome;
+  bool get isExpense => flow.countsAsExpense;
+
+  /// Nakit üzerindeki işaretli etkisi (kart harcaması nakdi etkilemez)
+  double get cashEffect => amount * flow.cashDirection;
 }

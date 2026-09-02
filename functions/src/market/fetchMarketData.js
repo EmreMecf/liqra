@@ -11,19 +11,20 @@
  *   │ Kaynak      │ Veri                        │ Firestore Alan   │
  *   ├─────────────┼─────────────────────────────┼──────────────────┤
  *   │ Binance     │ Kripto TRY çiftleri         │ prices.BTC_TRY…  │
- *   │ Yahoo       │ BIST 20 + ABD 10 + XU100    │ stocks.*, us_stocks.* │
+ *   │ CollectAPI  │ BIST ilk 100 (hacme göre)   │ stocks.*         │
+ *   │             │ XU100 endeksi               │ prices.XU100     │
  *   │ CollectAPI  │ Döviz (USD,EUR,GBP,CHF)     │ prices.USDTRY…   │
  *   │             │ Altın (12 tür)              │ gold.*           │
- *   │ TEFAS       │ Fon fiyatları (dummy)       │ funds.*          │
+ *   │ (TEFAS fon kataloğu ayrı/günlük: fetchTefasFunds → tefas_funds)  │
  *   └─────────────┴─────────────────────────────┴──────────────────┘
  *
  * Firestore Dökümanı: market/live_prices
  * Yazar: update() ile dot-notation — merge:true değil, true key-level upsert
  *
  * @see sources/binance.js
- * @see sources/yahoo.js
+ * @see sources/collectapi_stocks.js
  * @see sources/collectapi.js
- * @see sources/tefas.js
+ * @see ../funds/fetchTefasFunds.js  (fon kataloğu — ayrı, günlük)
  */
 
 "use strict";
@@ -32,9 +33,8 @@ const { onSchedule }              = require("firebase-functions/v2/scheduler");
 const { getFirestore, FieldValue } = require("firebase-admin/firestore");
 
 const { fetchCrypto }       = require("./sources/binance");
-const { fetchStocks }       = require("./sources/yahoo");
+const { fetchStocks }       = require("./sources/collectapi_stocks");
 const { fetchForexAndGold } = require("./sources/collectapi");
-const { fetchFunds }        = require("./sources/tefas");
 
 // ─── Sabitler ─────────────────────────────────────────────────────────────────
 
@@ -118,23 +118,13 @@ exports.fetchMarketData = onSchedule(
     //
     console.log("[fetchMarketData] Tüm kaynaklar başlatılıyor…");
 
-    const [cryptoRes, stocksRes, forexGoldRes, fundsRes] = await Promise.allSettled([
+    const [cryptoRes, stocksRes, forexGoldRes] = await Promise.allSettled([
       fetchCrypto(),
-      fetchStocks(),           // usdTry önce forex'ten gelecek; yoksa Yahoo'dan
+      fetchStocks(),
       fetchForexAndGold(),
-      fetchFunds(),
     ]);
 
-    // ── 3. Başarılı sonuçlardan USD/TRY kurunu al ────────────────────────────
-    //
-    // ABD hisselerini TRY'ye çevirmek için kullanılır.
-    // Öncelik: CollectAPI → Yahoo fallback (kendi içinde kullandı zaten)
-    let usdTry = 0;
-    if (forexGoldRes.status === "fulfilled") {
-      usdTry = forexGoldRes.value.usdTry ?? 0;
-    }
-
-    // ── 4. Firestore güncelleme objesi oluştur ───────────────────────────────
+    // ── 3. Firestore güncelleme objesi oluştur ───────────────────────────────
     //
     // dot-notation key'ler: sadece başarılı kaynaklar dahil edilir.
     // Başarısız kaynağa ait alan Firestore'da ESKİ VERİYİ KORUR.
@@ -146,9 +136,9 @@ exports.fetchMarketData = onSchedule(
       Object.assign(updates, flatten("prices", prices));
     });
 
-    // Hisseler — stocks ve us_stocks'u yahoo.js kendi { merge: true } ile yazdı.
+    // Hisseler — stocks map'ini collectapi_stocks.js kendi { merge: true } ile yazdı.
     // Burada yalnızca XU100 endeks fiyatını prices map'ine ekliyoruz.
-    settle("Yahoo (Hisse)", stocksRes, ({ xu100 }) => {
+    settle("CollectAPI (BIST)", stocksRes, ({ xu100 }) => {
       if (xu100) {
         updates["prices.XU100"] = {
           price:         xu100.price,
@@ -162,16 +152,10 @@ exports.fetchMarketData = onSchedule(
       }
     });
 
-    // Döviz + Altın — collectapi.js kendi prices/gold map'lerini merge:true ile yazdı.
-    // Burada yalnızca USD/TRY kurunu ABD hisseleri için kaydediyoruz (usdTry).
-    settle("CollectAPI (Döviz+Altın)", forexGoldRes, (_data) => {
-      // Firestore yazımı collectapi.js içinde yapıldı — burada ek işlem yok.
-    });
-
-    // Fonlar → funds map
-    settle("TEFAS (Fon)", fundsRes, (funds) => {
-      Object.assign(updates, flatten("funds", funds));
-    });
+    // Döviz + Altın — collectapi.js prices/gold map'lerini kendisi merge:true
+    // ile yazdı; burada ek bir Firestore işlemi gerekmiyor. settle() yalnızca
+    // hata loglaması ve meta.sources durumu için çağrılıyor.
+    settle("CollectAPI (Döviz+Altın)", forexGoldRes, () => {});
 
     // ── 5. Hiçbir veri yoksa yaz ─────────────────────────────────────────────
     const dataKeyCount = Object.keys(updates).length;
@@ -190,7 +174,6 @@ exports.fetchMarketData = onSchedule(
     updates["meta.sources.crypto"]     = cryptoRes.status;
     updates["meta.sources.stocks"]     = stocksRes.status;
     updates["meta.sources.forexGold"]  = forexGoldRes.status;
-    updates["meta.sources.funds"]      = fundsRes.status;
 
     // ── 7. Firestore'a yaz ───────────────────────────────────────────────────
     //
@@ -207,9 +190,8 @@ exports.fetchMarketData = onSchedule(
     // ── 8. Özet log ─────────────────────────────────────────────────────────
     const successSources = [
       cryptoRes.status    === "fulfilled" ? "Binance ✓"    : "Binance ✗",
-      stocksRes.status    === "fulfilled" ? "Yahoo ✓"      : "Yahoo ✗",
+      stocksRes.status    === "fulfilled" ? "BIST ✓"       : "BIST ✗",
       forexGoldRes.status === "fulfilled" ? "CollectAPI ✓" : "CollectAPI ✗",
-      fundsRes.status     === "fulfilled" ? "TEFAS ✓"      : "TEFAS ✗",
     ].join("  ");
 
     console.log(

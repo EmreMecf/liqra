@@ -1,4 +1,4 @@
-import 'dart:io';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -280,7 +280,8 @@ class _LoginFormState extends State<_LoginForm> {
             ),
 
             // Apple giriş — yalnızca iOS'ta
-            if (Platform.isIOS) ...[
+            // dart:io yerine defaultTargetPlatform — web build'i kırmaz
+            if (defaultTargetPlatform == TargetPlatform.iOS) ...[
               const SizedBox(height: 12),
               _SocialButton(
                 label: 'Apple ile Giriş Yap',

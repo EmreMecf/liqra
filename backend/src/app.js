@@ -76,10 +76,14 @@ cron.schedule('0 0 1 * *', async () => {
     return;
   }
 
-  const monthNames = ['', 'Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
-                          'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
-  const now = new Date();
-  const monthName = `${monthNames[now.getMonth()]} ${now.getFullYear()}`;
+  // Ayın 1'inde çalışır ve BİR ÖNCEKİ ayı raporlar.
+  // Not: eskiden monthNames[now.getMonth()] kullanılıyordu; dizinin 0. elemanı
+  // boş string olduğu için Ocak ayında ay adı boş çıkıyordu.
+  const monthNames = ['Ocak','Şubat','Mart','Nisan','Mayıs','Haziran',
+                      'Temmuz','Ağustos','Eylül','Ekim','Kasım','Aralık'];
+  const now  = new Date();
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+  const monthName = `${monthNames[prev.getMonth()]} ${prev.getFullYear()}`;
 
   try {
     const usersSnap = await db.collection('users').get();

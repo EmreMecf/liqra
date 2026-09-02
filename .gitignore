@@ -71,5 +71,20 @@ service-account*.json
 # JSON data files (local test verisi)
 json/
 
-Kullan�c�lar
+Kullan�c�lar
 tool/
+
+# ── Android imzalama — ASLA commit'lenmez ────────────────────────────────────
+android/key.properties
+key.properties
+*.keystore
+*.jks
+
+# Ortam dosyaları
+.env
+.env.*
+!.env.example
+
+# Yerel artıklar
+/json
+/Kullanıcıları

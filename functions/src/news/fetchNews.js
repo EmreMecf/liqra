@@ -9,6 +9,7 @@
 const { onSchedule }         = require("firebase-functions/v2/scheduler");
 const { getFirestore, Timestamp } = require("firebase-admin/firestore");
 const Parser                 = require("rss-parser");
+const crypto                 = require("crypto");
 
 const parser = new Parser({
   timeout: 10000,
@@ -19,6 +20,15 @@ const parser = new Parser({
 });
 
 // ── RSS Kaynakları ────────────────────────────────────────────────────────────
+//
+// Kaynaklar 2026-09-02'de tek tek doğrulandı. Kaldırılanlar:
+//   • Mynet Finans      (finans.mynet.com/rss/haberler/)  → 404
+//   • Dünya Gazetesi    (dunya.com/rss.xml)               → 404
+//   • Para Analiz       (paraanaliz.com/feed)             → HTML hata sayfası
+//
+// Bunlar sessizce başarısız oluyordu: parseFeed hatayı yutup boş dizi
+// döndürdüğü için haber akışı %40 kapasiteyle çalışıyor ama loglarda sorun
+// görünmüyordu. Artık çalışmayan kaynak sayısı log'a yazılır.
 const FEEDS = [
   {
     name:   "Bloomberg HT",
@@ -27,35 +37,39 @@ const FEEDS = [
     slug:   "bloomberght",
   },
   {
-    name:   "Mynet Finans",
-    url:    "https://finans.mynet.com/rss/haberler/",
-    color:  "#0066CC",
-    slug:   "mynet",
-  },
-  {
     name:   "Investing.com TR",
     url:    "https://tr.investing.com/rss/news.rss",
     color:  "#E63946",
     slug:   "investing",
   },
   {
-    name:   "Dünya Gazetesi",
-    url:    "https://www.dunya.com/rss.xml",
-    color:  "#1A1A2E",
-    slug:   "dunya",
+    name:   "TRT Haber Ekonomi",
+    url:    "https://www.trthaber.com/ekonomi_articles.rss",
+    color:  "#004B93",
+    slug:   "trthaber",
   },
   {
-    name:   "Para Analiz",
-    url:    "https://www.paraanaliz.com/feed/",
-    color:  "#2E8B57",
-    slug:   "paraanaliz",
+    name:   "NTV Ekonomi",
+    url:    "https://www.ntv.com.tr/ekonomi.rss",
+    color:  "#C8102E",
+    slug:   "ntv",
+  },
+  {
+    name:   "Hürriyet Ekonomi",
+    url:    "https://www.hurriyet.com.tr/rss/ekonomi",
+    color:  "#E4002B",
+    slug:   "hurriyet",
   },
 ];
 
 // ── Kategori Tespiti ──────────────────────────────────────────────────────────
+// Slug'lar ASCII yazılır: istemci tarafındaki enum adları (doviz, sirket,
+// altin) ve Firestore filtreleri bu biçimi bekler. Eskiden "döviz" Türkçe
+// karakterle yazılıyordu; kategoriye göre Firestore sorgusu hiçbir sonuç
+// döndürmezdi. Eski kayıtlar normalizeCategorySlug ile hâlâ tanınır.
 const CATEGORY_RULES = [
   { cat: "borsa",    re: /bist|borsa|hisse|endeks|xu100|xu030|rally|düşüş|yükseliş/i },
-  { cat: "döviz",    re: /dolar|euro|eur|usd|kur|döviz|sterling|yen|frank/i },
+  { cat: "doviz",    re: /dolar|euro|eur|usd|kur|döviz|sterling|yen|frank/i },
   { cat: "altin",    re: /altın|gram altın|çeyrek|ons|gold/i },
   { cat: "kripto",   re: /bitcoin|btc|ethereum|eth|kripto|crypto|coin/i },
   { cat: "faiz",     re: /faiz|tcmb|merkez bankası|politika faizi|enflasyon/i },
@@ -72,51 +86,73 @@ function detectCategory(title, description) {
 }
 
 // ── ID Oluştur ────────────────────────────────────────────────────────────────
-function makeId(slug, link) {
-  // URL'den sayısal ID veya son path segment
-  try {
-    const url  = new URL(link);
-    const parts = url.pathname.split("/").filter(Boolean);
-    const last  = parts[parts.length - 1] || "";
-    // Sayısal ID varsa kullan, yoksa hash-lite
-    const clean = last.replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 40);
-    return `${slug}_${clean || Date.now()}`;
-  } catch {
-    return `${slug}_${Date.now()}`;
-  }
+//
+// Bağlantının tamamının hash'i kullanılır. Eski yöntem URL'nin son path
+// parçasını alıp 40 karaktere kırpıyordu ve iki hataya yol açıyordu:
+//
+//   1. Ayırt edici sayısal id genelde slug'ın SONUNDA olur
+//      (".../orta-vadeli-program-pazar-gunu-aciklanacak-955675.html").
+//      40 karakterde kırpılınca o id düşüyor ve benzer başlıklı iki haber
+//      AYNI dokümana yazılıyordu — biri diğerini eziyordu.
+//   2. Path'i olmayan veya query string'e dayanan bağlantılarda
+//      (".../news.php?id=123") tüm haberler tek bir id'ye çöküyordu.
+//
+// Fallback olarak Date.now() kullanmak da yanlıştı: aynı haber her saat yeni
+// bir id ile tekrar yazılıp koleksiyonu şişiriyordu.
+function makeId(slug, link, title) {
+  const seed = (link || "").trim() || (title || "").trim();
+  if (!seed) return null; // ne bağlantı ne başlık var — bu haber atlanır
+  const hash = crypto.createHash("md5").update(seed).digest("hex").slice(0, 16);
+  return `${slug}_${hash}`;
+}
+
+// ── Yayın tarihi ──────────────────────────────────────────────────────────────
+//
+// isoDate yoksa pubDate string'i denenir. Hiçbiri yoksa null döner ve doküman
+// pubDate ALANI OLMADAN yazılır; mevcut kayıtta duran tarih korunur.
+// Eskiden bu durumda `new Date()` yazılıyordu: tarihsiz haberlerin pubDate'i
+// her saat güncelleniyor, haber listenin tepesine yapışıp kalıyor ve 7 günlük
+// temizliğe hiç takılmıyordu.
+function parsePubDate(item) {
+  const raw = item.isoDate || item.pubDate || item.published || "";
+  if (!raw) return null;
+  const d = new Date(raw);
+  return Number.isNaN(d.getTime()) ? null : d;
 }
 
 // ── Tek Feed Parse ────────────────────────────────────────────────────────────
 async function parseFeed(feed) {
-  try {
-    const parsed = await parser.parseURL(feed.url);
-    const items  = (parsed.items || []).slice(0, 20); // son 20 haber
+  const parsed = await parser.parseURL(feed.url);
+  const items  = (parsed.items || []).slice(0, 20); // son 20 haber
 
-    return items.map((item) => {
-      const title       = (item.title       || "").trim();
+  return items
+    .map((item) => {
+      const title       = (item.title || "").trim();
       const description = (item.contentSnippet || item.summary || "").trim();
       const link        = item.link || item.guid || "";
-      const pubDate     = item.isoDate ? new Date(item.isoDate) : new Date();
-      const imageUrl    = extractImage(item);
+      const id          = makeId(feed.slug, link, title);
+      if (!id || !title) return null;
 
-      return {
-        id:          makeId(feed.slug, link),
+      const pubDate = parsePubDate(item);
+
+      const doc = {
+        id,
         source:      feed.name,
         sourceSlug:  feed.slug,
         sourceColor: feed.color,
         title,
         description: description.slice(0, 300),
         url:         link,
-        imageUrl,
+        imageUrl:    extractImage(item),
         category:    detectCategory(title, description),
-        pubDate:     Timestamp.fromDate(pubDate),
         fetchedAt:   Timestamp.now(),
       };
-    });
-  } catch (err) {
-    console.warn(`[fetchNews] ${feed.name} parse hatası:`, err.message);
-    return [];
-  }
+
+      // Tarih bilinmiyorsa alan hiç yazılmaz — mevcut kayıttaki tarih korunur.
+      if (pubDate) doc.pubDate = Timestamp.fromDate(pubDate);
+      return doc;
+    })
+    .filter(Boolean);
 }
 
 // ── Resim URL çıkar ───────────────────────────────────────────────────────────
@@ -131,9 +167,34 @@ function extractImage(item) {
 }
 
 // ── Firestore Upsert ──────────────────────────────────────────────────────────
-async function upsertNews(articles) {
-  const db = getFirestore();
+
+/// Tarihi bilinmeyen haberlere YALNIZCA ilk yazımda "şimdi" damgası atar.
+///
+/// Yayın tarihi olmayan bir habere her turda `now` yazmak onu listenin
+/// tepesine yapıştırır ve 7 günlük temizlikten kaçırır. Tarihi hiç yazmamak
+/// ise Firestore'da `orderBy('pubDate')` sorgusunun o dokümanı görmemesine
+/// yol açar — haber hiç görünmez. Doğrusu: tarih ilk görülmede bir kez yazılır.
+///
+/// Doğrulanan beş kaynağın hepsi tarih veriyor, bu yüzden liste normalde boş
+/// kalır ve ek okuma maliyeti oluşmaz.
+async function stampMissingDates(db, col, articles) {
+  const dateless = articles.filter((a) => !a.pubDate);
+  if (dateless.length === 0) return;
+
+  const refs     = dateless.map((a) => col.doc(a.id));
+  const existing = await db.getAll(...refs);
+  const now      = Timestamp.now();
+
+  existing.forEach((snap, i) => {
+    if (!snap.exists) dateless[i].pubDate = now;
+  });
+}
+
+async function upsertNews(articles, failedFeeds = []) {
+  const db  = getFirestore();
   const col = db.collection("news");
+
+  await stampMissingDates(db, col, articles);
 
   // Batch'ler 500 dokümana kadar
   const BATCH_SIZE = 400;
@@ -144,40 +205,55 @@ async function upsertNews(articles) {
     const chunk = articles.slice(i, i + BATCH_SIZE);
 
     for (const art of chunk) {
-      if (!art.title) continue;
-      const ref = col.doc(art.id);
-      batch.set(ref, art, { merge: true });
+      batch.set(col.doc(art.id), art, { merge: true });
       count++;
     }
     await batch.commit();
   }
 
-  // Meta güncelle
   await db.collection("meta").doc("news").set({
     lastUpdated:  Timestamp.now(),
     articleCount: count,
+    // Kaynak sağlığı Firestore'a da yazılır; ölü bir feed'i fark etmek için
+    // Cloud Functions loglarına bakmak gerekmesin.
+    activeFeeds:  FEEDS.length - failedFeeds.length,
+    totalFeeds:   FEEDS.length,
+    failedFeeds,
   }, { merge: true });
 
   console.log(`[fetchNews] ${count} haber Firestore'a yazıldı.`);
 }
 
 // ── Eski Haberleri Temizle (7 günden eski) ────────────────────────────────────
+//
+// Tek turda 200 doküman siliniyordu; bu, biriken arşivi asla eritemeyecek
+// kadar azdı. Artık silinecek bir şey kalmayana kadar döner (üst sınırla).
 async function cleanOldNews() {
-  const db       = getFirestore();
-  const cutoff   = new Date();
+  const db     = getFirestore();
+  const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - 7);
 
-  const snap = await db.collection("news")
-    .where("pubDate", "<", Timestamp.fromDate(cutoff))
-    .limit(200)
-    .get();
+  const BATCH = 400;
+  const MAX_ROUNDS = 10; // güvenlik freni — tur başına en fazla 4.000 silme
+  let deleted = 0;
 
-  if (snap.empty) return;
+  for (let round = 0; round < MAX_ROUNDS; round++) {
+    const snap = await db.collection("news")
+      .where("pubDate", "<", Timestamp.fromDate(cutoff))
+      .limit(BATCH)
+      .get();
 
-  const batch = db.batch();
-  snap.docs.forEach((d) => batch.delete(d.ref));
-  await batch.commit();
-  console.log(`[fetchNews] ${snap.size} eski haber silindi.`);
+    if (snap.empty) break;
+
+    const batch = db.batch();
+    snap.docs.forEach((d) => batch.delete(d.ref));
+    await batch.commit();
+    deleted += snap.size;
+
+    if (snap.size < BATCH) break;
+  }
+
+  if (deleted > 0) console.log(`[fetchNews] ${deleted} eski haber silindi.`);
 }
 
 // ── Cloud Function ────────────────────────────────────────────────────────────
@@ -193,9 +269,26 @@ const fetchNews = onSchedule(
     console.log("[fetchNews] Başlıyor...");
 
     const results = await Promise.allSettled(FEEDS.map(parseFeed));
-    const all = results
-      .filter((r) => r.status === "fulfilled")
-      .flatMap((r) => r.value);
+
+    // Çalışmayan kaynakları GÖRÜNÜR yap. Eskiden parseFeed hatayı kendi içinde
+    // yutuyordu; üç kaynak aylarca ölü kaldığı hâlde log'da iz yoktu.
+    const failed = [];
+    const all = [];
+    results.forEach((r, i) => {
+      if (r.status === "fulfilled" && r.value.length > 0) {
+        all.push(...r.value);
+      } else {
+        const reason = r.status === "rejected" ? r.reason?.message : "0 haber";
+        failed.push(`${FEEDS[i].name} (${reason})`);
+      }
+    });
+
+    if (failed.length > 0) {
+      console.error(
+        `[fetchNews] ${failed.length}/${FEEDS.length} kaynak ÇALIŞMIYOR: ` +
+        failed.join(", ")
+      );
+    }
 
     // Tekrarları id'ye göre de-duplicate et
     const seen = new Set();
@@ -205,9 +298,12 @@ const fetchNews = onSchedule(
       return true;
     });
 
-    console.log(`[fetchNews] ${unique.length} benzersiz haber bulundu.`);
+    console.log(
+      `[fetchNews] ${FEEDS.length - failed.length}/${FEEDS.length} kaynaktan ` +
+      `${unique.length} benzersiz haber alındı.`
+    );
 
-    await upsertNews(unique);
+    await upsertNews(unique, failed);
     await cleanOldNews();
 
     console.log("[fetchNews] Tamamlandı.");

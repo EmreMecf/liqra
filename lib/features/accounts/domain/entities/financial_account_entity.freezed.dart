@@ -48,6 +48,7 @@ mixin _$FinancialAccountEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -79,6 +80,7 @@ mixin _$FinancialAccountEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -110,6 +112,7 @@ mixin _$FinancialAccountEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -414,6 +417,7 @@ class _$BankAccountEntityImpl implements BankAccountEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -459,6 +463,7 @@ class _$BankAccountEntityImpl implements BankAccountEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -504,6 +509,7 @@ class _$BankAccountEntityImpl implements BankAccountEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -616,6 +622,7 @@ abstract class _$$CreditCardEntityImplCopyWith<$Res>
     double minimumPayment,
     int statementClosingDay,
     int paymentDueDay,
+    DateTime? statementClosedAt,
     String? maskedCardNumber,
     String currency,
     DateTime createdAt,
@@ -646,6 +653,7 @@ class __$$CreditCardEntityImplCopyWithImpl<$Res>
     Object? minimumPayment = null,
     Object? statementClosingDay = null,
     Object? paymentDueDay = null,
+    Object? statementClosedAt = freezed,
     Object? maskedCardNumber = freezed,
     Object? currency = null,
     Object? createdAt = null,
@@ -692,6 +700,10 @@ class __$$CreditCardEntityImplCopyWithImpl<$Res>
             ? _value.paymentDueDay
             : paymentDueDay // ignore: cast_nullable_to_non_nullable
                   as int,
+        statementClosedAt: freezed == statementClosedAt
+            ? _value.statementClosedAt
+            : statementClosedAt // ignore: cast_nullable_to_non_nullable
+                  as DateTime?,
         maskedCardNumber: freezed == maskedCardNumber
             ? _value.maskedCardNumber
             : maskedCardNumber // ignore: cast_nullable_to_non_nullable
@@ -723,6 +735,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
     required this.minimumPayment,
     required this.statementClosingDay,
     required this.paymentDueDay,
+    this.statementClosedAt,
     this.maskedCardNumber,
     this.currency = 'TRY',
     required this.createdAt,
@@ -748,6 +761,11 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
   final int statementClosingDay;
   @override
   final int paymentDueDay;
+
+  /// Kayıtlı `statementBalance` değerinin ait olduğu kesim tarihi.
+  /// Ekstre devrinin ayda bir kez çalışmasını sağlar.
+  @override
+  final DateTime? statementClosedAt;
   @override
   final String? maskedCardNumber;
   @override
@@ -758,7 +776,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
 
   @override
   String toString() {
-    return 'FinancialAccountEntity.creditCard(id: $id, userId: $userId, name: $name, bank: $bank, creditLimit: $creditLimit, usedAmount: $usedAmount, statementBalance: $statementBalance, minimumPayment: $minimumPayment, statementClosingDay: $statementClosingDay, paymentDueDay: $paymentDueDay, maskedCardNumber: $maskedCardNumber, currency: $currency, createdAt: $createdAt)';
+    return 'FinancialAccountEntity.creditCard(id: $id, userId: $userId, name: $name, bank: $bank, creditLimit: $creditLimit, usedAmount: $usedAmount, statementBalance: $statementBalance, minimumPayment: $minimumPayment, statementClosingDay: $statementClosingDay, paymentDueDay: $paymentDueDay, statementClosedAt: $statementClosedAt, maskedCardNumber: $maskedCardNumber, currency: $currency, createdAt: $createdAt)';
   }
 
   @override
@@ -782,6 +800,8 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
                 other.statementClosingDay == statementClosingDay) &&
             (identical(other.paymentDueDay, paymentDueDay) ||
                 other.paymentDueDay == paymentDueDay) &&
+            (identical(other.statementClosedAt, statementClosedAt) ||
+                other.statementClosedAt == statementClosedAt) &&
             (identical(other.maskedCardNumber, maskedCardNumber) ||
                 other.maskedCardNumber == maskedCardNumber) &&
             (identical(other.currency, currency) ||
@@ -803,6 +823,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
     minimumPayment,
     statementClosingDay,
     paymentDueDay,
+    statementClosedAt,
     maskedCardNumber,
     currency,
     createdAt,
@@ -845,6 +866,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -862,6 +884,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
       minimumPayment,
       statementClosingDay,
       paymentDueDay,
+      statementClosedAt,
       maskedCardNumber,
       currency,
       createdAt,
@@ -894,6 +917,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -911,6 +935,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
       minimumPayment,
       statementClosingDay,
       paymentDueDay,
+      statementClosedAt,
       maskedCardNumber,
       currency,
       createdAt,
@@ -943,6 +968,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
       double minimumPayment,
       int statementClosingDay,
       int paymentDueDay,
+      DateTime? statementClosedAt,
       String? maskedCardNumber,
       String currency,
       DateTime createdAt,
@@ -962,6 +988,7 @@ class _$CreditCardEntityImpl implements CreditCardEntity {
         minimumPayment,
         statementClosingDay,
         paymentDueDay,
+        statementClosedAt,
         maskedCardNumber,
         currency,
         createdAt,
@@ -1014,6 +1041,7 @@ abstract class CreditCardEntity implements FinancialAccountEntity {
     required final double minimumPayment,
     required final int statementClosingDay,
     required final int paymentDueDay,
+    final DateTime? statementClosedAt,
     final String? maskedCardNumber,
     final String currency,
     required final DateTime createdAt,
@@ -1033,6 +1061,10 @@ abstract class CreditCardEntity implements FinancialAccountEntity {
   double get minimumPayment;
   int get statementClosingDay;
   int get paymentDueDay;
+
+  /// Kayıtlı `statementBalance` değerinin ait olduğu kesim tarihi.
+  /// Ekstre devrinin ayda bir kez çalışmasını sağlar.
+  DateTime? get statementClosedAt;
   String? get maskedCardNumber;
   @override
   String get currency;

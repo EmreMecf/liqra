@@ -60,6 +60,9 @@ class LoanFirestoreDataSource {
     batch.update(docRef, {
       'remainingAmount': FieldValue.increment(-amount),
       'remainingInstallments': isCompleted ? 0 : FieldValue.increment(-1),
+      // Gecikme tespiti bu alana dayanır — yazılmazsa ödenmiş taksit
+      // gecikmiş görünmeye devam eder.
+      'lastPaymentDate': Timestamp.fromDate(DateTime.now()),
       if (isCompleted) 'status': 'completed',
     });
 
@@ -84,6 +87,9 @@ class LoanFirestoreDataSource {
       'currency': loan.currency,
       'note': loan.note,
       'status': loan.status,
+      'lastPaymentDate': loan.lastPaymentDate == null
+          ? null
+          : Timestamp.fromDate(loan.lastPaymentDate!),
     };
   }
 
@@ -122,6 +128,9 @@ class LoanFirestoreDataSource {
       currency: data['currency'] as String? ?? 'TRY',
       note: data['note'] as String?,
       status: data['status'] as String? ?? 'active',
+      lastPaymentDate: data['lastPaymentDate'] is Timestamp
+          ? (data['lastPaymentDate'] as Timestamp).toDate()
+          : null,
     );
   }
 }

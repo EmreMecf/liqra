@@ -57,7 +57,7 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 10, vertical: 5),
                             decoration: BoxDecoration(
-                              color: AppColors.accentRed.withOpacity(0.12),
+                              color: AppColors.accentRed.withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(8),
                             ),
                             child: Text('Sıfırla',
@@ -154,7 +154,7 @@ class _CampaignsScreenState extends State<CampaignsScreen> {
                               horizontal: 12, vertical: 6),
                           decoration: BoxDecoration(
                             color: sel
-                                ? AppColors.accentBlue.withOpacity(0.15)
+                                ? AppColors.accentBlue.withValues(alpha: 0.15)
                                 : AppColors.bgSecondary,
                             borderRadius: BorderRadius.circular(16),
                             border: Border.all(
@@ -283,7 +283,7 @@ class _BankChip extends StatelessWidget {
         margin: const EdgeInsets.only(right: 8),
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? color.withOpacity(0.15) : AppColors.bgSecondary,
+          color: selected ? color.withValues(alpha: 0.15) : AppColors.bgSecondary,
           borderRadius: BorderRadius.circular(16),
           border: Border.all(
               color: selected ? color : AppColors.borderSubtle),
@@ -324,7 +324,7 @@ class _CampaignCard extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _openUrl(campaign.detailUrl),
+          onTap: () => _openUrl(context, campaign.detailUrl),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -350,7 +350,7 @@ class _CampaignCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: color.withOpacity(0.12),
+                            color: color.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(campaign.bank,
@@ -366,7 +366,27 @@ class _CampaignCard extends StatelessWidget {
                                 color: AppColors.textSecondary,
                                 fontSize: 11)),
                         const Spacer(),
-                        if (campaign.endDate != null &&
+                        // Seed verisi bankanın API'sinden gelmez — doğrulanmış
+                        // kampanya sanılmaması için açıkça etiketlenir.
+                        if (campaign.isSample)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: AppColors.accentAmber
+                                  .withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(5),
+                              border: Border.all(
+                                  color: AppColors.accentAmber
+                                      .withValues(alpha: 0.3)),
+                            ),
+                            child: Text('Örnek',
+                                style: AppTypography.labelS.copyWith(
+                                    color: AppColors.accentAmber,
+                                    fontWeight: FontWeight.w700,
+                                    fontSize: 9)),
+                          )
+                        else if (campaign.endDate != null &&
                             campaign.endDate!.isNotEmpty)
                           Row(children: [
                             const Icon(Icons.schedule,
@@ -427,12 +447,21 @@ class _CampaignCard extends StatelessWidget {
     );
   }
 
-  Future<void> _openUrl(String url) async {
-    if (url.isEmpty) return;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+  /// Bağlantıyı tarayıcıda açar.
+  ///
+  /// Eskiden hata sessizce yutuluyordu: kullanıcı karta dokunuyor, hiçbir şey
+  /// olmuyor ve nedenini anlamıyordu. Artık başarısızlık söyleniyor.
+  Future<void> _openUrl(BuildContext context, String url) async {
+    final uri = url.isEmpty ? null : Uri.tryParse(url);
+    final opened = uri == null
+        ? false
+        : await launchUrl(uri, mode: LaunchMode.externalApplication)
+            .catchError((_) => false);
+
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Kampanya bağlantısı açılamadı.')),
+      );
+    }
   }
 }

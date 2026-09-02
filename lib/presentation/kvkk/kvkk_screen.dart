@@ -1,12 +1,14 @@
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
+import '../../core/services/account_deletion_service.dart';
 import '../../data/models/transaction_model.dart';
 import '../../data/providers/app_provider.dart';
 import '../widgets/app_card.dart';
@@ -25,7 +27,7 @@ class _KvkkScreenState extends State<KvkkScreen> {
   bool _isDeleting = false;
 
   // ── Veri Dışa Aktarma ────────────────────────────────────────────────────
-  Future<void> _exportData(BuildContext context) async {
+  Future<void> _exportData() async {
     final provider = context.read<AppProvider>();
     setState(() => _isExporting = true);
 
@@ -76,33 +78,109 @@ class _KvkkScreenState extends State<KvkkScreen> {
   }
 
   // ── Hesap Silme ──────────────────────────────────────────────────────────
-  Future<void> _showDeleteConfirmation(BuildContext context) async {
+  //
+  // GERÇEK silme: users/{uid} altındaki tüm alt koleksiyonlar + profil belgesi
+  // + Firebase Auth hesabı kaldırılır. Geri alınamaz.
+  Future<void> _showDeleteConfirmation() async {
     final confirmed = await showDialog<bool>(
       context: context,
       barrierDismissible: false,
       builder: (_) => const _DeleteAccountDialog(),
     );
+    if (confirmed != true || !mounted) return;
 
-    if (confirmed == true && context.mounted) {
-      setState(() => _isDeleting = true);
-      // Simüle: gerçek uygulamada API çağrısı yapılır
-      await Future.delayed(const Duration(seconds: 2));
-      if (!mounted) return;
-      setState(() => _isDeleting = false);
-      // ignore: use_build_context_synchronously
-      final messenger = ScaffoldMessenger.of(context);
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('Hesabınız silme kuyruğuna alındı. 30 gün içinde tamamlanacak.',
-              style: AppTypography.bodyS),
-          backgroundColor: AppColors.accentRed,
-          duration: const Duration(seconds: 5),
-        ),
-      );
-      if (!mounted) return;
-      // ignore: use_build_context_synchronously
-      Navigator.pop(context);
+    setState(() => _isDeleting = true);
+    var result = await AccountDeletionService.instance.deleteAccount();
+
+    // Uzun süredir açık oturum → Firebase yeniden kimlik doğrulama ister
+    if (!result.succeeded && result.requiresReauth && mounted) {
+      final password = await _askPassword();
+      if (password != null && password.isNotEmpty) {
+        final ok = await AccountDeletionService.instance
+            .reauthenticateWithPassword(password);
+        if (ok) {
+          result = await AccountDeletionService.instance.deleteAccount();
+        } else {
+          result = const DeletionResult.failure('Şifre doğrulanamadı.');
+        }
+      }
     }
+
+    if (!mounted) return;
+    setState(() => _isDeleting = false);
+
+    final messenger = ScaffoldMessenger.of(context);
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text(
+          result.succeeded
+              ? 'Hesabınız ve tüm verileriniz kalıcı olarak silindi.'
+              : (result.errorMessage ?? 'Hesap silinemedi.'),
+          style: AppTypography.bodyS,
+        ),
+        backgroundColor:
+            result.succeeded ? AppColors.accentGreen : AppColors.accentRed,
+        duration: const Duration(seconds: 5),
+      ),
+    );
+
+    if (result.succeeded) {
+      // Auth stream null'a döner → _AuthGate otomatik AuthScreen'e yönlendirir
+      Navigator.of(context).popUntil((r) => r.isFirst);
+    }
+  }
+
+  /// requires-recent-login sonrası şifre ister (e-posta/şifre hesapları için)
+  Future<String?> _askPassword() {
+    final ctrl = TextEditingController();
+    return showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppColors.bgSecondary,
+        title: Text('Şifrenizi Doğrulayın', style: AppTypography.headlineS),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Güvenlik için hesabınızı silmeden önce şifrenizi girin. '
+              'Google/Apple ile giriş yaptıysanız çıkıp yeniden giriş yapın.',
+              style: AppTypography.bodyS,
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: ctrl,
+              obscureText: true,
+              autofocus: true,
+              style: GoogleFonts.outfit(color: AppColors.textPrimary),
+              decoration: InputDecoration(
+                hintText: 'Şifre',
+                filled: true,
+                fillColor: AppColors.bgTertiary,
+                border: OutlineInputBorder(
+                  borderRadius: BorderRadius.circular(10),
+                  borderSide: BorderSide.none,
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: Text('İptal',
+                style: AppTypography.bodyM
+                    .copyWith(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text),
+            child: Text('Onayla',
+                style: AppTypography.bodyM.copyWith(
+                    color: AppColors.accentRed, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
   }
 
   @override
@@ -213,7 +291,7 @@ class _KvkkScreenState extends State<KvkkScreen> {
                   child: ElevatedButton.icon(
                     onPressed: _isExporting
                         ? null
-                        : () => _exportData(context),
+                        : () => _exportData(),
                     icon: _isExporting
                         ? const SizedBox(
                             width: 16,
@@ -230,7 +308,7 @@ class _KvkkScreenState extends State<KvkkScreen> {
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.accentGreen,
                       foregroundColor: AppColors.bgPrimary,
-                      disabledBackgroundColor: AppColors.accentGreen.withOpacity(0.4),
+                      disabledBackgroundColor: AppColors.accentGreen.withValues(alpha: 0.4),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(12),
@@ -303,7 +381,7 @@ class _KvkkScreenState extends State<KvkkScreen> {
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
-                        color: AppColors.accentRed.withOpacity(0.12),
+                        color: AppColors.accentRed.withValues(alpha: 0.12),
                         borderRadius: BorderRadius.circular(10),
                       ),
                       child: const Icon(Icons.delete_forever_outlined,
@@ -335,7 +413,7 @@ class _KvkkScreenState extends State<KvkkScreen> {
                   child: OutlinedButton.icon(
                     onPressed: _isDeleting
                         ? null
-                        : () => _showDeleteConfirmation(context),
+                        : () => _showDeleteConfirmation(),
                     icon: _isDeleting
                         ? const SizedBox(
                             width: 16,
@@ -440,17 +518,34 @@ class _ExportDialog extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           Text(
-            'Gerçek uygulamada dosya cihazınıza kaydedilir. '
-            'Bu demo sürümde CSV içeriği bellekte üretildi.',
+            'Tüm CSV içeriğini panoya kopyalayıp dilediğiniz uygulamaya '
+            'yapıştırabilirsiniz.',
             style: AppTypography.labelS.copyWith(height: 1.5),
           ),
         ],
       ),
       actions: [
         TextButton(
+          onPressed: () async {
+            await Clipboard.setData(ClipboardData(text: csvPreview));
+            if (!context.mounted) return;
+            Navigator.pop(context);
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('CSV panoya kopyalandı ($transactionCount işlem)',
+                    style: AppTypography.bodyS),
+                backgroundColor: AppColors.accentGreen,
+              ),
+            );
+          },
+          child: Text('Panoya Kopyala', style: AppTypography.bodyM.copyWith(
+            color: AppColors.accentGreen, fontWeight: FontWeight.w700,
+          )),
+        ),
+        TextButton(
           onPressed: () => Navigator.pop(context),
           child: Text('Kapat', style: AppTypography.bodyM.copyWith(
-            color: AppColors.accentGreen,
+            color: AppColors.textSecondary,
           )),
         ),
       ],

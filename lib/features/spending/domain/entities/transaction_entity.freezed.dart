@@ -26,6 +26,11 @@ mixin _$TransactionEntity {
   DateTime get date => throw _privateConstructorUsedError;
   String? get note => throw _privateConstructorUsedError;
 
+  /// Para hareketi türü. Eski kayıtlar için repository katmanında
+  /// type+category'den türetilir; bu yüzden burada zorunlu.
+  MoneyFlow get flow => throw _privateConstructorUsedError;
+  String? get accountId => throw _privateConstructorUsedError;
+
   /// Create a copy of TransactionEntity
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -49,6 +54,8 @@ abstract class $TransactionEntityCopyWith<$Res> {
     String source,
     DateTime date,
     String? note,
+    MoneyFlow flow,
+    String? accountId,
   });
 }
 
@@ -75,6 +82,8 @@ class _$TransactionEntityCopyWithImpl<$Res, $Val extends TransactionEntity>
     Object? source = null,
     Object? date = null,
     Object? note = freezed,
+    Object? flow = null,
+    Object? accountId = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -110,6 +119,14 @@ class _$TransactionEntityCopyWithImpl<$Res, $Val extends TransactionEntity>
                 ? _value.note
                 : note // ignore: cast_nullable_to_non_nullable
                       as String?,
+            flow: null == flow
+                ? _value.flow
+                : flow // ignore: cast_nullable_to_non_nullable
+                      as MoneyFlow,
+            accountId: freezed == accountId
+                ? _value.accountId
+                : accountId // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -134,6 +151,8 @@ abstract class _$$TransactionEntityImplCopyWith<$Res>
     String source,
     DateTime date,
     String? note,
+    MoneyFlow flow,
+    String? accountId,
   });
 }
 
@@ -159,6 +178,8 @@ class __$$TransactionEntityImplCopyWithImpl<$Res>
     Object? source = null,
     Object? date = null,
     Object? note = freezed,
+    Object? flow = null,
+    Object? accountId = freezed,
   }) {
     return _then(
       _$TransactionEntityImpl(
@@ -194,6 +215,14 @@ class __$$TransactionEntityImplCopyWithImpl<$Res>
             ? _value.note
             : note // ignore: cast_nullable_to_non_nullable
                   as String?,
+        flow: null == flow
+            ? _value.flow
+            : flow // ignore: cast_nullable_to_non_nullable
+                  as MoneyFlow,
+        accountId: freezed == accountId
+            ? _value.accountId
+            : accountId // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -211,6 +240,8 @@ class _$TransactionEntityImpl implements _TransactionEntity {
     required this.source,
     required this.date,
     this.note,
+    this.flow = MoneyFlow.expense,
+    this.accountId,
   });
 
   @override
@@ -230,9 +261,17 @@ class _$TransactionEntityImpl implements _TransactionEntity {
   @override
   final String? note;
 
+  /// Para hareketi türü. Eski kayıtlar için repository katmanında
+  /// type+category'den türetilir; bu yüzden burada zorunlu.
+  @override
+  @JsonKey()
+  final MoneyFlow flow;
+  @override
+  final String? accountId;
+
   @override
   String toString() {
-    return 'TransactionEntity(id: $id, userId: $userId, amount: $amount, category: $category, type: $type, source: $source, date: $date, note: $note)';
+    return 'TransactionEntity(id: $id, userId: $userId, amount: $amount, category: $category, type: $type, source: $source, date: $date, note: $note, flow: $flow, accountId: $accountId)';
   }
 
   @override
@@ -248,7 +287,10 @@ class _$TransactionEntityImpl implements _TransactionEntity {
             (identical(other.type, type) || other.type == type) &&
             (identical(other.source, source) || other.source == source) &&
             (identical(other.date, date) || other.date == date) &&
-            (identical(other.note, note) || other.note == note));
+            (identical(other.note, note) || other.note == note) &&
+            (identical(other.flow, flow) || other.flow == flow) &&
+            (identical(other.accountId, accountId) ||
+                other.accountId == accountId));
   }
 
   @override
@@ -262,6 +304,8 @@ class _$TransactionEntityImpl implements _TransactionEntity {
     source,
     date,
     note,
+    flow,
+    accountId,
   );
 
   /// Create a copy of TransactionEntity
@@ -286,6 +330,8 @@ abstract class _TransactionEntity implements TransactionEntity {
     required final String source,
     required final DateTime date,
     final String? note,
+    final MoneyFlow flow,
+    final String? accountId,
   }) = _$TransactionEntityImpl;
 
   @override
@@ -304,6 +350,13 @@ abstract class _TransactionEntity implements TransactionEntity {
   DateTime get date;
   @override
   String? get note;
+
+  /// Para hareketi türü. Eski kayıtlar için repository katmanında
+  /// type+category'den türetilir; bu yüzden burada zorunlu.
+  @override
+  MoneyFlow get flow;
+  @override
+  String? get accountId;
 
   /// Create a copy of TransactionEntity
   /// with the given fields replaced by the non-null parameter values.

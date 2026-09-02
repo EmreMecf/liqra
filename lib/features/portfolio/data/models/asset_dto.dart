@@ -33,6 +33,11 @@ class MarketDataDto with _$MarketDataDto {
     String? subLabel,
     String? lastUpdated,
     @Default(0) double volume,
+    // CollectAPI'nin verdiği ek alanlar — döviz alış/satış, hisse gün aralığı
+    @Default(0) double alis,
+    @Default(0) double satis,
+    @Default(0) double dayLow,
+    @Default(0) double dayHigh,
   }) = _MarketDataDto;
 
   factory MarketDataDto.fromJson(Map<String, dynamic> json) =>

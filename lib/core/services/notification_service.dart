@@ -14,9 +14,30 @@ class NotificationService {
   final _local = FlutterLocalNotificationsPlugin();
 
   // Bildirim tıklandığında navigator için
+  /// Bildirime dokunulduğunda gidilecek rota. [consumePendingRoute] ile
+  /// okunur; okunduktan sonra temizlenir ki uygulama her açılışta aynı
+  /// ekrana zıplamasın.
   String? _pendingRoute;
   String? get pendingRoute => _pendingRoute;
+
+  /// Bekleyen rotayı alır ve temizler.
+  String? consumePendingRoute() {
+    final route = _pendingRoute;
+    _pendingRoute = null;
+    return route;
+  }
+
   void clearPendingRoute() => _pendingRoute = null;
+
+  /// Yeni bir rota geldiğinde tetiklenir — uygulama açıkken bildirime
+  /// dokunulursa anında yönlendirme yapılabilsin diye.
+  void Function(String route)? onRouteRequested;
+
+  void _setPendingRoute(String? route) {
+    if (route == null || route.isEmpty) return;
+    _pendingRoute = route;
+    onRouteRequested?.call(route);
+  }
 
   // Android bildirim kanalı
   static const _channel = AndroidNotificationChannel(
@@ -61,9 +82,17 @@ class NotificationService {
     // Arka plandan açılış
     FirebaseMessaging.onMessageOpenedApp.listen(_handleMessageOpenedApp);
 
-    // Uygulama kapalıyken açıldıysa
+    // Uygulama kapalıyken açıldıysa — hem FCM hem yerel bildirim.
     final initial = await _fcm.getInitialMessage();
     if (initial != null) _handleMessageOpenedApp(initial);
+
+    // Yerel bildirime dokunularak açıldıysa payload'u yakala. Bu kontrol
+    // olmadan, uygulama tamamen kapalıyken gönderilen bildirime dokunmak
+    // uygulamayı açıyor ama hedef ekrana götürmüyordu.
+    final launch = await _local.getNotificationAppLaunchDetails();
+    if (launch?.didNotificationLaunchApp ?? false) {
+      _pendingRoute = launch?.notificationResponse?.payload;
+    }
 
     // Arka plan handler (top-level fonksiyon olmalı)
     FirebaseMessaging.onBackgroundMessage(_backgroundHandler);
@@ -135,39 +164,6 @@ class NotificationService {
     );
   }
 
-  // ── Bildirim Türleri ──────────────────────────────────────────────────────
-
-  /// Bütçe aşım uyarısı
-  Future<void> notifyBudgetOverrun({
-    required String category,
-    required double amount,
-    required double limit,
-  }) =>
-      showLocalNotification(
-        title:   '⚠️ Bütçe Aşımı',
-        body:    '$category için ${amount.toStringAsFixed(0)} TL harcandı (limit: ${limit.toStringAsFixed(0)} TL)',
-        payload: '/spending',
-      );
-
-  /// Portföy düşüş uyarısı
-  Future<void> notifyPortfolioAlert({
-    required String asset,
-    required double changePercent,
-  }) =>
-      showLocalNotification(
-        title:   changePercent < 0 ? '📉 Portföy Uyarısı' : '📈 Portföy Artışı',
-        body:    '$asset: ${changePercent >= 0 ? "+" : ""}${changePercent.toStringAsFixed(2)}%',
-        payload: '/portfolio',
-      );
-
-  /// Aylık rapor hazır
-  Future<void> notifyMonthlyReport(String monthName) =>
-      showLocalNotification(
-        title: '📊 $monthName Raporu Hazır',
-        body:  'AI asistanınız aylık finansal analizinizi tamamladı',
-        payload: '/ai',
-      );
-
   // ── Handlers ─────────────────────────────────────────────────────────────
 
   void _handleForegroundMessage(RemoteMessage message) {
@@ -181,11 +177,11 @@ class NotificationService {
   }
 
   void _handleMessageOpenedApp(RemoteMessage message) {
-    _pendingRoute = message.data['route'] as String?;
+    _setPendingRoute(message.data['route'] as String?);
   }
 
   void _onNotificationTapped(NotificationResponse response) {
-    _pendingRoute = response.payload;
+    _setPendingRoute(response.payload);
   }
 }
 

@@ -14,6 +14,11 @@ class TransactionDto with _$TransactionDto {
     required String source,
     required String date,
     String? note,
+    /// Para hareketi türü — MoneyFlow.slug. Eski kayıtlarda yoktur,
+    /// okuma tarafında type+category'den türetilir.
+    String? flow,
+    /// Hareketin ilişkili olduğu hesap (banka/kart/yatırım). Eski kayıtlarda yok.
+    String? accountId,
   }) = _TransactionDto;
 
   factory TransactionDto.fromJson(Map<String, dynamic> json) =>

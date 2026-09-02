@@ -7,6 +7,7 @@ import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/services/auth_service.dart';
 import '../../core/utils/formatters.dart';
+import '../../data/models/money_flow.dart';
 import '../../data/models/transaction_model.dart';
 import '../../data/providers/app_provider.dart';
 import '../../features/spending/presentation/viewmodel/spending_viewmodel.dart';
@@ -221,6 +222,7 @@ class _SummaryTab extends StatelessWidget {
         // Özet kart: tüm zamanlara ait toplamlar (ay filtresinden bağımsız)
         final allIncome   = provider.totalIncomeAllTime;
         final allExpense  = provider.totalExpenseAllTime;
+        final allInvested = provider.totalInvestedAllTime;
         final totalBalance = provider.totalBalance;
 
         return ListView(
@@ -238,7 +240,7 @@ class _SummaryTab extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
-                          color: AppColors.accentBlue.withOpacity(0.12),
+                          color: AppColors.accentBlue.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Text('Tüm Zamanlar',
@@ -303,6 +305,40 @@ class _SummaryTab extends StatelessWidget {
                       ),
                     ],
                   ),
+
+                  // Yatırıma aktarılan tutar — GİDER DEĞİLDİR, servet biçim
+                  // değiştirdi. Ayrı gösterilmezse "para nereye gitti" sorusu
+                  // cevapsız kalır: Gelir − Gider − Yatırım = Net Bakiye.
+                  if (allInvested > 0) ...[
+                    const SizedBox(height: 12),
+                    const Divider(color: AppColors.borderSubtle, height: 1),
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        const Icon(Icons.trending_up_rounded,
+                            size: 14, color: AppColors.accentAmber),
+                        const SizedBox(width: 6),
+                        Expanded(
+                          child: Text('Yatırıma Aktarılan',
+                              style: AppTypography.labelS.copyWith(
+                                  color: AppColors.textSecondary)),
+                        ),
+                        Text(
+                          Formatters.currency(allInvested),
+                          style: GoogleFonts.dmMono(
+                            fontSize: 14, fontWeight: FontWeight.w600,
+                            color: AppColors.accentAmber,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      'Gider olarak sayılmaz — portföyünüzde duruyor.',
+                      style: AppTypography.labelS.copyWith(
+                          color: AppColors.textDisabled, fontSize: 10),
+                    ),
+                  ],
                 ],
               ),
             ).animate().fadeIn(duration: 300.ms),
@@ -586,7 +622,10 @@ class _TransactionsTabState extends State<_TransactionsTab> {
                   padding: const EdgeInsets.only(bottom: 8),
                   child: _SwipeableTransactionTile(
                     tx: txs[i],
-                    onDelete: () => provider.deleteTransaction(txs[i].id),
+                    onDelete: () {
+                      // Firestore'dan da siler — sonuç stream ile doğrulanır
+                      provider.deleteTransaction(txs[i].id);
+                    },
                   ).animate(delay: (i * 30).ms).fadeIn(duration: 200.ms),
                 ),
               ),
@@ -644,7 +683,7 @@ class _SwipeableTransactionTile extends StatelessWidget {
         alignment: Alignment.centerRight,
         padding: const EdgeInsets.only(right: 20),
         decoration: BoxDecoration(
-          color: AppColors.accentRed.withOpacity(0.15),
+          color: AppColors.accentRed.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(12),
         ),
         child: const Icon(Icons.delete_outline, color: AppColors.accentRed),
@@ -772,7 +811,7 @@ class _RecurringTab extends StatelessWidget {
                 padding: const EdgeInsets.all(16),
                 borderColor: e.value.isActive
                     ? AppColors.borderSubtle
-                    : AppColors.textDisabled.withOpacity(0.3),
+                    : AppColors.textDisabled.withValues(alpha: 0.3),
                 child: Row(
                   children: [
                     Column(
@@ -820,8 +859,8 @@ class _RecurringTab extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
                             color: e.value.isActive
-                                ? AppColors.accentGreen.withOpacity(0.12)
-                                : AppColors.textDisabled.withOpacity(0.1),
+                                ? AppColors.accentGreen.withValues(alpha: 0.12)
+                                : AppColors.textDisabled.withValues(alpha: 0.1),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(
@@ -876,11 +915,12 @@ class _AddTabState extends State<_AddTab> {
         _amountController.text.replaceAll('.', '').replaceAll(',', '.')) ?? 0;
     if (amount <= 0) return;
 
-    // SpendingViewModel üzerinden Firestore'a yaz
+    // SpendingViewModel üzerinden Firestore'a yaz — kategori slug olarak
     final ok = await context.read<SpendingViewModel>().addTransaction(
       amount:   amount,
-      category: _selectedCategory.label,
+      category: _selectedCategory.slug,
       type:     _type,
+      flow:     _type == 'income' ? MoneyFlow.income : MoneyFlow.expense,
       source:   'manual',
       note:     _noteController.text.isEmpty ? null : _noteController.text,
     );
@@ -978,7 +1018,7 @@ class _AddTabState extends State<_AddTab> {
                     padding: const EdgeInsets.symmetric(vertical: 12),
                     decoration: BoxDecoration(
                       color: _type == t
-                          ? (t == 'income' ? AppColors.accentGreen : AppColors.accentRed).withOpacity(0.15)
+                          ? (t == 'income' ? AppColors.accentGreen : AppColors.accentRed).withValues(alpha: 0.15)
                           : AppColors.bgSecondary,
                       borderRadius: BorderRadius.circular(12),
                       border: Border.all(
@@ -1048,7 +1088,7 @@ class _AddTabState extends State<_AddTab> {
                   padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   decoration: BoxDecoration(
                     color: _selectedCategory == cat
-                        ? AppColors.accentGreen.withOpacity(0.15)
+                        ? AppColors.accentGreen.withValues(alpha: 0.15)
                         : AppColors.bgSecondary,
                     borderRadius: BorderRadius.circular(20),
                     border: Border.all(

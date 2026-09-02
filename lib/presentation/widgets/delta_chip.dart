@@ -22,8 +22,8 @@ class DeltaChip extends StatelessWidget {
     final bool isNeutral  = value == 0;
 
     final Color bg   = isNeutral  ? AppColors.bgTertiary
-                     : isPositive ? AppColors.accentGreen.withOpacity(0.15)
-                                  : AppColors.accentRed.withOpacity(0.15);
+                     : isPositive ? AppColors.accentGreen.withValues(alpha: 0.15)
+                                  : AppColors.accentRed.withValues(alpha: 0.15);
 
     final Color text = isNeutral  ? AppColors.textSecondary
                      : isPositive ? AppColors.accentGreen

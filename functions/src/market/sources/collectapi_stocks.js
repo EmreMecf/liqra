@@ -1,5 +1,8 @@
 /**
- * yahoo.js — BIST Hisse Senedi Veri Kaynağı
+ * collectapi_stocks.js — BIST Hisse Senedi Veri Kaynağı
+ *
+ * (Dosya eskiden yahoo.js adındaydı; Yahoo Finance ARTIK KULLANILMIYOR —
+ *  veri tamamen CollectAPI /economy/hisseSenedi ucundan geliyor.)
  *
  * Kaynak: CollectAPI /economy/hisseSenedi
  *   - 611 BIST hissesi, hacme göre sıralı
@@ -40,9 +43,14 @@ const round2 = (n) => Math.round((isNaN(n) || n == null ? 0 : Number(n)) * 100) 
  */
 function formatName(raw) {
   if (!raw) return raw;
+  // Türkçe locale şart: varsayılan toLowerCase "I" harfini "i" yapar,
+  // Türkçe'de "ı" olmalı ("YOLLARI" → "Yolları", "Yollari" değil).
   return raw
     .split(" ")
-    .map((w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
+    .filter(Boolean)
+    .map((w) =>
+      w.charAt(0).toLocaleUpperCase("tr-TR") +
+      w.slice(1).toLocaleLowerCase("tr-TR"))
     .join(" ");
 }
 
@@ -51,7 +59,7 @@ function formatName(raw) {
 /**
  * CollectAPI'den BIST hisselerini çeker, hacme göre ilk MAX_STOCKS'u Firestore'a yazar.
  *
- * @returns {{ bist: object, xu100: object|null, usdTryFromYahoo: 0 }}
+ * @returns {{ bist: object, xu100: object|null }}
  */
 async function fetchStocks() {
   const now    = new Date().toISOString();
@@ -77,10 +85,13 @@ async function fetchStocks() {
 
   if (raw.length === 0) throw new Error("CollectAPI: Boş liste döndü");
 
-  // ── 2. Hacme göre zaten sıralı geliyor — ilk MAX_STOCKS'u al ─────────────
-  //    Fiyatı 0 olan veya kodu olmayan hisseleri filtrele
+  // ── 2. Hacme göre AÇIKÇA sırala, sonra ilk MAX_STOCKS'u al ───────────────
+  //    Eskiden "API zaten hacme göre sıralı geliyor" varsayılıyordu. Bu
+  //    doğrulanmamış bir varsayımdı; sıra değişirse "En Çok Hacim" listesi
+  //    tamamen yanlış hisseleri gösterirdi. Artık kendimiz sıralıyoruz.
   const top = raw
-    .filter((x) => x?.code && x.lastprice > 0)
+    .filter((x) => x?.code && Number(x.lastprice) > 0)
+    .sort((a, b) => (Number(b.hacim) || 0) - (Number(a.hacim) || 0))
     .slice(0, MAX_STOCKS);
 
   // ── 3. Firestore objesi oluştur ───────────────────────────────────────────
@@ -95,7 +106,7 @@ async function fetchStocks() {
       symbol:        code,
       currency:      "TRY",
       subLabel:      "bist",
-      hacim:         item.hacim ?? 0,      // işlem hacmi (sıralama için)
+      hacim:         Number(item.hacim) || 0,  // işlem hacmi (sıralama + UI)
       min:           round2(item.min),
       max:           round2(item.max),
       lastUpdated:   now,
@@ -138,7 +149,7 @@ async function fetchStocks() {
   const docRef = db.doc(FIRESTORE_DOC);
   await docRef.set({ stocks: bist }, { merge: true });
 
-  return { bist, xu100, usdTryFromYahoo: 0 };
+  return { bist, xu100 };
 }
 
 module.exports = { fetchStocks };

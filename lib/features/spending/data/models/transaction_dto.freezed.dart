@@ -30,6 +30,13 @@ mixin _$TransactionDto {
   String get date => throw _privateConstructorUsedError;
   String? get note => throw _privateConstructorUsedError;
 
+  /// Para hareketi türü — MoneyFlow.slug. Eski kayıtlarda yoktur,
+  /// okuma tarafında type+category'den türetilir.
+  String? get flow => throw _privateConstructorUsedError;
+
+  /// Hareketin ilişkili olduğu hesap (banka/kart/yatırım). Eski kayıtlarda yok.
+  String? get accountId => throw _privateConstructorUsedError;
+
   /// Serializes this TransactionDto to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
 
@@ -56,6 +63,8 @@ abstract class $TransactionDtoCopyWith<$Res> {
     String source,
     String date,
     String? note,
+    String? flow,
+    String? accountId,
   });
 }
 
@@ -82,6 +91,8 @@ class _$TransactionDtoCopyWithImpl<$Res, $Val extends TransactionDto>
     Object? source = null,
     Object? date = null,
     Object? note = freezed,
+    Object? flow = freezed,
+    Object? accountId = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -117,6 +128,14 @@ class _$TransactionDtoCopyWithImpl<$Res, $Val extends TransactionDto>
                 ? _value.note
                 : note // ignore: cast_nullable_to_non_nullable
                       as String?,
+            flow: freezed == flow
+                ? _value.flow
+                : flow // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            accountId: freezed == accountId
+                ? _value.accountId
+                : accountId // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -141,6 +160,8 @@ abstract class _$$TransactionDtoImplCopyWith<$Res>
     String source,
     String date,
     String? note,
+    String? flow,
+    String? accountId,
   });
 }
 
@@ -166,6 +187,8 @@ class __$$TransactionDtoImplCopyWithImpl<$Res>
     Object? source = null,
     Object? date = null,
     Object? note = freezed,
+    Object? flow = freezed,
+    Object? accountId = freezed,
   }) {
     return _then(
       _$TransactionDtoImpl(
@@ -201,6 +224,14 @@ class __$$TransactionDtoImplCopyWithImpl<$Res>
             ? _value.note
             : note // ignore: cast_nullable_to_non_nullable
                   as String?,
+        flow: freezed == flow
+            ? _value.flow
+            : flow // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        accountId: freezed == accountId
+            ? _value.accountId
+            : accountId // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -218,6 +249,8 @@ class _$TransactionDtoImpl implements _TransactionDto {
     required this.source,
     required this.date,
     this.note,
+    this.flow,
+    this.accountId,
   });
 
   factory _$TransactionDtoImpl.fromJson(Map<String, dynamic> json) =>
@@ -240,9 +273,18 @@ class _$TransactionDtoImpl implements _TransactionDto {
   @override
   final String? note;
 
+  /// Para hareketi türü — MoneyFlow.slug. Eski kayıtlarda yoktur,
+  /// okuma tarafında type+category'den türetilir.
+  @override
+  final String? flow;
+
+  /// Hareketin ilişkili olduğu hesap (banka/kart/yatırım). Eski kayıtlarda yok.
+  @override
+  final String? accountId;
+
   @override
   String toString() {
-    return 'TransactionDto(id: $id, userId: $userId, amount: $amount, category: $category, type: $type, source: $source, date: $date, note: $note)';
+    return 'TransactionDto(id: $id, userId: $userId, amount: $amount, category: $category, type: $type, source: $source, date: $date, note: $note, flow: $flow, accountId: $accountId)';
   }
 
   @override
@@ -258,7 +300,10 @@ class _$TransactionDtoImpl implements _TransactionDto {
             (identical(other.type, type) || other.type == type) &&
             (identical(other.source, source) || other.source == source) &&
             (identical(other.date, date) || other.date == date) &&
-            (identical(other.note, note) || other.note == note));
+            (identical(other.note, note) || other.note == note) &&
+            (identical(other.flow, flow) || other.flow == flow) &&
+            (identical(other.accountId, accountId) ||
+                other.accountId == accountId));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -273,6 +318,8 @@ class _$TransactionDtoImpl implements _TransactionDto {
     source,
     date,
     note,
+    flow,
+    accountId,
   );
 
   /// Create a copy of TransactionDto
@@ -302,6 +349,8 @@ abstract class _TransactionDto implements TransactionDto {
     required final String source,
     required final String date,
     final String? note,
+    final String? flow,
+    final String? accountId,
   }) = _$TransactionDtoImpl;
 
   factory _TransactionDto.fromJson(Map<String, dynamic> json) =
@@ -323,6 +372,15 @@ abstract class _TransactionDto implements TransactionDto {
   String get date;
   @override
   String? get note;
+
+  /// Para hareketi türü — MoneyFlow.slug. Eski kayıtlarda yoktur,
+  /// okuma tarafında type+category'den türetilir.
+  @override
+  String? get flow;
+
+  /// Hareketin ilişkili olduğu hesap (banka/kart/yatırım). Eski kayıtlarda yok.
+  @override
+  String? get accountId;
 
   /// Create a copy of TransactionDto
   /// with the given fields replaced by the non-null parameter values.

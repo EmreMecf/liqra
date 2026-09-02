@@ -25,6 +25,7 @@ _$FinancialAccountDtoImpl _$$FinancialAccountDtoImplFromJson(
   minimumPayment: (json['minimumPayment'] as num?)?.toDouble(),
   statementClosingDay: (json['statementClosingDay'] as num?)?.toInt(),
   paymentDueDay: (json['paymentDueDay'] as num?)?.toInt(),
+  statementClosedAt: json['statementClosedAt'] as String?,
   maskedCardNumber: json['maskedCardNumber'] as String?,
 );
 
@@ -47,5 +48,6 @@ Map<String, dynamic> _$$FinancialAccountDtoImplToJson(
   'minimumPayment': instance.minimumPayment,
   'statementClosingDay': instance.statementClosingDay,
   'paymentDueDay': instance.paymentDueDay,
+  'statementClosedAt': instance.statementClosedAt,
   'maskedCardNumber': instance.maskedCardNumber,
 };

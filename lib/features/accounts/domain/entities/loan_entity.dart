@@ -1,3 +1,4 @@
+import '../billing_cycle.dart';
 import 'financial_account_entity.dart';
 
 /// Kredi takip varlığı — Firestore users/{uid}/loans/{loanId}
@@ -19,6 +20,10 @@ class LoanEntity {
   final String? note;
   final String status; // 'active' | 'completed'
 
+  /// Son taksit ödemesinin yapıldığı tarih. Gecikme tespiti buna dayanır;
+  /// null ise henüz hiç ödeme yapılmamıştır.
+  final DateTime? lastPaymentDate;
+
   const LoanEntity({
     required this.id,
     required this.userId,
@@ -36,6 +41,7 @@ class LoanEntity {
     this.currency = 'TRY',
     this.note,
     this.status = 'active',
+    this.lastPaymentDate,
   });
 
   // ── Computed getters ──────────────────────────────────────────────────────
@@ -45,23 +51,53 @@ class LoanEntity {
   double get progressPercent =>
       totalAmount > 0 ? (paidAmount / totalAmount).clamp(0.0, 1.0) : 0.0;
 
+  /// Kredi taksit takvimi — kart ekstre döngüsüyle aynı tarih mantığı.
+  /// `dueDay > closingDay` koşulunun kredide anlamı olmadığı için kesim günü =
+  /// ödeme günü verilir; böylece her ay tek bir taksit tarihi üretilir.
+  BillingCycle get _cycle =>
+      BillingCycle(closingDay: paymentDueDay, dueDay: paymentDueDay);
+
+  /// Bu ay ödenmesi gereken taksidin tarihi (geçmişte olabilir).
+  DateTime get currentDueDate => _cycle.lastClosingDate;
+
+  /// Bugün dahil, gelecekteki ilk taksit tarihi.
   DateTime get nextPaymentDate {
-    final now = DateTime.now();
-    var due = DateTime(now.year, now.month, paymentDueDay);
-    if (!due.isAfter(now)) {
-      // Bir sonraki aya geç
-      final next = DateTime(now.year, now.month + 1, 1);
-      due = DateTime(next.year, next.month, paymentDueDay);
-    }
-    return due;
+    final current = currentDueDate;
+    final today = BillingCycle.dateOnly(DateTime.now());
+    if (!current.isBefore(today)) return current;
+    return _cycle.nextClosingDate;
   }
 
+  /// Bir sonraki taksite kalan tam gün sayısı (bugün son gün ise 0).
   int get daysUntilPayment =>
-      nextPaymentDate.difference(DateTime.now()).inDays;
+      nextPaymentDate.difference(BillingCycle.dateOnly(DateTime.now())).inDays;
 
-  bool get isDueSoon => daysUntilPayment >= 0 && daysUntilPayment <= 3;
+  bool get isDueSoon =>
+      status == 'active' &&
+      remainingInstallments > 0 &&
+      daysUntilPayment <= 3 &&
+      !isOverdue;
 
-  bool get isOverdue => daysUntilPayment < 0;
+  /// Taksit gecikti mi?
+  ///
+  /// Ödeme tarihi geçmiş VE o tarihten sonra ödeme yapılmamışsa gecikmedir.
+  /// Eskiden `daysUntilPayment < 0` diye tanımlıydı; taksit tarihi her zaman
+  /// gelecekte üretildiği için bu koşul asla sağlanmıyordu.
+  bool get isOverdue {
+    if (status != 'active' || remainingInstallments <= 0) return false;
+    final due = currentDueDate;
+    final today = BillingCycle.dateOnly(DateTime.now());
+    if (!today.isAfter(due)) return false;
+    // Taksit takvimi kredinin başlangıcından önce işlemez
+    if (due.isBefore(BillingCycle.dateOnly(startDate))) return false;
+    final paid = lastPaymentDate;
+    return paid == null || BillingCycle.dateOnly(paid).isBefore(due);
+  }
+
+  /// Gecikme kaç gündür sürüyor (gecikme yoksa 0).
+  int get daysPastDue => isOverdue
+      ? BillingCycle.dateOnly(DateTime.now()).difference(currentDueDate).inDays
+      : 0;
 
   // ── copyWith ──────────────────────────────────────────────────────────────
 
@@ -82,6 +118,7 @@ class LoanEntity {
     String? currency,
     String? note,
     String? status,
+    DateTime? lastPaymentDate,
   }) {
     return LoanEntity(
       id: id ?? this.id,
@@ -101,6 +138,7 @@ class LoanEntity {
       currency: currency ?? this.currency,
       note: note ?? this.note,
       status: status ?? this.status,
+      lastPaymentDate: lastPaymentDate ?? this.lastPaymentDate,
     );
   }
 }

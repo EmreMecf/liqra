@@ -2,6 +2,8 @@ import 'package:uuid/uuid.dart';
 
 import '../../../../core/services/auth_service.dart';
 import '../../../../core/utils/result.dart';
+import '../../../../data/models/money_flow.dart';
+import '../../domain/installment_plan.dart';
 import '../../domain/entities/account_transaction_entity.dart';
 import '../../domain/entities/financial_account_entity.dart';
 import '../../domain/repositories/accounts_repository.dart';
@@ -116,6 +118,165 @@ class AccountsRepositoryImpl implements AccountsRepository {
     }
   }
 
+  // ── Atomik para hareketleri ────────────────────────────────────────────────
+
+  @override
+  Future<Result<void>> recordCreditPayment({
+    required String bankAccountId,
+    required String creditCardId,
+    required double amount,
+    required DateTime date,
+  }) async {
+    try {
+      await _ds.addCreditPaymentBatch(
+        bankAccountId: bankAccountId,
+        creditCardId:  creditCardId,
+        amount:        amount,
+        txId:          _uuid.v4(),
+        date:          date,
+        uid:           _uid,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<void>> recordAccountMovement({
+    required String accountId,
+    required double amount,
+    required String description,
+    required String category,
+    required MoneyFlow flow,
+    required DateTime date,
+    bool isInstallment = false,
+    int installmentCount = 1,
+    String? merchantName,
+  }) async {
+    try {
+      // Bakiye etkisi akış tipinden türetilir:
+      //  • gelir        → banka bakiyesi artar
+      //  • banka gideri → banka bakiyesi azalır
+      //  • kart harcaması → kartın kullanılan tutarı artar (nakit etkilenmez)
+      final isCard = flow == MoneyFlow.cardExpense;
+      final balanceField = isCard ? 'usedAmount' : 'balance';
+      final delta = switch (flow) {
+        MoneyFlow.income      => amount,
+        MoneyFlow.cardExpense => amount,   // borç artar
+        _                     => -amount,
+      };
+
+      await _ds.addMovementBatch(
+        tx: AccountTransactionDto(
+          id:               _uuid.v4(),
+          accountId:        accountId,
+          userId:           _uid,
+          amount:           amount,
+          description:      description,
+          date:             date.toIso8601String(),
+          type:             flow.countsAsIncome ? 'income' : 'expense',
+          category:         category,
+          isInstallment:    isInstallment,
+          installmentCount: installmentCount,
+          merchantName:     merchantName,
+          source:           'wallet',
+          flow:             flow.slug,
+        ),
+        flow:         flow,
+        balanceDelta: delta,
+        balanceField: balanceField,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<void>> recordInstallmentPurchase({
+    required String creditCardId,
+    required double totalAmount,
+    required int installmentCount,
+    required String description,
+    required String category,
+    required DateTime date,
+    String? merchantName,
+  }) async {
+    if (installmentCount < 2) {
+      // Tek çekim — normal kart harcaması yolundan geçsin
+      return recordAccountMovement(
+        accountId: creditCardId,
+        amount: totalAmount,
+        description: description,
+        category: category,
+        flow: MoneyFlow.cardExpense,
+        date: date,
+      );
+    }
+
+    try {
+      final groupId = _uuid.v4();
+      final parts = InstallmentPlan.build(
+        totalAmount: totalAmount,
+        count:       installmentCount,
+        firstDate:   date,
+      );
+
+      final dtos = parts
+          .map((p) => AccountTransactionDto(
+                id:                 _uuid.v4(),
+                accountId:          creditCardId,
+                userId:             _uid,
+                amount:             p.amount,
+                description:        '$description (${p.number}/$installmentCount)',
+                date:               p.date.toIso8601String(),
+                type:               'expense',
+                category:           category,
+                isInstallment:      true,
+                installmentCount:   installmentCount,
+                installmentNumber:  p.number,
+                installmentGroupId: groupId,
+                merchantName:       merchantName,
+                source:             'wallet',
+                flow:               MoneyFlow.cardExpense.slug,
+              ))
+          .toList();
+
+      await _ds.addInstallmentPurchaseBatch(
+        installments: dtos,
+        cardId:       creditCardId,
+        totalAmount:  totalAmount,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure(CacheFailure(e.toString()));
+    }
+  }
+
+  @override
+  Future<Result<void>> recordTransfer({
+    required String fromAccountId,
+    required String toAccountId,
+    required double amount,
+    required DateTime date,
+    required String description,
+  }) async {
+    try {
+      await _ds.addTransferBatch(
+        fromAccountId: fromAccountId,
+        toAccountId:   toAccountId,
+        amount:        amount,
+        txId:          _uuid.v4(),
+        date:          date,
+        description:   description,
+      );
+      return const Success(null);
+    } catch (e) {
+      return Failure(CacheFailure(e.toString()));
+    }
+  }
+
   // ── DTO <-> Entity dönüşümleri ─────────────────────────────────────────────
 
   FinancialAccountEntity? _dtoToEntity(FinancialAccountDto dto) {
@@ -150,6 +311,9 @@ class AccountsRepositoryImpl implements AccountsRepository {
           minimumPayment: dto.minimumPayment ?? 0.0,
           statementClosingDay: dto.statementClosingDay ?? 1,
           paymentDueDay: dto.paymentDueDay ?? 1,
+          statementClosedAt: dto.statementClosedAt == null
+              ? null
+              : DateTime.tryParse(dto.statementClosedAt!),
           maskedCardNumber: dto.maskedCardNumber,
           currency: dto.currency,
           createdAt: createdAt,
@@ -179,7 +343,8 @@ class AccountsRepositoryImpl implements AccountsRepository {
       ),
       creditCard: (id, userId, name, bank, creditLimit, usedAmount,
               statementBalance, minimumPayment, statementClosingDay,
-              paymentDueDay, maskedCardNumber, currency, createdAt) =>
+              paymentDueDay, statementClosedAt, maskedCardNumber, currency,
+              createdAt) =>
           FinancialAccountDto(
         id: id.isEmpty ? _uuid.v4() : id,
         userId: userId.isEmpty ? _uid : userId,
@@ -194,6 +359,7 @@ class AccountsRepositoryImpl implements AccountsRepository {
         minimumPayment: minimumPayment,
         statementClosingDay: statementClosingDay,
         paymentDueDay: paymentDueDay,
+        statementClosedAt: statementClosedAt?.toIso8601String(),
         maskedCardNumber: maskedCardNumber,
       ),
     );
@@ -212,9 +378,12 @@ class AccountsRepositoryImpl implements AccountsRepository {
         isInstallment: dto.isInstallment,
         installmentCount: dto.installmentCount,
         installmentNumber: dto.installmentNumber,
+        installmentGroupId: dto.installmentGroupId,
         merchantName: dto.merchantName,
         statementId: dto.statementId,
         source: dto.source,
+        flow: dto.flow,
+        counterAccountId: dto.counterAccountId,
       );
 
   AccountTransactionDto _txEntityToDto(AccountTransactionEntity entity) =>
@@ -230,8 +399,11 @@ class AccountsRepositoryImpl implements AccountsRepository {
         isInstallment: entity.isInstallment,
         installmentCount: entity.installmentCount,
         installmentNumber: entity.installmentNumber,
+        installmentGroupId: entity.installmentGroupId,
         merchantName: entity.merchantName,
         statementId: entity.statementId,
         source: entity.source,
+        flow: entity.flow,
+        counterAccountId: entity.counterAccountId,
       );
 }

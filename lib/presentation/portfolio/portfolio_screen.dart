@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/formatters.dart';
+import '../../features/ai_assistant/presentation/widgets/stock_analysis_sheet.dart';
 import '../../features/portfolio/domain/entities/asset_entity.dart';
 import '../../features/portfolio/domain/entities/gold_price_entity.dart';
 import '../../features/portfolio/domain/entities/market_data_entity.dart';
@@ -290,7 +291,7 @@ class _PortfolioTabState extends State<_PortfolioTab> {
                         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
                         decoration: BoxDecoration(
                           color: _period == p
-                              ? AppColors.accentGreen.withOpacity(0.15)
+                              ? AppColors.accentGreen.withValues(alpha: 0.15)
                               : AppColors.bgTertiary,
                           borderRadius: BorderRadius.circular(8),
                           border: Border.all(
@@ -485,7 +486,7 @@ class _AssetRow extends StatelessWidget {
         padding: const EdgeInsets.only(right: 16),
         margin: const EdgeInsets.only(bottom: 14),
         decoration: BoxDecoration(
-          color: AppColors.accentRed.withOpacity(0.15),
+          color: AppColors.accentRed.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(10),
         ),
         child: const Icon(Icons.delete_outline, color: AppColors.accentRed, size: 20),
@@ -536,10 +537,7 @@ class _AssetRow extends StatelessWidget {
                           ),
                           maxLines: 1, overflow: TextOverflow.ellipsis),
                         Text(
-                          asset.type == 'altin'
-                              ? '${asset.quantity.toStringAsFixed(1)} gr'
-                              : '${asset.quantity.toStringAsFixed(
-                                    asset.quantity == asset.quantity.toInt() ? 0 : 4)} adet',
+                          formatAssetQuantity(asset),
                           style: AppTypography.labelS,
                         ),
                       ],
@@ -587,7 +585,7 @@ class _AssetRow extends StatelessWidget {
                         belowBarData: BarAreaData(
                           show: true,
                           color: (asset.isProfit ? AppColors.accentGreen : AppColors.accentRed)
-                              .withOpacity(0.05),
+                              .withValues(alpha: 0.05),
                         ),
                       ),
                     ],
@@ -649,7 +647,13 @@ class _AssetDetailSheet extends StatelessWidget {
               DeltaChip(value: asset.gainLossPercent, fontSize: 13),
             ],
           ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 14),
+          // Asistan analizi — fiyat, haber, pozisyon ve makro birlikte
+          AnalyzeButton(
+            symbol: asset.priceKey ?? asset.name,
+            companyName: asset.name,
+          ),
+          const SizedBox(height: 16),
           const Divider(color: AppColors.borderSubtle),
           const SizedBox(height: 16),
           _detailRow('Mevcut Fiyat', Formatters.currencyDecimal(asset.currentPrice)),
@@ -657,11 +661,7 @@ class _AssetDetailSheet extends StatelessWidget {
           _detailRow('Toplam Değer', Formatters.currency(asset.totalValue)),
           _detailRow('Kâr / Zarar',
               '${asset.gainLoss >= 0 ? "+" : ""}${Formatters.currency(asset.gainLoss)}'),
-          _detailRow('Miktar',
-            asset.type == 'altin'
-                ? '${asset.quantity.toStringAsFixed(1)} gr'
-                : '${asset.quantity.toStringAsFixed(
-                      asset.quantity == asset.quantity.toInt() ? 0 : 4)} adet'),
+          _detailRow('Miktar', formatAssetQuantity(asset)),
           const SizedBox(height: 24),
           if (asset.priceHistory.isNotEmpty) ...[
             Text('Fiyat Geçmişi', style: AppTypography.headlineS),
@@ -688,7 +688,7 @@ class _AssetDetailSheet extends StatelessWidget {
                     belowBarData: BarAreaData(
                       show: true,
                       color: (asset.isProfit ? AppColors.accentGreen : AppColors.accentRed)
-                          .withOpacity(0.1),
+                          .withValues(alpha: 0.1),
                     ),
                   ),
                 ],
@@ -763,9 +763,15 @@ class _MarketTabState extends State<_MarketTab> {
 
     // Kategori filtresi (subLabel kullanılıyor)
     if (_selectedCat == _MarketCat.all) {
-      // "Tümü" görünümünde BIST hisselerini hariç tut
-      // (ayrı "En Çok Hacim" widget'ı ile gösterilir)
-      result = result.where((e) => e.subLabel != 'bist').toList();
+      // "Tümü" görünümünde BIST hisselerini ve fonları hariç tut —
+      // ikisi de çok kalabalık, kendi sekmelerinde gösteriliyor.
+      result = result
+          .where((e) => e.subLabel != 'bist' && e.subLabel != 'fon')
+          .toList();
+    } else if (_selectedCat == _MarketCat.fon) {
+      // Fon sekmesi: yıllık getiri bilgisi listede yok, ada göre sırala
+      result = result.where((e) => e.subLabel == 'fon').toList()
+        ..sort((a, b) => a.symbol.compareTo(b.symbol));
     } else if (_selectedCat == _MarketCat.bist) {
       // BIST sekmesi: hem bist hem bist100 göster, hacme göre sırala
       result = result
@@ -852,7 +858,7 @@ class _MarketTabState extends State<_MarketTab> {
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                         decoration: BoxDecoration(
-                          color: AppColors.accentGreen.withOpacity(0.1),
+                          color: AppColors.accentGreen.withValues(alpha: 0.1),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         child: Row(
@@ -882,7 +888,7 @@ class _MarketTabState extends State<_MarketTab> {
                   child: Container(
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
-                      color: AppColors.accentRed.withOpacity(0.1),
+                      color: AppColors.accentRed.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -1014,7 +1020,8 @@ class _MarketTabState extends State<_MarketTab> {
               ],
 
               // ── Piyasa Listesi ─────────────────────────────────────────────
-              if (_selectedCat != _MarketCat.fon && _selectedCat != _MarketCat.altin) ...[
+              // Fon sekmesi de listeyi gösterir (funds map artık parse ediliyor)
+              if (_selectedCat != _MarketCat.altin) ...[
                 if (filtered.isEmpty && isLoading)
                   const Center(
                     child: Padding(
@@ -1052,6 +1059,23 @@ class _MarketTabState extends State<_MarketTab> {
                                     _catLabel(item.subLabel ?? ''),
                                     style: AppTypography.labelS.copyWith(fontSize: 10),
                                   ),
+                                  // CollectAPI'den gelen ek veriler:
+                                  //  • döviz/altın → alış-satış
+                                  //  • BIST hisse  → günlük en düşük/en yüksek
+                                  //  • hisse/kripto → işlem hacmi
+                                  if (_detailLine(item) != null)
+                                    Padding(
+                                      padding: const EdgeInsets.only(top: 2),
+                                      child: Text(
+                                        _detailLine(item)!,
+                                        style: GoogleFonts.dmMono(
+                                          fontSize: 9.5,
+                                          color: AppColors.textDisabled,
+                                        ),
+                                        maxLines: 1,
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
@@ -1088,7 +1112,7 @@ class _MarketTabState extends State<_MarketTab> {
                   const SizedBox(height: 16),
                   Text('TEFAS — En İyi Fonlar (1 Yıllık)', style: AppTypography.headlineS),
                   const SizedBox(height: 4),
-                  Text('Cloud Functions · Hafta içi 19:00 güncellenir',
+                  Text('Cloud Functions · TEFAS verisine göre güncellenir',
                       style: AppTypography.bodyS),
                   const SizedBox(height: 10),
                   AppCard(
@@ -1103,7 +1127,7 @@ class _MarketTabState extends State<_MarketTab> {
                               Container(
                                 width: 28, height: 28,
                                 decoration: BoxDecoration(
-                                  color: color.withOpacity(0.15),
+                                  color: color.withValues(alpha: 0.15),
                                   shape: BoxShape.circle,
                                 ),
                                 child: Center(
@@ -1147,10 +1171,20 @@ class _MarketTabState extends State<_MarketTab> {
                     child: Center(
                       child: Column(
                         children: [
-                          const Icon(Icons.access_time, color: AppColors.textSecondary, size: 32),
+                          const Icon(Icons.cloud_off_rounded,
+                              color: AppColors.textSecondary, size: 32),
                           const SizedBox(height: 8),
-                          Text('TEFAS verileri hafta içi 19:00\'da güncellenir',
-                              style: AppTypography.bodyM, textAlign: TextAlign.center),
+                          Text('TEFAS fon verisi şu anda alınamıyor',
+                              style: AppTypography.bodyM,
+                              textAlign: TextAlign.center),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Veri kaynağı geçici olarak kullanılamıyor. '
+                            'Fon fiyatları güncellendiğinde burada görünecek.',
+                            style: AppTypography.labelS.copyWith(
+                                color: AppColors.textDisabled),
+                            textAlign: TextAlign.center,
+                          ),
                         ],
                       ),
                     ),
@@ -1163,6 +1197,40 @@ class _MarketTabState extends State<_MarketTab> {
         );
       },
     );
+  }
+
+  /// Kartın altında gösterilecek ek bilgi satırı.
+  /// CollectAPI zaten bu alanları veriyor — ekranda kullanmamak veri israfıydı.
+  String? _detailLine(MarketDataEntity item) {
+    final parts = <String>[];
+
+    if (item.hasSpread) {
+      parts.add('Alış ${_compactNum(item.alis)} · Satış ${_compactNum(item.satis)}');
+    }
+    if (item.hasDayRange) {
+      parts.add('Gün ${_compactNum(item.dayLow)}–${_compactNum(item.dayHigh)}');
+    }
+    if (item.volume > 0) {
+      parts.add('Hacim ₺${_compactVolume(item.volume)}');
+    }
+    return parts.isEmpty ? null : parts.join('  ·  ');
+  }
+
+  /// Fiyat için kısa gösterim — büyüklüğe göre ondalık ayarlar
+  String _compactNum(double v) {
+    if (v >= 1000) {
+      return v.toStringAsFixed(0).replaceAllMapped(
+          RegExp(r'(\d)(?=(\d{3})+$)'), (m) => '${m[1]}.');
+    }
+    if (v >= 10) return v.toStringAsFixed(2).replaceAll('.', ',');
+    return v.toStringAsFixed(4).replaceAll('.', ',');
+  }
+
+  String _compactVolume(double v) {
+    if (v >= 1e9) return '${(v / 1e9).toStringAsFixed(1).replaceAll('.', ',')}Mr';
+    if (v >= 1e6) return '${(v / 1e6).toStringAsFixed(0)}Mn';
+    if (v >= 1e3) return '${(v / 1e3).toStringAsFixed(0)}B';
+    return v.toStringAsFixed(0);
   }
 
   String _catLabel(String subLabel) {
@@ -1316,15 +1384,15 @@ class _GoldView extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFFD4A017).withOpacity(0.25),
-                const Color(0xFFB8860B).withOpacity(0.10),
+                const Color(0xFFD4A017).withValues(alpha: 0.25),
+                const Color(0xFFB8860B).withValues(alpha: 0.10),
               ],
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFFD4A017).withOpacity(0.4),
+              color: const Color(0xFFD4A017).withValues(alpha: 0.4),
             ),
           ),
           child: Column(
@@ -1349,7 +1417,7 @@ class _GoldView extends StatelessWidget {
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                     decoration: BoxDecoration(
                       color: (gram.isUp ? AppColors.accentGreen : AppColors.accentRed)
-                          .withOpacity(0.15),
+                          .withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -1686,7 +1754,7 @@ class _DiscoverTab extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
-                    color: AppColors.accentBlue.withOpacity(0.15),
+                    color: AppColors.accentBlue.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text('AI Destekli', style: AppTypography.labelS.copyWith(
@@ -1721,7 +1789,7 @@ class _DiscoverTab extends StatelessWidget {
                         borderRadius: BorderRadius.circular(12),
                         border: Border.all(
                           color: (isUp ? AppColors.accentGreen : AppColors.accentRed)
-                              .withOpacity(0.3),
+                              .withValues(alpha: 0.3),
                         ),
                       ),
                       child: Column(
@@ -1775,7 +1843,7 @@ class _DiscoverTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: (opp['tagColor'] as Color).withOpacity(0.12),
+                              color: (opp['tagColor'] as Color).withValues(alpha: 0.12),
                               borderRadius: BorderRadius.circular(6),
                             ),
                             child: Text(opp['tag'] as String,
@@ -1793,10 +1861,10 @@ class _DiscoverTab extends StatelessWidget {
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
-                              color: (opp['riskColor'] as Color).withOpacity(0.1),
+                              color: (opp['riskColor'] as Color).withValues(alpha: 0.1),
                               borderRadius: BorderRadius.circular(6),
                               border: Border.all(
-                                color: (opp['riskColor'] as Color).withOpacity(0.3),
+                                color: (opp['riskColor'] as Color).withValues(alpha: 0.3),
                               ),
                             ),
                             child: Text(opp['risk'] as String, style: AppTypography.labelS.copyWith(
@@ -1892,7 +1960,7 @@ class _BistTopVolumeSection extends StatelessWidget {
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
                           decoration: BoxDecoration(
-                            color: AppColors.accentBlue.withOpacity(0.12),
+                            color: AppColors.accentBlue.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(6),
                           ),
                           child: Text(item.symbol, style: GoogleFonts.dmMono(
@@ -1930,7 +1998,7 @@ class _BistTopVolumeSection extends StatelessWidget {
                             Container(
                               padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                               decoration: BoxDecoration(
-                                color: changeColor.withOpacity(0.12),
+                                color: changeColor.withValues(alpha: 0.12),
                                 borderRadius: BorderRadius.circular(4),
                               ),
                               child: Text(
@@ -1946,7 +2014,7 @@ class _BistTopVolumeSection extends StatelessWidget {
                     ),
                   ),
                   if (!isLast)
-                    Divider(height: 1, color: AppColors.borderSubtle.withOpacity(0.5)),
+                    Divider(height: 1, color: AppColors.borderSubtle.withValues(alpha: 0.5)),
                 ],
               );
             }).toList(),
@@ -1955,4 +2023,30 @@ class _BistTopVolumeSection extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Varlık miktarını doğru BİRİMLE biçimlendirir.
+///
+/// Altın türleri iki farklı birimde fiyatlanır:
+///   • gram bazlı  : gram, ons, gümüş, bilezik22/18/14  → "gr"
+///   • adet bazlı  : çeyrek, yarım, tam, cumhuriyet, reşat → "adet"
+///
+/// Eskiden type == 'altin' olan HER varlık "gr" olarak etiketleniyordu; bu
+/// yüzden "5 çeyrek altın" ekranda "5,0 gr" görünüyordu — hem yanlış hem de
+/// portföy değeriyle tutarsız (fiyat adet başına uygulanıyor).
+String formatAssetQuantity(AssetEntity asset) {
+  const gramBased = {'gram', 'ons', 'gumus', 'bilezik22', 'bilezik18', 'bilezik14'};
+
+  final qty = asset.quantity;
+  final qtyStr = qty == qty.roundToDouble()
+      ? qty.toStringAsFixed(0)
+      : qty.toStringAsFixed(4);
+
+  if (asset.type == 'altin') {
+    final key = asset.priceKey ?? '';
+    // priceKey yoksa (elle eklenmiş eski kayıt) gram varsayılır
+    final isGram = key.isEmpty || gramBased.contains(key);
+    return isGram ? '${qty.toStringAsFixed(1)} gr' : '$qtyStr adet';
+  }
+  return '$qtyStr adet';
 }

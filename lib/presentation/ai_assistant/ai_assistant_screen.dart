@@ -3,17 +3,18 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/constants/app_colors.dart';
+import '../../core/navigation/app_routes.dart';
 import '../../core/constants/app_typography.dart';
 import '../../features/ai_assistant/domain/entities/ai_message_entity.dart';
 import '../../features/ai_assistant/presentation/viewmodel/ai_assistant_viewmodel.dart';
 import '../../features/ai_assistant/presentation/viewmodel/ai_assistant_state.dart';
-import '../../data/providers/app_provider.dart';
-import '../../features/spending/presentation/viewmodel/spending_viewmodel.dart';
-import '../../features/spending/presentation/viewmodel/spending_state.dart';
-import '../../features/portfolio/presentation/viewmodel/portfolio_viewmodel.dart';
+import '../../features/ai_assistant/presentation/assistant_context_builder.dart';
+import '../../features/ai_assistant/presentation/widgets/assistant_action_bar.dart';
+import '../../features/ai_assistant/presentation/widgets/insight_card.dart';
 
-/// AI Asistan Ekranı — Uygulamanın kalbi
-/// Mod: Bütçe Denetimi | Yatırım Tavsiyesi | Hedef Analizi | Serbest Sohbet
+/// Liqra — asistanın sohbet ekranı.
+///
+/// Modlar: Bütçe Denetimi | Yatırım Analizi | Hedef & Birikim | Serbest Sohbet
 class AiAssistantScreen extends StatefulWidget {
   const AiAssistantScreen({super.key});
 
@@ -37,21 +38,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
     if (text.isEmpty) return;
     _inputController.clear();
 
-    final appProvider = context.read<AppProvider>();
-    final spending    = context.read<SpendingViewModel>();
-    final portfolio   = context.read<PortfolioViewModel>();
-
-    final spendingLoaded = spending.state is SpendingLoaded
-        ? spending.state as SpendingLoaded : null;
-
-    vm.sendMessage(
-      text:                text,
-      riskProfile:         appProvider.user.riskProfile,
-      monthlyIncome:       appProvider.user.monthlyIncome,
-      monthlyExpenses:     spendingLoaded?.summary.totalExpenses ?? appProvider.monthlyExpenses,
-      transactionsSummary: spending.buildTransactionsSummary(),
-      portfolioSummary:    portfolio.buildPortfolioSummary(),
-    ).then((_) => _scrollToBottom());
+    // Asistan artık cüzdanı, portföyü, piyasayı, haberleri ve kampanyaları
+    // birlikte görüyor — bağlam tek yerden kurulur.
+    vm
+        .sendMessage(
+          text: text,
+          context: AssistantContextBuilder.fromContext(context),
+        )
+        .then((_) => _scrollToBottom());
 
     _scrollToBottom();
   }
@@ -114,7 +108,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           children: [
                             Row(
                               children: [
-                                Text('Liqra AI', style: AppTypography.headlineS),
+                                Text('Liqra', style: AppTypography.headlineS),
                                 const SizedBox(width: 8),
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -185,7 +179,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   child: ListView(
                     scrollDirection: Axis.horizontal,
                     padding: const EdgeInsets.symmetric(horizontal: 20),
-                    children: vm.modeLabels.entries.map((entry) {
+                    children: AiAssistantViewModel.modeLabels.entries.map((entry) {
                       final isActive = vm.mode == entry.key;
                       return GestureDetector(
                         onTap: () => vm.setMode(entry.key),
@@ -217,7 +211,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           ),
                           child: Row(
                             children: [
-                              Text(vm.modeIcons[entry.key]!,
+                              Text(AiAssistantViewModel.modeIcons[entry.key]!,
                                   style: const TextStyle(fontSize: 13)),
                               const SizedBox(width: 5),
                               AnimatedDefaultTextStyle(
@@ -248,10 +242,10 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 10),
                     decoration: BoxDecoration(
-                      color: AppColors.accentRed.withOpacity(0.1),
+                      color: AppColors.accentRed.withValues(alpha: 0.1),
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(
-                          color: AppColors.accentRed.withOpacity(0.4)),
+                          color: AppColors.accentRed.withValues(alpha: 0.4)),
                     ),
                     child: Row(
                       children: [
@@ -275,6 +269,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                       ],
                     ),
                   ),
+
+                const SizedBox(height: 10),
+
+                // ── Tek dokunuşluk görevler ─────────────────────────────────
+                AssistantActionBar(vm: vm),
 
                 // ── Mesaj listesi ───────────────────────────────────────────
                 Expanded(
@@ -359,7 +358,25 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
   }
 
   Widget _buildEmptyState(AiAssistantViewModel vm) {
-    return Padding(
+    // İçgörüler modele hiç gitmeden üretilir; ekran açılır açılmaz hazırdır.
+    final insights = vm.topInsights(3);
+
+    return ListView(
+      padding: const EdgeInsets.fromLTRB(0, 12, 0, 20),
+      children: [
+        if (insights.isNotEmpty) ...[
+          InsightList(
+            insights: insights,
+            title: 'Bugün dikkatini çekenler',
+            // Uygulama named route kullanmıyor; rota adı sekmeye çevrilir.
+            // pushNamed çağrısı kayıtlı rota olmadığı için hata fırlatıyordu.
+            onTap: (i) {
+              if (i.route != AppRoutes.assistant) AppRoutes.go(i.route);
+            },
+          ),
+          const SizedBox(height: 12),
+        ],
+        Padding(
       padding: const EdgeInsets.symmetric(horizontal: 20),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
@@ -390,11 +407,12 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                 color: Colors.white, size: 32),
           ),
           const SizedBox(height: 16),
-          Text('Ne sormak istersiniz?',
+          Text('Merhaba, ben Liqra',
               style: AppTypography.headlineS, textAlign: TextAlign.center),
           const SizedBox(height: 8),
           Text(
-            'Finansal verilerinizi analiz ederek kişiselleştirilmiş tavsiyeler sunuyorum.',
+            'Cüzdanını, harcamalarını ve portföyünü birlikte görüyorum. '
+            'Sor ya da aşağıdaki görevlerden birini seç.',
             style: AppTypography.bodyM, textAlign: TextAlign.center,
           ),
           const SizedBox(height: 24),
@@ -440,15 +458,17 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
           )),
         ],
       ),
+        ),
+      ],
     );
   }
 
   String _getHintText(String mode) {
     switch (mode) {
-      case 'budget_audit':      return 'Harcama denetimi sorun...';
-      case 'portfolio_advisor': return 'Yatırım danışmanlığı sorun...';
-      case 'goal_tracker':      return 'Hedef analizi sorun...';
-      default:                  return 'Finans sorusu sorun...';
+      case 'budget_audit':      return "Liqra'ya harcamalarını sor...";
+      case 'portfolio_advisor': return "Liqra'ya portföyünü sor...";
+      case 'goal_tracker':      return "Liqra'ya hedefini sor...";
+      default:                  return "Liqra'ya bir şey sor...";
     }
   }
 
@@ -526,7 +546,7 @@ class _MessageBubble extends StatelessWidget {
               padding: const EdgeInsets.all(14),
               decoration: BoxDecoration(
                 color: isUser
-                    ? AppColors.accentGreen.withOpacity(0.15)
+                    ? AppColors.accentGreen.withValues(alpha: 0.15)
                     : AppColors.bgSecondary,
                 borderRadius: BorderRadius.only(
                   topLeft: const Radius.circular(16),
@@ -536,7 +556,7 @@ class _MessageBubble extends StatelessWidget {
                 ),
                 border: Border.all(
                   color: isUser
-                      ? AppColors.accentGreen.withOpacity(0.3)
+                      ? AppColors.accentGreen.withValues(alpha: 0.3)
                       : AppColors.borderSubtle,
                   width: 0.5,
                 ),
@@ -689,7 +709,7 @@ class _TypingIndicatorState extends State<_TypingIndicator>
                   width: 6, height: 6,
                   decoration: BoxDecoration(
                     color: AppColors.accentGreen
-                        .withOpacity(_animations[i].value),
+                        .withValues(alpha: _animations[i].value),
                     shape: BoxShape.circle,
                   ),
                 ),

@@ -376,7 +376,12 @@ mixin _$MarketDataDto {
   String get currency => throw _privateConstructorUsedError;
   String? get subLabel => throw _privateConstructorUsedError;
   String? get lastUpdated => throw _privateConstructorUsedError;
-  double get volume => throw _privateConstructorUsedError;
+  double get volume =>
+      throw _privateConstructorUsedError; // CollectAPI'nin verdiği ek alanlar — döviz alış/satış, hisse gün aralığı
+  double get alis => throw _privateConstructorUsedError;
+  double get satis => throw _privateConstructorUsedError;
+  double get dayLow => throw _privateConstructorUsedError;
+  double get dayHigh => throw _privateConstructorUsedError;
 
   /// Serializes this MarketDataDto to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -405,6 +410,10 @@ abstract class $MarketDataDtoCopyWith<$Res> {
     String? subLabel,
     String? lastUpdated,
     double volume,
+    double alis,
+    double satis,
+    double dayLow,
+    double dayHigh,
   });
 }
 
@@ -432,6 +441,10 @@ class _$MarketDataDtoCopyWithImpl<$Res, $Val extends MarketDataDto>
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
     Object? volume = null,
+    Object? alis = null,
+    Object? satis = null,
+    Object? dayLow = null,
+    Object? dayHigh = null,
   }) {
     return _then(
       _value.copyWith(
@@ -471,6 +484,22 @@ class _$MarketDataDtoCopyWithImpl<$Res, $Val extends MarketDataDto>
                 ? _value.volume
                 : volume // ignore: cast_nullable_to_non_nullable
                       as double,
+            alis: null == alis
+                ? _value.alis
+                : alis // ignore: cast_nullable_to_non_nullable
+                      as double,
+            satis: null == satis
+                ? _value.satis
+                : satis // ignore: cast_nullable_to_non_nullable
+                      as double,
+            dayLow: null == dayLow
+                ? _value.dayLow
+                : dayLow // ignore: cast_nullable_to_non_nullable
+                      as double,
+            dayHigh: null == dayHigh
+                ? _value.dayHigh
+                : dayHigh // ignore: cast_nullable_to_non_nullable
+                      as double,
           )
           as $Val,
     );
@@ -496,6 +525,10 @@ abstract class _$$MarketDataDtoImplCopyWith<$Res>
     String? subLabel,
     String? lastUpdated,
     double volume,
+    double alis,
+    double satis,
+    double dayLow,
+    double dayHigh,
   });
 }
 
@@ -522,6 +555,10 @@ class __$$MarketDataDtoImplCopyWithImpl<$Res>
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
     Object? volume = null,
+    Object? alis = null,
+    Object? satis = null,
+    Object? dayLow = null,
+    Object? dayHigh = null,
   }) {
     return _then(
       _$MarketDataDtoImpl(
@@ -561,6 +598,22 @@ class __$$MarketDataDtoImplCopyWithImpl<$Res>
             ? _value.volume
             : volume // ignore: cast_nullable_to_non_nullable
                   as double,
+        alis: null == alis
+            ? _value.alis
+            : alis // ignore: cast_nullable_to_non_nullable
+                  as double,
+        satis: null == satis
+            ? _value.satis
+            : satis // ignore: cast_nullable_to_non_nullable
+                  as double,
+        dayLow: null == dayLow
+            ? _value.dayLow
+            : dayLow // ignore: cast_nullable_to_non_nullable
+                  as double,
+        dayHigh: null == dayHigh
+            ? _value.dayHigh
+            : dayHigh // ignore: cast_nullable_to_non_nullable
+                  as double,
       ),
     );
   }
@@ -579,6 +632,10 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
     this.subLabel,
     this.lastUpdated,
     this.volume = 0,
+    this.alis = 0,
+    this.satis = 0,
+    this.dayLow = 0,
+    this.dayHigh = 0,
   });
 
   factory _$MarketDataDtoImpl.fromJson(Map<String, dynamic> json) =>
@@ -603,10 +660,23 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
   @override
   @JsonKey()
   final double volume;
+  // CollectAPI'nin verdiği ek alanlar — döviz alış/satış, hisse gün aralığı
+  @override
+  @JsonKey()
+  final double alis;
+  @override
+  @JsonKey()
+  final double satis;
+  @override
+  @JsonKey()
+  final double dayLow;
+  @override
+  @JsonKey()
+  final double dayHigh;
 
   @override
   String toString() {
-    return 'MarketDataDto(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated, volume: $volume)';
+    return 'MarketDataDto(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated, volume: $volume, alis: $alis, satis: $satis, dayLow: $dayLow, dayHigh: $dayHigh)';
   }
 
   @override
@@ -626,7 +696,11 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
                 other.subLabel == subLabel) &&
             (identical(other.lastUpdated, lastUpdated) ||
                 other.lastUpdated == lastUpdated) &&
-            (identical(other.volume, volume) || other.volume == volume));
+            (identical(other.volume, volume) || other.volume == volume) &&
+            (identical(other.alis, alis) || other.alis == alis) &&
+            (identical(other.satis, satis) || other.satis == satis) &&
+            (identical(other.dayLow, dayLow) || other.dayLow == dayLow) &&
+            (identical(other.dayHigh, dayHigh) || other.dayHigh == dayHigh));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -642,6 +716,10 @@ class _$MarketDataDtoImpl implements _MarketDataDto {
     subLabel,
     lastUpdated,
     volume,
+    alis,
+    satis,
+    dayLow,
+    dayHigh,
   );
 
   /// Create a copy of MarketDataDto
@@ -669,6 +747,10 @@ abstract class _MarketDataDto implements MarketDataDto {
     final String? subLabel,
     final String? lastUpdated,
     final double volume,
+    final double alis,
+    final double satis,
+    final double dayLow,
+    final double dayHigh,
   }) = _$MarketDataDtoImpl;
 
   factory _MarketDataDto.fromJson(Map<String, dynamic> json) =
@@ -691,7 +773,15 @@ abstract class _MarketDataDto implements MarketDataDto {
   @override
   String? get lastUpdated;
   @override
-  double get volume;
+  double get volume; // CollectAPI'nin verdiği ek alanlar — döviz alış/satış, hisse gün aralığı
+  @override
+  double get alis;
+  @override
+  double get satis;
+  @override
+  double get dayLow;
+  @override
+  double get dayHigh;
 
   /// Create a copy of MarketDataDto
   /// with the given fields replaced by the non-null parameter values.

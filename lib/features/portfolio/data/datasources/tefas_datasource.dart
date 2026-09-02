@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:dio/dio.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 /// TEFAS fon bilgisi
+///
+/// [currentPrice] TEFAS'ın ücretsiz ucunda BULUNMUYOR ve daima 0'dır.
+/// Kullanıcı fon fiyatını "Varlık Ekle" ekranında elle girer.
 class TefasFund {
   final String code;
   final String name;
@@ -14,14 +16,22 @@ class TefasFund {
   final double monthlyReturn;
   final double yearlyReturn;
 
+  /// 1–7 arası TEFAS risk değeri (0 = bilinmiyor)
+  final int riskValue;
+
+  /// YAT | EMK | BYF
+  final String fundType;
+
   const TefasFund({
     required this.code,
     required this.name,
     required this.type,
-    required this.currentPrice,
+    this.currentPrice  = 0,
     this.dailyReturn   = 0,
     this.monthlyReturn = 0,
     this.yearlyReturn  = 0,
+    this.riskValue     = 0,
+    this.fundType      = 'YAT',
   });
 }
 
@@ -31,43 +41,30 @@ abstract interface class TefasDataSource {
   Future<List<TefasFund>> getAllFunds();
 }
 
-/// TEFAS resmi sitesi entegrasyonu — direkt istek (CORS mobile'da engellenmez)
+/// TEFAS fon kataloğu — Firestore üzerinden.
 ///
-/// Endpoint: POST https://www.tefas.gov.tr/api/DB/BindHistoryInfo
-/// Content-Type: application/x-www-form-urlencoded
-/// Tarayıcı header'ları zorunlu — aksi halde 403/500 döner.
+/// ── Neden telefondan TEFAS'a istek atmıyoruz ────────────────────────────────
+/// Eski uç (POST /api/DB/BindHistoryInfo) TEFAS tarafından KAPATILDI
+/// (404, "Method not found or disabled!") ve site bot koruması arkasında.
+/// Katalogu Cloud Functions (`fetchTefasFunds`, günlük 19:30) çeker ve
+/// `tefas_funds/catalog` dökümanına yazar. İstemci yalnızca onu okur:
+///   • tek doküman → kullanıcı başına 1 Firestore okuması
+///   • bot korumasına takılmaz, ağ hatası yüzeyi küçük
+///
+/// Fiyat bilgisi katalogda yoktur (TEFAS ücretsiz uçta vermiyor).
 class TefasDataSourceImpl implements TefasDataSource {
-  late final Dio _dio;
-
-  // Bellek cache
+  // Bellek cache — katalog günde bir değişir
   static List<TefasFund>? _memCache;
   static DateTime?        _memCacheAt;
-  static DateTime?        _rateLimitedUntil;
-  static const _cacheDuration    = Duration(hours: 4);
-  static const _rateLimitBackoff = Duration(minutes: 10);
+  static const _cacheDuration = Duration(hours: 12);
 
-  // Disk cache anahtarları
+  // Disk cache anahtarları (çevrimdışı açılış için)
   static const _prefKeyData = 'tefas_funds_json';
   static const _prefKeyTime = 'tefas_funds_ts';
 
-  static const _baseUrl = 'https://www.tefas.gov.tr';
+  static const _catalogDoc = 'tefas_funds/catalog';
 
-  // TEFAS'ın tarayıcı sandığı için zorunlu header'lar
-  static Map<String, String> get _browserHeaders => {
-    'User-Agent':       'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-    'Accept':           'application/json, text/javascript, */*; q=0.01',
-    'X-Requested-With': 'XMLHttpRequest',
-    'Origin':           'https://www.tefas.gov.tr',
-    'Referer':          'https://www.tefas.gov.tr/FonKarsilastirma.aspx',
-  };
-
-  TefasDataSourceImpl() {
-    _dio = Dio(BaseOptions(
-      baseUrl:        _baseUrl,
-      connectTimeout: const Duration(seconds: 15),
-      receiveTimeout: const Duration(seconds: 25),
-    ));
-  }
+  TefasDataSourceImpl();
 
   @override
   Future<List<TefasFund>> searchFunds(String query) async {
@@ -75,121 +72,71 @@ class TefasDataSourceImpl implements TefasDataSource {
     final all = await getAllFunds();
     if (all.isEmpty) return [];
     final q = query.toUpperCase().trim();
-    // Arama filtresini arka planda çalıştır (büyük liste)
+    // Arama filtresini arka planda çalıştır (2500+ fon)
     return compute(_filterFunds, _FilterParams(all, q));
   }
 
+  /// TEFAS ücretsiz uçta birim pay değeri yok — daima null döner.
+  /// Fiyat kullanıcı tarafından elle girilir.
   @override
-  Future<double?> getCurrentPrice(String code) async {
-    final all = await getAllFunds();
-    try {
-      return all
-          .firstWhere((f) => f.code.toUpperCase() == code.toUpperCase())
-          .currentPrice;
-    } catch (_) {
-      return null;
-    }
-  }
+  Future<double?> getCurrentPrice(String code) async => null;
 
   @override
   Future<List<TefasFund>> getAllFunds() async {
-    // 1. Bellek cache geçerliyse direkt dön
+    // 1. Bellek cache
     if (_isMemCacheValid()) return _memCache!;
 
-    // 2. Disk cache'i kontrol et
+    // 2. Firestore kataloğu — kanonik kaynak
+    final catalog = await _loadCatalog();
+    if (catalog.isNotEmpty) {
+      _memCache   = catalog;
+      _memCacheAt = DateTime.now();
+      await _saveToDisk(catalog);
+      debugPrint('[TEFAS] Katalog: ${catalog.length} fon.');
+      return catalog;
+    }
+
+    // 3. Çevrimdışı — disk cache
     final diskFunds = await _loadFromDisk();
-    if (diskFunds != null) {
+    if (diskFunds != null && diskFunds.isNotEmpty) {
       _memCache   = diskFunds;
       _memCacheAt = DateTime.now();
-      debugPrint('[TEFAS] Disk cache\'den yüklendi (${diskFunds.length} fon).');
+      debugPrint('[TEFAS] Disk cache: ${diskFunds.length} fon.');
       return diskFunds;
     }
 
-    // 3. Rate limit backoff aktifse
-    if (_rateLimitedUntil != null && DateTime.now().isBefore(_rateLimitedUntil!)) {
-      final sn = _rateLimitedUntil!.difference(DateTime.now()).inSeconds;
-      debugPrint('[TEFAS] Rate limit backoff: $sn sn kaldı.');
-      return _memCache ?? [];
-    }
-
-    // 4. TEFAS'tan direkt çek
-    final funds = await _fetchFromTefas();
-
-    if (funds.isNotEmpty) {
-      _memCache         = funds;
-      _memCacheAt       = DateTime.now();
-      _rateLimitedUntil = null;
-      await _saveToDisk(funds);
-      debugPrint('[TEFAS] ${funds.length} fon yüklendi ve diske kaydedildi.');
-      return funds;
-    }
-
-    // 5. Başarısız — Firestore cache'ini dene
-    final firestoreFunds = await _loadFromFirestore();
-    if (firestoreFunds.isNotEmpty) {
-      _memCache   = firestoreFunds;
-      _memCacheAt = DateTime.now();
-      debugPrint('[TEFAS] Firestore cache\'den ${firestoreFunds.length} fon yüklendi.');
-      return firestoreFunds;
-    }
-
-    debugPrint('[TEFAS] Tüm kaynaklar başarısız, mevcut önbellek kullanılıyor.');
+    debugPrint('[TEFAS] Fon kataloğu alınamadı.');
     return _memCache ?? [];
   }
 
-  // ── TEFAS Resmi API ───────────────────────────────────────────────────────
+  // ── Firestore Katalog ─────────────────────────────────────────────────────
 
-  Future<List<TefasFund>> _fetchFromTefas() async {
-    try {
-      final today     = _fmtDate(DateTime.now());
-      final yesterday = _fmtDate(DateTime.now().subtract(const Duration(days: 1)));
-
-      final response = await _dio.post(
-        '/api/DB/BindHistoryInfo',
-        data: {
-          'fontip':   'YAT',
-          'bastarih': yesterday,
-          'bittarih': today,
-        },
-        options: Options(
-          headers:     _browserHeaders,
-          contentType: Headers.formUrlEncodedContentType,
-          validateStatus: (status) => status != null && status < 500,
-        ),
-      );
-
-      if (response.statusCode == 429) {
-        _rateLimitedUntil = DateTime.now().add(_rateLimitBackoff);
-        debugPrint('[TEFAS] 429 Rate limit — ${_rateLimitBackoff.inMinutes} dk sonra tekrar denenecek.');
-        return [];
-      }
-
-      debugPrint('[TEFAS] HTTP ${response.statusCode}');
-      return _parseResponse(response.data);
-    } on DioException catch (e) {
-      debugPrint('[TEFAS] DioException: ${e.response?.statusCode} — ${e.message}');
-      return [];
-    } catch (e) {
-      debugPrint('[TEFAS] Hata: $e');
-      return [];
-    }
-  }
-
-  // ── Firestore Cache ───────────────────────────────────────────────────────
-
-  Future<List<TefasFund>> _loadFromFirestore() async {
+  /// `tefas_funds/catalog` → { count, updatedAt, funds: [{c,n,t,r,k}] }
+  Future<List<TefasFund>> _loadCatalog() async {
     try {
       final snap = await FirebaseFirestore.instance
-          .collection('tefas_funds')
-          .limit(500)
+          .doc(_catalogDoc)
           .get(const GetOptions(source: Source.serverAndCache));
-      if (snap.docs.isEmpty) return [];
-      return snap.docs
-          .map((d) => _parseItem(d.data()))
-          .where((f) => f.code.isNotEmpty)
-          .toList();
+
+      final raw = snap.data()?['funds'];
+      if (raw is! List || raw.isEmpty) return [];
+
+      final result = <TefasFund>[];
+      for (final item in raw) {
+        if (item is! Map) continue;
+        final code = (item['c'] as String? ?? '').toUpperCase();
+        if (code.isEmpty) continue;
+        result.add(TefasFund(
+          code:      code,
+          name:      item['n'] as String? ?? code,
+          type:      item['t'] as String? ?? 'Fon',
+          riskValue: (item['r'] as num?)?.toInt() ?? 0,
+          fundType:  item['k'] as String? ?? 'YAT',
+        ));
+      }
+      return result;
     } catch (e) {
-      debugPrint('[TEFAS] Firestore okuma hatası: $e');
+      debugPrint('[TEFAS] Katalog okuma hatası: $e');
       return [];
     }
   }
@@ -213,13 +160,10 @@ class TefasDataSourceImpl implements TefasDataSource {
       final ts    = prefs.getInt(_prefKeyTime);
       if (ts == null) return null;
 
-      final savedAt = DateTime.fromMillisecondsSinceEpoch(ts);
-      if (DateTime.now().difference(savedAt) >= _cacheDuration) return null;
-
       final json = prefs.getString(_prefKeyData);
       if (json == null) return null;
 
-      // Büyük JSON'u (3000+ fon) arka planda ayrıştır — UI thread'i bloklamaz
+      // Büyük JSON'u (2500+ fon) arka planda ayrıştır — UI thread'i bloklamaz
       final list = await compute(_decodeJsonToFunds, json);
       return list.isEmpty ? null : list;
     } catch (e) {
@@ -229,72 +173,16 @@ class TefasDataSourceImpl implements TefasDataSource {
   }
 
   Map<String, dynamic> _fundToJson(TefasFund f) => {
-    'fundCode':  f.code,
-    'fundName':  f.name,
-    'category':  f.type,
-    'price':     f.currentPrice,
-    'return1d':  f.dailyReturn,
-    'return1m':  f.monthlyReturn,
-    'return1y':  f.yearlyReturn,
+    'c': f.code,
+    'n': f.name,
+    't': f.type,
+    'r': f.riskValue,
+    'k': f.fundType,
   };
-
-  // ── Parse ─────────────────────────────────────────────────────────────────
 
   static bool _isMemCacheValid() {
     if (_memCache == null || _memCacheAt == null) return false;
     return DateTime.now().difference(_memCacheAt!) < _cacheDuration;
-  }
-
-  List<TefasFund> _parseResponse(dynamic data) {
-    List<dynamic> list;
-    if (data is Map) {
-      list = (data['data']   as List?) ??
-             (data['result'] as List?) ??
-             (data['funds']  as List?) ??
-             [];
-    } else if (data is List) {
-      list = data;
-    } else {
-      return [];
-    }
-
-    return list
-        .whereType<Map<String, dynamic>>()
-        .map(_parseItem)
-        .where((f) => f.code.isNotEmpty)
-        .toList();
-  }
-
-  TefasFund _parseItem(Map<String, dynamic> item) {
-    // TEFAS resmi alanlar: FONKODU, FONUNVAN, FONTUR, BIRIMPAYDEGERI,
-    // GUNLUK, AYLIK, YILLIK — veya küçük harf varyantları
-    return TefasFund(
-      code: _str(
-        item['FONKODU']   ?? item['fundCode'] ?? item['code']    ?? '',
-      ),
-      name: _str(
-        item['FONUNVAN']  ?? item['fundName'] ?? item['name']    ?? '',
-      ),
-      type: _str(
-        item['FONTUR']    ?? item['category'] ?? item['fundType']?? 'Fon',
-      ),
-      currentPrice:  _dbl(item['BIRIMPAYDEGERI'] ?? item['price']    ?? 0),
-      dailyReturn:   _dbl(item['GUNLUK']         ?? item['return1d'] ?? 0),
-      monthlyReturn: _dbl(item['AYLIK']          ?? item['return1m'] ?? 0),
-      yearlyReturn:  _dbl(item['YILLIK']         ?? item['return1y'] ?? 0),
-    );
-  }
-
-  /// DD.MM.YYYY formatı — TEFAS'ın beklediği format
-  String _fmtDate(DateTime d) =>
-      '${d.day.toString().padLeft(2, '0')}.${d.month.toString().padLeft(2, '0')}.${d.year}';
-
-  String _str(dynamic v) => v?.toString().trim() ?? '';
-
-  double _dbl(dynamic v) {
-    if (v == null) return 0;
-    if (v is num)  return v.toDouble();
-    return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
   }
 }
 
@@ -307,43 +195,35 @@ class _FilterParams {
 }
 
 List<TefasFund> _filterFunds(_FilterParams p) {
-  return p.funds
-      .where((f) =>
-          f.code.toUpperCase().contains(p.query) ||
-          f.name.toUpperCase().contains(p.query))
-      .take(20)
-      .toList();
+  // Kod eşleşmesi isim eşleşmesinden önce gelsin
+  final byCode = <TefasFund>[];
+  final byName = <TefasFund>[];
+  for (final f in p.funds) {
+    if (f.code.toUpperCase().contains(p.query)) {
+      byCode.add(f);
+    } else if (f.name.toUpperCase().contains(p.query)) {
+      byName.add(f);
+    }
+  }
+  return [...byCode, ...byName].take(20).toList();
 }
 
-// ── Isolate fonksiyonu — JSON parse background'da çalışır ───────────────────
-/// compute() ile çağrılır; ~3000+ fon JSON'unu main thread'i bloklamadan ayrıştırır.
+/// compute() ile çağrılır; 2500+ fon JSON'unu main thread'i bloklamadan ayrıştırır.
 List<TefasFund> _decodeJsonToFunds(String json) {
   try {
     final raw = jsonDecode(json) as List;
     return raw
-        .cast<Map<String, dynamic>>()
-        .map(_parseItemIsolate)
+        .whereType<Map<String, dynamic>>()
+        .map((m) => TefasFund(
+              code:      (m['c'] as String? ?? '').toUpperCase(),
+              name:      m['n'] as String? ?? '',
+              type:      m['t'] as String? ?? 'Fon',
+              riskValue: (m['r'] as num?)?.toInt() ?? 0,
+              fundType:  m['k'] as String? ?? 'YAT',
+            ))
         .where((f) => f.code.isNotEmpty)
         .toList();
   } catch (_) {
     return [];
   }
-}
-
-TefasFund _parseItemIsolate(Map<String, dynamic> item) {
-  double toDouble(dynamic v) {
-    if (v == null) return 0;
-    if (v is num) return v.toDouble();
-    return double.tryParse(v.toString().replaceAll(',', '.')) ?? 0;
-  }
-  String toStr(dynamic v) => v?.toString().trim() ?? '';
-  return TefasFund(
-    code:          toStr(item['FONKODU']        ?? item['fundCode'] ?? item['code']     ?? ''),
-    name:          toStr(item['FONUNVAN']       ?? item['fundName'] ?? item['name']     ?? ''),
-    type:          toStr(item['FONTUR']         ?? item['category'] ?? item['fundType'] ?? 'Fon'),
-    currentPrice:  toDouble(item['BIRIMPAYDEGERI'] ?? item['price']    ?? 0),
-    dailyReturn:   toDouble(item['GUNLUK']         ?? item['return1d'] ?? 0),
-    monthlyReturn: toDouble(item['AYLIK']          ?? item['return1m'] ?? 0),
-    yearlyReturn:  toDouble(item['YILLIK']         ?? item['return1y'] ?? 0),
-  );
 }

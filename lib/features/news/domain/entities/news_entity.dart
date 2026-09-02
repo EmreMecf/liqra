@@ -1,3 +1,5 @@
+import '../../../../core/utils/category_slug.dart';
+
 enum NewsCategory {
   borsa,
   doviz,
@@ -19,17 +21,19 @@ enum NewsCategory {
     NewsCategory.genel   => '📰 Genel',
   };
 
-  static NewsCategory fromString(String? s) => switch (s) {
-    'borsa'   => NewsCategory.borsa,
-    'döviz'   => NewsCategory.doviz,
-    'doviz'   => NewsCategory.doviz,
-    'altin'   => NewsCategory.altin,
-    'kripto'  => NewsCategory.kripto,
-    'faiz'    => NewsCategory.faiz,
-    'ekonomi' => NewsCategory.ekonomi,
-    'sirket'  => NewsCategory.sirket,
-    _         => NewsCategory.genel,
-  };
+  /// Firestore'daki slug'ı enum'a çevirir. Türkçe karakterli ve ASCII
+  /// yazımların ikisini de tanır (bkz. [normalizeCategorySlug]).
+  static NewsCategory fromString(String? s) =>
+      switch (normalizeCategorySlug(s)) {
+        'borsa'   => NewsCategory.borsa,
+        'doviz'   => NewsCategory.doviz,
+        'altin'   => NewsCategory.altin,
+        'kripto'  => NewsCategory.kripto,
+        'faiz'    => NewsCategory.faiz,
+        'ekonomi' => NewsCategory.ekonomi,
+        'sirket'  => NewsCategory.sirket,
+        _         => NewsCategory.genel,
+      };
 }
 
 class NewsEntity {

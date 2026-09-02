@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
 import '../../../../core/utils/formatters.dart';
+import '../../domain/billing_cycle.dart';
 import '../../domain/entities/financial_account_entity.dart';
 import '../viewmodels/accounts_viewmodel.dart';
 import '../viewmodels/accounts_state.dart';
@@ -72,7 +73,7 @@ class _AccountsScreenState extends State<AccountsScreen> {
                 // ── 2. Kredi Sağlığı + Özet ───────────────────────────────
                 if (vm.creditCards.isNotEmpty)
                   SliverToBoxAdapter(
-                    child: _CreditHealthRow(cards: vm.creditCards)
+                    child: _CreditHealthRow(vm: vm)
                         .animate()
                         .fadeIn(delay: 80.ms, duration: 350.ms),
                   ),
@@ -439,8 +440,9 @@ class _NetWorthCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final totalAssets = vm.totalBankBalance;
-    final totalDebt   = vm.totalStatementDebt;
-    final netWorth    = totalAssets - totalDebt;
+    // Kartlarin TOPLAM borcu — kesim sonrasi harcamalar da borçtur.
+    final totalDebt   = vm.totalCreditUsed;
+    final netWorth    = vm.netWorth;
     final isPositive  = netWorth >= 0;
 
     return Container(
@@ -475,7 +477,7 @@ class _NetWorthCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'Net Servет',
+                'Net Servet',
                 style: AppTypography.labelS.copyWith(
                   color: AppColors.textSecondary,
                   letterSpacing: 0.5,
@@ -530,7 +532,9 @@ class _NetWorthCard extends StatelessWidget {
           ),
           const SizedBox(height: 6),
           Text(
-            'Banka bakiyesi eksi kredi kartı borcu',
+            vm.totalUnbilled > 0
+                ? 'Banka bakiyesi eksi kart borcu — ${Formatters.currency(vm.totalUnbilled)} henüz ekstreye girmedi'
+                : 'Banka bakiyesi eksi kredi kartı borçları',
             style: AppTypography.bodyS
                 .copyWith(color: AppColors.textDisabled),
           ),
@@ -551,7 +555,7 @@ class _NetWorthCard extends StatelessWidget {
                   width: 1, height: 36, color: AppColors.borderSubtle),
               Expanded(
                 child: _NetWorthStat(
-                  label: 'Kredi Borcu',
+                  label: 'Kart Borcu',
                   value: Formatters.currency(totalDebt),
                   color: AppColors.accentRed,
                   icon: Icons.credit_card_outlined,
@@ -621,30 +625,26 @@ class _NetWorthStat extends StatelessWidget {
 // ─── 2. Kredi Sağlığı Skoru ───────────────────────────────────────────────────
 
 class _CreditHealthRow extends StatelessWidget {
-  final List<CreditCardEntity> cards;
-  const _CreditHealthRow({required this.cards});
-
-  int _computeScore() {
-    if (cards.isEmpty) return 100;
-    final avgUsage = cards.fold(0.0, (s, c) => s + c.usagePercent) / cards.length;
-    final overdueCount = cards.where((c) => c.isOverdue).length;
-    final score = (100 - avgUsage * 80 - overdueCount * 15).clamp(0.0, 100.0);
-    return score.round();
-  }
+  final AccountsViewModel vm;
+  const _CreditHealthRow({required this.vm});
 
   @override
   Widget build(BuildContext context) {
-    final score    = _computeScore();
-    final color    = score >= 75
+    // Skor ve kullanım oranı ViewModel'den gelir: toplam borç / toplam limit.
+    // Eskiden burada kartların kullanım oranlarının ağırlıksız ortalaması
+    // alınıyordu; 100.000 limitli boş bir kart, 1.000 limitli dolu bir kartla
+    // eşit sayılıyor ve skor gerçeğinden çok uzak çıkıyordu.
+    final score  = vm.creditHealthScore;
+    final color  = score >= 75
         ? AppColors.accentGreen
         : score >= 45
             ? AppColors.accentAmber
             : AppColors.accentRed;
-    final label    = score >= 75 ? 'Sağlıklı' : score >= 45 ? 'Orta' : 'Riskli';
-    final totalAvail = cards.fold(0.0, (s, c) => s + c.availableLimit);
-    final totalLimit = cards.fold(0.0, (s, c) => s + c.creditLimit);
-    final totalUsed  = cards.fold(0.0, (s, c) => s + c.usedAmount);
-
+    final label  = score >= 75 ? 'Sağlıklı' : score >= 45 ? 'Orta' : 'Riskli';
+    final totalAvail = vm.totalAvailableLimit;
+    final totalLimit = vm.totalCreditLimit;
+    final totalUsed  = vm.totalCreditUsed;
+    final usagePct   = (vm.creditUtilization * 100).round();
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 0, 20, 16),
       child: Row(
@@ -703,7 +703,13 @@ class _CreditHealthRow extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Kullanım oranı %$usagePct',
+                    style: AppTypography.labelS
+                        .copyWith(color: AppColors.textDisabled),
+                  ),
+                  const SizedBox(height: 8),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
@@ -805,30 +811,59 @@ class _SmartAlerts extends StatelessWidget {
 
     // Kredi kartı ödeme uyarıları
     for (final card in vm.creditCards) {
+      // isOverdue artık gerçekten çalışıyor: son ödeme tarihi geçmiş VE
+      // ekstre borcu duruyor. Eskiden bu koşul asla sağlanamıyordu.
       if (card.isOverdue) {
         alerts.add(_Alert(
           icon: Icons.warning_amber_rounded,
           color: AppColors.accentRed,
-          title: '${card.name} süresi geçti',
-          body: '${Formatters.currency(card.statementBalance)} ödemeniz gecikmiş.',
+          title: '${card.name} ödemesi ${card.daysPastDue} gün gecikti',
+          body: '${Formatters.currency(card.statementBalance)} ödemeniz '
+              '${Formatters.shortDate(card.cycle.currentDueDate)} tarihinde doldu.',
           priority: 0,
         ));
       } else if (card.isDueSoon) {
+        final left = card.daysUntilDue;
         alerts.add(_Alert(
           icon: Icons.schedule_rounded,
           color: AppColors.accentAmber,
-          title: '${card.name} — ${card.daysUntilDue} gün kaldı',
-          body: 'Minimum ödeme: ${Formatters.currency(card.minimumPayment)}',
+          title: left == 0
+              ? '${card.name} — bugün son gün'
+              : '${card.name} — $left gün kaldı',
+          body: 'Ekstre ${Formatters.currency(card.statementBalance)} · '
+              'asgari ${Formatters.currency(card.minimumPayment)}',
           priority: 1,
         ));
       }
-      // Yüksek kullanım uyarısı
-      if (card.usagePercent > 0.80) {
+
+      // Limit aşımı — kullanım uyarısından daha ciddi
+      if (card.isOverLimit) {
+        alerts.add(_Alert(
+          icon: Icons.error_outline_rounded,
+          color: AppColors.accentRed,
+          title: '${card.name} limiti aşıldı',
+          body: '${Formatters.currency(-card.availableLimit)} limit üstü borç var.',
+          priority: 0,
+        ));
+      } else if (card.usagePercent > 0.80) {
         alerts.add(_Alert(
           icon: Icons.credit_card_off_outlined,
           color: AppColors.accentAmber,
           title: '${card.name} limiti dolmak üzere',
-          body: '%${(card.usagePercent * 100).round()} kullanıldı — kredi skorunu etkiler.',
+          body: '%${(card.usagePercent * 100).round()} kullanıldı — '
+              'kredi skorunu etkiler.',
+          priority: 2,
+        ));
+      }
+
+      // Yaklaşan ekstre kesimi — bugünden sonraki harcamalar sonraki aya kalır
+      if (card.unbilledAmount > 0 && card.cycle.nextClosingDate
+              .difference(BillingCycle.dateOnly(DateTime.now())).inDays <= 3) {
+        alerts.add(_Alert(
+          icon: Icons.receipt_long_outlined,
+          color: AppColors.accentAmber,
+          title: '${card.name} ekstresi kesiliyor',
+          body: '${Formatters.currency(card.unbilledAmount)} bu ekstreye girecek.',
           priority: 2,
         ));
       }
@@ -846,7 +881,7 @@ class _SmartAlerts extends StatelessWidget {
     }
 
     // Boş limit — acil fon bilgisi
-    final totalAvail = vm.creditCards.fold(0.0, (s, c) => s + c.availableLimit);
+    final totalAvail = vm.totalAvailableLimit;
     if (totalAvail > 5000 && vm.creditCards.isNotEmpty) {
       alerts.add(_Alert(
         icon: Icons.shield_outlined,
@@ -954,21 +989,34 @@ class _PaymentCalendar extends StatelessWidget {
   final List<CreditCardEntity> cards;
   const _PaymentCalendar({required this.cards});
 
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-    // sonraki 30 günde hangi günlerde ödeme/hesap kesim var?
-    final paymentDays  = <int>{};  // ödeme günleri (paymentDueDay)
-    final statementDays = <int>{}; // hesap kesim günleri
-
+  /// Gerçek tarihleri kartlara eşler.
+  ///
+  /// Eskiden `gün.day == card.paymentDueDay` karşılaştırması yapılıyordu:
+  /// 30 çeken bir ayda "31" günü hiç gelmediği için o kartın ödeme günü
+  /// takvimde hiç işaretlenmiyordu. Artık tarihler [BillingCycle.dayInMonth]
+  /// ile üretilir; ayın gün sayısını aşan günler son güne sabitlenir.
+  static Map<DateTime, List<String>> _eventDates(
+    List<CreditCardEntity> cards,
+    DateTime today, {
+    required bool payment,
+  }) {
+    final map = <DateTime, List<String>>{};
     for (final card in cards) {
-      // Bu ay ve gelecek ayın ödeme günleri
-      for (var offset = 0; offset <= 30; offset++) {
-        final day = now.add(Duration(days: offset));
-        if (day.day == card.paymentDueDay)     paymentDays.add(offset);
-        if (day.day == card.statementClosingDay) statementDays.add(offset);
+      final day = payment ? card.paymentDueDay : card.statementClosingDay;
+      // Pencere iki aya yayılabildiği için bu ay ve gelecek iki ay üretilir.
+      for (var m = 0; m <= 2; m++) {
+        final date = BillingCycle.dayInMonth(today.year, today.month + m, day);
+        map.putIfAbsent(date, () => []).add(card.name);
       }
     }
+    return map;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final today = BillingCycle.dateOnly(DateTime.now());
+    final paymentDates   = _eventDates(cards, today, payment: true);
+    final statementDates = _eventDates(cards, today, payment: false);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -992,17 +1040,12 @@ class _PaymentCalendar extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 20),
             itemCount: 30,
             itemBuilder: (ctx, i) {
-              final day  = now.add(Duration(days: i));
-              final isToday   = i == 0;
-              final hasPayment = paymentDays.contains(i);
-              final hasStmt   = statementDays.contains(i);
-
+              final day = today.add(Duration(days: i));
               return _CalendarDay(
-                day:        day,
-                isToday:    isToday,
-                hasPayment: hasPayment,
-                hasStatement: hasStmt,
-                cards:      cards,
+                day:            day,
+                isToday:        i == 0,
+                paymentCards:   paymentDates[day] ?? const [],
+                statementCards: statementDates[day] ?? const [],
               );
             },
           ),
@@ -1036,30 +1079,33 @@ class _Legend extends StatelessWidget {
 class _CalendarDay extends StatelessWidget {
   final DateTime day;
   final bool     isToday;
-  final bool     hasPayment;
-  final bool     hasStatement;
-  final List<CreditCardEntity> cards;
+
+  /// O gün ödemesi olan kartların adları — tarih eşleşmesi çağıranda
+  /// yapılır, burada gün numarası karşılaştırması yoktur.
+  final List<String> paymentCards;
+  final List<String> statementCards;
 
   const _CalendarDay({
     required this.day,
     required this.isToday,
-    required this.hasPayment,
-    required this.hasStatement,
-    required this.cards,
+    required this.paymentCards,
+    required this.statementCards,
   });
 
   static const _weekdays = ['Pzt', 'Sal', 'Çar', 'Per', 'Cum', 'Cmt', 'Paz'];
 
   @override
   Widget build(BuildContext context) {
-    final hasEvent  = hasPayment || hasStatement;
+    final hasPayment   = paymentCards.isNotEmpty;
+    final hasStatement = statementCards.isNotEmpty;
+    final hasEvent     = hasPayment || hasStatement;
     final eventColor = hasPayment ? AppColors.accentRed : AppColors.accentAmber;
 
     return Tooltip(
       message: hasPayment
-          ? 'Ödeme günü — ${cards.where((c) => c.paymentDueDay == day.day).map((c) => c.name).join(', ')}'
+          ? 'Ödeme günü — ${paymentCards.join(', ')}'
           : hasStatement
-              ? 'Hesap kesim — ${cards.where((c) => c.statementClosingDay == day.day).map((c) => c.name).join(', ')}'
+              ? 'Hesap kesim — ${statementCards.join(', ')}'
               : '',
       child: Container(
         width: 48,

@@ -8,11 +8,15 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/constants/app_colors.dart';
+import '../../core/navigation/app_routes.dart';
+import '../spending/budget_sheet.dart';
 import '../../core/constants/app_typography.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/goal_model.dart';
 import '../../data/models/transaction_model.dart';
 import '../../data/providers/app_provider.dart';
+import '../../features/ai_assistant/presentation/viewmodel/ai_assistant_viewmodel.dart';
+import '../../features/ai_assistant/presentation/widgets/insight_card.dart';
 import '../../features/dashboard/presentation/viewmodel/dashboard_viewmodel.dart';
 import '../../features/portfolio/domain/entities/asset_entity.dart';
 import '../../features/portfolio/presentation/viewmodel/market_viewmodel.dart';
@@ -184,6 +188,27 @@ class _MobileDashboard extends StatelessWidget {
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
                   child: _QuickActionsRow(),
                 ).animate().fadeIn(duration: 250.ms).slideY(begin: 0.06, end: 0),
+              ),
+
+              // ── Asistan içgörüleri ────────────────────────────────────
+              // İçgörüler InsightEngine tarafından modele hiç gitmeden üretilir;
+              // burada göstermek ek maliyet getirmez.
+              SliverToBoxAdapter(
+                child: Consumer<AiAssistantViewModel>(
+                  builder: (_, avm, __) {
+                    final insights = avm.topInsights(2);
+                    if (insights.isEmpty) return const SizedBox.shrink();
+                    return Padding(
+                      padding: const EdgeInsets.only(top: 14),
+                      child: InsightList(
+                        insights: insights,
+                        title: 'Liqra ne fark etti',
+                        limit: 2,
+                        onTap: (i) => AppRoutes.go(i.route),
+                      ),
+                    ).animate(delay: 30.ms).fadeIn(duration: 250.ms);
+                  },
+                ),
               ),
 
               // ── Piyasa Pulse ─────────────────────────────────────────────
@@ -1282,6 +1307,14 @@ class _BudgetCard extends StatelessWidget {
       ..sort((a, b) => b.value.compareTo(a.value));
     final top = sorted.take(4).toList();
 
+    // Bütçe limitleri (bkz. BudgetModel). Limit yoksa kart eskisi gibi
+    // yalnızca dağılım gösterir.
+    final statuses    = provider.budgetStatus;
+    final hasBudget   = statuses.isNotEmpty;
+    final budgetTotal = provider.budget.totalLimit;
+    final budgetSpent = statuses.fold(0.0, (a, b) => a + b.spent);
+    final overCount   = statuses.where((b) => b.isOver).length;
+
     return AppCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1293,22 +1326,76 @@ class _BudgetCard extends StatelessWidget {
                 color: AppColors.textSecondary,
               )),
               const Spacer(),
+              // Limit belirlenmişse harcanan/limit gösterilir; yoksa yalnızca
+              // harcanan. Eskiden bu kart sadece dağılım gösteriyordu —
+              // "bütçe" adı taşıdığı hâlde bir bütçe kavramı yoktu.
               Text(
-                Formatters.compact(total),
+                hasBudget
+                    ? '${Formatters.compact(budgetSpent)} / ${Formatters.compact(budgetTotal)}'
+                    : Formatters.compact(total),
                 style: GoogleFonts.dmMono(
-                  color: AppColors.accentRed,
+                  color: overCount > 0
+                      ? AppColors.accentRed
+                      : hasBudget
+                          ? AppColors.textPrimary
+                          : AppColors.accentRed,
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
                 ),
               ),
+              const SizedBox(width: 8),
+              GestureDetector(
+                onTap: () => showBudgetSheet(context),
+                child: Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                  decoration: BoxDecoration(
+                    color: AppColors.accentGreen.withValues(alpha: 0.10),
+                    borderRadius: BorderRadius.circular(7),
+                    border: Border.all(
+                        color: AppColors.accentGreen.withValues(alpha: 0.3)),
+                  ),
+                  child: Text(
+                    hasBudget ? 'Düzenle' : 'Limit koy',
+                    style: GoogleFonts.outfit(
+                      fontSize: 10.5,
+                      fontWeight: FontWeight.w600,
+                      color: AppColors.accentGreen,
+                    ),
+                  ),
+                ),
+              ),
             ],
           ),
+          if (overCount > 0) ...[
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                const Icon(Icons.warning_amber_rounded,
+                    size: 13, color: AppColors.accentRed),
+                const SizedBox(width: 5),
+                Text(
+                  '$overCount kategoride limit aşıldı',
+                  style: AppTypography.bodyS
+                      .copyWith(color: AppColors.accentRed),
+                ),
+              ],
+            ),
+          ],
           const SizedBox(height: 14),
           ...top.asMap().entries.map((entry) {
             final i = entry.key;
             final e = entry.value;
-            final pct = e.value / total;
-            final color = _catColors[e.key] ?? AppColors.textSecondary;
+            // Limit varsa çubuk limite göre dolar — payın değil, bütçenin
+            // ne kadarı kullanıldığı sorusunun cevabı budur.
+            final limit = provider.budget.limitFor(e.key);
+            final pct = limit != null && limit > 0
+                ? (e.value / limit).clamp(0.0, 1.0)
+                : e.value / total;
+            final isOver = limit != null && limit > 0 && e.value > limit;
+            final color = isOver
+                ? AppColors.accentRed
+                : _catColors[e.key] ?? AppColors.textSecondary;
             return Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Column(
@@ -1332,13 +1419,17 @@ class _BudgetCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 6),
                       SizedBox(
-                        width: 36,
+                        width: 46,
                         child: Text(
-                          '%${(pct * 100).toStringAsFixed(0)}',
+                          limit != null && limit > 0
+                              ? '/${Formatters.compact(limit)}'
+                              : '%${(pct * 100).toStringAsFixed(0)}',
                           textAlign: TextAlign.end,
                           style: GoogleFonts.dmMono(
                             fontSize: 11,
-                            color: AppColors.textSecondary,
+                            color: isOver
+                                ? AppColors.accentRed
+                                : AppColors.textSecondary,
                           ),
                         ),
                       ),
@@ -1666,7 +1757,14 @@ class _PortfolioGlassCard extends StatelessWidget {
                     const SizedBox(height: 16),
                     Row(
                       children: [
-                        PortfolioDonutChart(assets: assets, size: 110),
+                        // showLegend:false — sağdaki varlık listesi zaten legend
+                        // görevi görüyor; ayrıca Row içinde sınırsız genişlik
+                        // hatasını önler.
+                        PortfolioDonutChart(
+                          assets: assets,
+                          size: 110,
+                          showLegend: false,
+                        ),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
@@ -2061,9 +2159,13 @@ class _QuickAddGoalSheetState extends State<_QuickAddGoalSheet> {
     final amount = double.tryParse(_ctrl.text.replaceAll(',', '.'));
     if (amount == null || amount <= 0) return;
     setState(() => _saving = true);
+    // Elle eklenen birikim manualAmount'a yazılır; portföy senkronu artık
+    // bunu ezmiyor (currentAmount = manualAmount + portföy).
+    final newManual  = widget.goal.manualAmount + amount;
     final newCurrent = (widget.goal.currentAmount + amount)
         .clamp(0.0, widget.goal.targetAmount);
     final updated = widget.goal.copyWith(
+      manualAmount:  newManual,
       currentAmount: newCurrent,
       status: newCurrent >= widget.goal.targetAmount ? 'completed' : 'active',
     );

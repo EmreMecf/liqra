@@ -20,9 +20,12 @@ _$AccountTransactionEntityImpl _$$AccountTransactionEntityImplFromJson(
   isInstallment: json['isInstallment'] as bool? ?? false,
   installmentCount: (json['installmentCount'] as num?)?.toInt() ?? 1,
   installmentNumber: (json['installmentNumber'] as num?)?.toInt() ?? 1,
+  installmentGroupId: json['installmentGroupId'] as String?,
   merchantName: json['merchantName'] as String?,
   statementId: json['statementId'] as String?,
   source: json['source'] as String? ?? 'manual',
+  flow: json['flow'] as String?,
+  counterAccountId: json['counterAccountId'] as String?,
 );
 
 Map<String, dynamic> _$$AccountTransactionEntityImplToJson(
@@ -39,7 +42,10 @@ Map<String, dynamic> _$$AccountTransactionEntityImplToJson(
   'isInstallment': instance.isInstallment,
   'installmentCount': instance.installmentCount,
   'installmentNumber': instance.installmentNumber,
+  'installmentGroupId': instance.installmentGroupId,
   'merchantName': instance.merchantName,
   'statementId': instance.statementId,
   'source': instance.source,
+  'flow': instance.flow,
+  'counterAccountId': instance.counterAccountId,
 };

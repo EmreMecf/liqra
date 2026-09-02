@@ -9,7 +9,7 @@ import '../../features/ai_assistant/data/datasources/ai_remote_datasource.dart';
 import '../../features/ai_assistant/data/repositories/ai_repository_impl.dart';
 import '../../features/ai_assistant/domain/repositories/ai_repository.dart';
 import '../../features/ai_assistant/domain/usecases/send_message_usecase.dart';
-import '../../features/ai_assistant/domain/usecases/get_context_usecase.dart';
+import '../../features/ai_assistant/domain/usecases/assistant_tasks_usecase.dart';
 import '../../features/ai_assistant/presentation/viewmodel/ai_assistant_viewmodel.dart';
 
 // Spending Feature
@@ -53,6 +53,7 @@ import '../../features/accounts/domain/usecases/update_account_usecase.dart';
 import '../../features/accounts/domain/usecases/get_account_transactions_usecase.dart';
 import '../../features/accounts/domain/usecases/add_account_transaction_usecase.dart';
 import '../../features/accounts/domain/usecases/import_statement_usecase.dart';
+import '../../features/accounts/domain/usecases/record_money_movement_usecase.dart';
 import '../../features/accounts/presentation/viewmodels/accounts_viewmodel.dart';
 
 // Campaigns Feature
@@ -123,13 +124,21 @@ void _registerAiFeature() {
 
   // Use Cases
   getIt.registerLazySingleton(() => SendMessageUseCase(getIt<AiRepository>()));
-  getIt.registerLazySingleton(() => GetContextUseCase());
+  getIt.registerLazySingleton(() => AnalyzeStockUseCase(getIt<AiRepository>()));
+  getIt.registerLazySingleton(() => AuditSpendingUseCase(getIt<AiRepository>()));
+  getIt.registerLazySingleton(() => BuildSavingsPlanUseCase(getIt<AiRepository>()));
+  getIt.registerLazySingleton(
+      () => RecommendCampaignsUseCase(getIt<AiRepository>()));
 
-  // ViewModel — factory: her kullanımda taze instance
-  getIt.registerFactory<AiAssistantViewModel>(
+  // ViewModel — asistan durumu ekranlar arası paylaşıldığı için tekil.
+  // Eskiden factory idi: her açılışta içgörüler ve sohbet geçmişi sıfırlanırdı.
+  getIt.registerLazySingleton<AiAssistantViewModel>(
     () => AiAssistantViewModel(
-      sendMessage: getIt<SendMessageUseCase>(),
-      getContext: getIt<GetContextUseCase>(),
+      sendMessage:        getIt<SendMessageUseCase>(),
+      analyzeStock:       getIt<AnalyzeStockUseCase>(),
+      auditSpending:      getIt<AuditSpendingUseCase>(),
+      buildPlan:          getIt<BuildSavingsPlanUseCase>(),
+      recommendCampaigns: getIt<RecommendCampaignsUseCase>(),
     ),
   );
 }
@@ -249,16 +258,24 @@ void _registerAccountsFeature() {
   getIt.registerLazySingleton(() => GetAccountTransactionsUseCase(getIt<AccountsRepository>()));
   getIt.registerLazySingleton(() => AddAccountTransactionUseCase(getIt<AccountsRepository>()));
   getIt.registerLazySingleton(() => ImportStatementUseCase(getIt<AccountsRepository>()));
+  getIt.registerLazySingleton(() => RecordCreditPaymentUseCase(getIt<AccountsRepository>()));
+  getIt.registerLazySingleton(() => RecordTransferUseCase(getIt<AccountsRepository>()));
+  getIt.registerLazySingleton(() => RecordAccountMovementUseCase(getIt<AccountsRepository>()));
+  getIt.registerLazySingleton(() => RecordInstallmentPurchaseUseCase(getIt<AccountsRepository>()));
 
   getIt.registerFactory<AccountsViewModel>(
     () => AccountsViewModel(
-      getAccounts:     getIt<GetAccountsUseCase>(),
-      addAccount:      getIt<AddAccountUseCase>(),
-      deleteAccount:   getIt<DeleteAccountUseCase>(),
-      updateAccount:   getIt<UpdateAccountUseCase>(),
-      getTransactions: getIt<GetAccountTransactionsUseCase>(),
-      addTransaction:  getIt<AddAccountTransactionUseCase>(),
-      importStatement: getIt<ImportStatementUseCase>(),
+      getAccounts:         getIt<GetAccountsUseCase>(),
+      addAccount:          getIt<AddAccountUseCase>(),
+      deleteAccount:       getIt<DeleteAccountUseCase>(),
+      updateAccount:       getIt<UpdateAccountUseCase>(),
+      getTransactions:     getIt<GetAccountTransactionsUseCase>(),
+      addTransaction:      getIt<AddAccountTransactionUseCase>(),
+      importStatement:     getIt<ImportStatementUseCase>(),
+      recordCreditPayment: getIt<RecordCreditPaymentUseCase>(),
+      recordTransfer:      getIt<RecordTransferUseCase>(),
+      recordMovement:      getIt<RecordAccountMovementUseCase>(),
+      recordInstallment:   getIt<RecordInstallmentPurchaseUseCase>(),
     ),
   );
 }
@@ -303,7 +320,9 @@ void _registerCampaignsFeature() {
       () => CampaignFirestoreDataSource());
   getIt.registerLazySingleton<CampaignRepository>(
       () => CampaignRepositoryImpl(getIt<CampaignFirestoreDataSource>()));
-  getIt.registerFactory<CampaignViewModel>(
+  // Tekil: asistan kampanyaları uygulama genelinde okur (kampanya önerisi ve
+  // bildirimler için), yalnızca Keşfet ekranında değil.
+  getIt.registerLazySingleton<CampaignViewModel>(
       () => CampaignViewModel(getIt<CampaignRepository>()));
 }
 
@@ -314,6 +333,7 @@ void _registerNewsFeature() {
       () => NewsFirestoreDataSourceImpl());
   getIt.registerLazySingleton<NewsRepository>(
       () => NewsRepositoryImpl(getIt<NewsFirestoreDataSource>()));
-  getIt.registerFactory<NewsViewModel>(
+  // Tekil: hisse analizi haber akışını kullanır.
+  getIt.registerLazySingleton<NewsViewModel>(
       () => NewsViewModel(getIt<NewsRepository>()));
 }

@@ -50,7 +50,8 @@ lib/
 │   ├── error/            # app_exception.dart — freezed sealed union (Server/Network/Cache/Claude/RateLimit)
 │   ├── network/          # dio_client.dart — JWT interceptor, rate limiter (20 AI req/saat)
 │   ├── services/         # AuthService, FirestoreService, GeminiService, FeatureFlagService,
-│   │                     # NotificationService, ClaudeApiService, AnalyticsService, CrashService, PnLService
+│   │                     # NotificationService, NotificationPreferences,
+│   │                     # AnalyticsService, CrashService
 │   └── utils/            # result.dart (Result<T> = Success|Failure), formatters.dart (TR locale)
 ├── data/
 │   ├── models/           # UserModel, TransactionModel, GoalModel, PortfolioModel, RecurringItemModel
@@ -132,20 +133,63 @@ meta/{docId}/                # Son güncelleme timestamp
 ```
 
 ### Cloud Functions (`/functions`, Node 20, Firebase v2)
-| Fonksiyon | Kaynak | Hedef |
-|---|---|---|
-| `fetchMarketData` | Binance, Yahoo Finance, CollectAPI | `market/live_prices` |
-| `fetchGoldPrices` | CollectAPI | `market/live_prices` (gold.*) |
-| `fetchTefasPrices` | TEFAS API | `tefas_funds/` |
-| `fetchCampaigns` | Bank API → RSS → seed data | `bank_campaigns/` |
-| `fetchNews` | RSS | `news/` |
 
-`fetchMarketData` 90 saniyelik dedup ile 2 dakikada bir çalışır, `Promise.allSettled` ile fault-tolerant.
+Deploy edilenler = `functions/src/index.js` içinde export edilenler:
+
+| Fonksiyon | Zamanlama | Kaynak | Hedef |
+|---|---|---|---|
+| `fetchMarketData` | 2 dk | Binance (kripto), CollectAPI (döviz+altın+BIST) | `market/live_prices` |
+| `fetchTefasFunds` | Günlük 19:30 | TEFAS `/api/fund-returns/export` | `tefas_funds/catalog` |
+| `fetchCampaigns` | Günlük 03:00 | Banka API → seed data | `bank_campaigns/` |
+| `fetchNews` | Saatlik | RSS (5 kaynak) | `news/` |
+| `onUserCreated` | Firestore trigger | `users/{uid}` create | `role: 'personal'` claim |
+
+`fetchMarketData` 90 saniyelik dedup ile çalışır, `Promise.allSettled` ile fault-tolerant.
+Altın ve fon verisi ayrı fonksiyonlarda değil, `sources/collectapi.js` ve
+`sources/tefas.js` içinde `fetchMarketData` altında toplanmıştır.
+
+`fetchGoldPrices.js`, `fetchTefasPrices.js` ve `fetchMarketPrices.js` **silindi**:
+deploy edilmiyorlardı ama aynı `market/live_prices` dökümanına yazıyorlardı —
+yanlışlıkla export edilirlerse çalışan veriyi ezerlerdi.
+
+`sources/collectapi_stocks.js` eskiden `yahoo.js` adındaydı; **Yahoo Finance
+kullanılmıyor**, BIST verisi CollectAPI `/economy/hisseSenedi` ucundan gelir.
+
+### TEFAS Fon Verisi (ÖNEMLİ)
+
+TEFAS'ın eski public API'si (`POST /api/DB/BindHistoryInfo`) **kapatıldı** —
+gerçek tarayıcıda bile `404 ERR-006 "Method not found or disabled!"` döner ve
+site bot koruması arkasındadır.
+
+Yeni kaynak (kimlik doğrulaması/çerez/bot koruması yok, sunucudan çağrılabilir):
+
+```
+POST https://www.tefas.gov.tr/api/fund-returns/export
+{"format":"json","listingType":"return","fundType":"YAT","locale":"tr"}
+```
+`fundType`: `YAT` (2137) · `EMK` (400) · `BYF` (37) → toplam ~2574 fon
+`listingType`: `return` | `management` | `operatingExpense` | `size`
+
+Dönen alanlar: `fonKodu`, `fonUnvan`, `fonTurAciklama`, `riskDegeri`.
+
+**Birim pay değeri (fiyat) bu uçta YOKTUR** — fiyat yalnızca
+`/tr/fon-detayli-analiz/{KOD}` sayfasının server-render çıktısında bulunur ve o
+sayfalar bot koruması arkasındadır. Bu nedenle:
+
+- Fon **arama/seçme** çalışır (katalog `tefas_funds/catalog`, tek doküman ~315 KB)
+- Fon **fiyatı kullanıcı tarafından elle girilir** (`AddAssetSheet`)
+- `market/live_prices.funds` **yazılmaz**; `PortfolioViewModel._resolvePrice`
+  fon için 0 döner ve kullanıcının girdiği fiyat korunur
+- `getiri1a/1y…` alanları uçta var ama daima `null` → "En İyi Fonlar" listesi
+  gerçek getiri verisi olmadan boş döner (uydurma sıralama yapılmaz)
 
 ### API Key Yönetimi
 - **Gemini API key**: Firebase Remote Config (`gemini_api_key`) — güvenli
 - **Anthropic API key**: SharedPreferences veya dart-define — kullanıcı yönetimli
-- **DioClient base URL**: `http://localhost:3000/api` hardcoded — üretimde .env gerekli
+- **DioClient base URL**: `--dart-define=API_BASE_URL=...` ile override edilir,
+  varsayılan `http://localhost:3000/api`. Uygulama şu an backend'i kullanmıyor.
+- AI için tek yol: `GeminiService`. Kullanılmayan `ClaudeApiService`,
+  `PnlService` ve `PerformanceService` silindi.
 
 ### Firestore Security Rules
 - Kullanıcı sadece kendi `users/{uid}/` alt koleksiyonlarını okuyup yazabilir
@@ -159,9 +203,8 @@ meta/{docId}/                # Son güncelleme timestamp
 | `FirestoreService` | `core/services/firestore_service.dart` | Offline persistence açık (unlimited cache) |
 | `GeminiService` | `core/services/gemini_service.dart` | Gemini 2.0 Flash, Remote Config'den API key |
 | `FeatureFlagService` | `core/services/feature_flag_service.dart` | Remote Config — feature toggle + A/B test |
-| `ClaudeApiService` | `core/services/claude_api_service.dart` | Anthropic SDK, model hardcoded (TODO: Remote Config) |
-| `NotificationService` | `core/services/notification_service.dart` | FCM + flutter_local_notifications |
-| `PnLService` | `core/services/pnl_service.dart` | Kar/zarar hesaplama |
+| `NotificationService` | `core/services/notification_service.dart` | FCM + yerel bildirim gösterimi |
+| `NotificationPreferences` | `core/services/notification_preferences.dart` | Kullanıcının bildirim açma/kapama tercihleri |
 
 ## Node.js Backend (`/backend`)
 
@@ -169,7 +212,11 @@ Express.js + Anthropic SDK + PostgreSQL. Şu an Flutter uygulaması tarafından 
 
 Claude chat için 4 sistem prompt modu: `budget_audit`, `portfolio_advisor`, `goal_tracker`, `free_chat`.
 
-Cron job (ayın 1'i, gece yarısı): aylık rapor üretimi — sadece demo kullanıcı için (TODO: tüm kullanıcılar).
+Cron job (ayın 1'i, gece yarısı): `fcmToken` alanı olan **tüm** kullanıcılar için
+bir önceki ayın raporunu üretir ve FCM bildirimi gönderir.
+
+Kimlik doğrulaması: `ai`, `ocr`, `portfolio`, `notifications` uçları
+`verifyToken` middleware'i arkasındadır; `market` ve `tefas` herkese açıktır.
 
 ## Code Generation
 
@@ -179,10 +226,350 @@ dart run build_runner build --delete-conflicting-outputs
 
 Freezed kullanan kritik sınıflar: `AppException`, `Result<T>`, tüm `*DTO` ve `*Entity` sınıfları, `*State` (SpendingState, PortfolioState, AiAssistantState vb.)
 
+## Muhasebe Sözleşmesi (ÖNEMLİ)
+
+Her para hareketi bir **akış tipi** (`MoneyFlow`) taşır. Gelir/gider/nakit
+hesaplarının TEK kaynağı budur — ham `type` string'ine asla bakılmaz.
+
+| flow | Nakit | Gider mi | Örnek |
+|---|---|---|---|
+| `income` | +| hayır | Maaş |
+| `expense` | − | **evet** | Nakit/banka kartıyla market |
+| `cardExpense` | 0 | **evet** | Kredi kartıyla market (tahakkuk) |
+| `cardPayment` | − | hayır | Ekstre ödemesi — borç kapatma |
+| `transfer` | 0 | hayır | Hesaplar arası |
+| `investment` | − | hayır | Midas'a EFT, IBAN'la altın |
+| `loanPayment` | − | **evet** | Kredi taksidi |
+
+**Muhasebe esası: TAHAKKUK.** Kart harcaması ödeme anında değil satın alma
+anında gider yazılır.
+
+```dart
+if (tx.isExpense) ...   // flow.countsAsExpense — TEK gider tanımı
+tx.cashEffect           // nakit etkisi (kart harcaması 0 döner)
+```
+
+Kurallar:
+- **Yeni gider hesaplayıcısı yazma.** `isExpense` / `expensesForMonth` kullan.
+  Eskiden beş farklı tanım vardı, aynı ay için farklı toplamlar çıkıyordu.
+- **Yatırım gider değildir.** Portföye varlık eklemek otomatik gider kaydı
+  ÜRETMEZ; kullanıcı "hesabımdan çıkış olarak kaydet" derse `investment`
+  akışıyla yazılır. Aksi hâlde Midas'a EFT + varlık ekleme çift sayılır.
+- **Eski kayıtlarda `flow` yoktur** — `MoneyFlowParser.parse()` bunu
+  `type` + `category`'den türetir (`category == 'yatirim'` → `investment`).
+  Migration gerekmez.
+- Hedef birikimi = `manualAmount` (elle eklenen) + portföy değeri.
+  `syncGoalWithPortfolio` yalnızca portföy bileşenini günceller; eskiden
+  `currentAmount`'ı eziyordu ve elle eklenen birikimi siliyordu.
+
+## Kredi Kartı Ekstre Döngüsü (ÖNEMLİ)
+
+Kart tarihlerinin TEK kaynağı `BillingCycle`
+(`features/accounts/domain/billing_cycle.dart`). **Entity içinde veya widget'ta
+satır içi tarih hesabı yazma.**
+
+```dart
+card.cycle.lastClosingDate   // kapanmış son ekstrenin kesim tarihi
+card.cycle.currentDueDate    // şu an ödenmesi gereken ekstre — GEÇMİŞTE olabilir
+card.nextPaymentDueDate      // bugün dahil ilk ödeme tarihi
+card.daysUntilDue            // bugün son gün ise 0
+card.isOverdue               // ekstre borcu var VE son ödeme tarihi geçti
+```
+
+Üç tuzak `BillingCycle` içinde kapatıldı — elle yazınca geri gelirler:
+
+- `DateTime(y, 2, 31)` hata vermez, **3 Mart'a taşar**. `BillingCycle.dayInMonth`
+  ayın son gününe sabitler.
+- Gece yarısı kurulan tarihi saat taşıyan `DateTime.now()` ile karşılaştırmak
+  ödemenin son gününü "geçmiş" gösterir. Tüm tarihler `dateOnly` ile normalize
+  edilir.
+- Son ödeme tarihi hep ileri üretilirse gecikme tespit edilemez. Bu yüzden
+  "şu anki ekstrenin vadesi" (`currentDueDate`) ile "bir sonraki ödeme"
+  (`nextDueDate`) ayrı modellenir.
+
+Aynı mantık `LoanEntity` için de geçerlidir; kredide gecikme `lastPaymentDate`
+alanına bakılarak belirlenir.
+
+### Ekstre otomatik kesilir
+
+`StatementRollover` kesim günü geçmiş kartların ekstresini `AccountsViewModel.load()`
+sırasında oluşturur:
+
+```
+yeniEkstre = usedAmount − (kesim tarihinden sonraki kart harcamaları)
+asgari     = yeniEkstre × 0.20
+```
+
+Karta yazılan `statementClosedAt` işlemi **idempotent** yapar — uygulama günde
+on kez açılsa da ekstre bir kez kesilir. Ekstreyi elle güncelleyen her yol
+(`updateStatement`, `updateCreditCardBalance`) bu alanı damgalamak zorundadır,
+aksi hâlde devir kullanıcının girdiği değeri ezer.
+
+Formül elle girilen açılış bakiyesiyle de çalışır: kart eklenirken yazılan borcun
+arkasında işlem kaydı olmasa bile `usedAmount` içinde durur ve ilk kesimde
+ekstreye geçer.
+
+### Kart toplamları
+
+| Getter | Anlamı |
+|---|---|
+| `totalCreditUsed` | Kartların TOPLAM borcu |
+| `totalStatementDebt` | Yalnızca kesilmiş ekstreler |
+| `totalUnbilled` | Kesim sonrası, henüz faturalanmamış harcama |
+| `creditUtilization` | `totalCreditUsed / totalCreditLimit` |
+| `netWorth` | `totalBankBalance − totalCreditUsed` |
+
+- **Kullanım oranı ortalama DEĞİLDİR.** Kartların `usagePercent` değerlerinin
+  ortalamasını alma; 100.000 limitli boş bir kart, 1.000 limitli dolu bir kartla
+  eşit ağırlık taşımamalı.
+- **Net servetten toplam borç düşülür**, ekstre borcu değil. Kesimden sonra
+  yapılan harcamalar da borçtur.
+
+### Taksit
+
+`InstallmentPlan.build()` alışverişi aylara böler; taksitlerin toplamı **daima**
+satın alma tutarına eşittir (artan kuruşlar ilk taksite eklenir).
+`recordInstallmentPurchase` her taksiti kendi ayının tarihiyle ayrı bir hareket
+olarak yazar, kart borcunu ise tek seferde toplam tutar kadar artırır —
+limit satın alma anında bloke olur.
+
+Geleceğe tarihli taksitler ekstre devriyle uyumludur: henüz gelmemiş taksitler
+"kesim sonrası harcama" sayıldığı için o ayki ekstreye yalnızca vadesi gelen
+taksit girer.
+
+## AI Asistan (ÖNEMLİ)
+
+Asistan bir sohbet botu değil, kullanıcının **tüm finansal durumunu gören**
+bir yardımcıdır. `features/ai_assistant/domain/` altında dört katman vardır:
+
+| Dosya | Sorumluluk |
+|---|---|
+| `assistant_context.dart` | Asistanın bildiği her şey — saf veri + prompt bloğu |
+| `assistant_insight.dart` | `InsightEngine` — proaktif bulgular, **AI çağrısı yok** |
+| `campaign_matcher.dart` | Harcama → kampanya eşleştirme, **AI çağrısı yok** |
+| `savings_plan.dart` | Birikim planı matematiği, **AI çağrısı yok** |
+| `assistant_prompts.dart` | Kimlik + görev promptları |
+
+### Temel kural: model YORUMLAR, HESAPLAMAZ
+
+Tüm rakamlar bağlam bloğunda hazır gelir. "Ayda kaç lira biriktirmeliyim",
+"ekstren kaç gün sonra", "market harcaman ne kadar arttı" gibi sorular
+**aritmetiktir** — modele sordurulursa yanlış toplama ihtimali her zaman vardır
+ve kullanıcı o rakama göre para harcar.
+
+```dart
+// ✅ Hesap kodda, anlatım modelde
+final plan = SavingsPlanBuilder.build(...);   // rakamlar kesin
+AssistantPrompts.savingsPlan(plan, ctx);      // model yalnızca anlatır
+
+// ❌ Modelden hesap isteme
+'Hedefine ulaşmak için ayda ne kadar biriktirmeli?'
+```
+
+`AssistantPrompts.persona` içindeki sayı kuralları bunu modele de dayatır:
+bağlamda olmayan rakam uydurulmaz, bilanço/F-K/ciro gibi finansal tablo
+verileri **sayıyla söylenmez**.
+
+### Bağlam nasıl kurulur
+
+`AssistantContextBuilder.fromContext(context)` — altı ViewModel'i tek yapıya
+toplar (cüzdan, harcama, portföy, piyasa, haber, kampanya). Yüklenmemiş bölüm
+boş kalır, asistan "bu veri yok" der.
+
+`CampaignViewModel` ve `NewsViewModel` bu yüzden **uygulama kökünde** sağlanır
+ve DI'da tekildir. Keşfet ekranında yeniden oluşturulursa asistan boş bir kopya
+okur.
+
+Bağlama giren piyasa satırları filtrelenir: önce kullanıcının tuttuğu varlıklar,
+sonra ana göstergeler. Tüm piyasayı göndermek token israfıdır.
+
+### İçgörüler ve bildirimler
+
+`InsightEngine.analyze(ctx)` gecikmiş kart, ödeme gücü açığı, kategori
+sıçraması, abonelik yükü, portföy yoğunlaşması, atıl nakit gibi bulguları
+üretir. `AssistantNotifier` bunlardan `notify: true` olanları bildirime çevirir:
+
+- Aynı `id` için **günde bir kez** bildirim (SharedPreferences ile damgalanır)
+- Günde en fazla `maxPerDay` (3) bildirim, aciliyet sırasına göre
+
+İçgörüler `main.dart` içinde veriler yüklendikten sonra bir kez üretilir
+(`_refreshAssistant`). Ağ isteği yapmaz, maliyeti yoktur.
+
+### Hisse analizi ve eksik veri
+
+`AnalyzeStockUseCase` şunları birleştirir: canlı fiyat + gün içi aralık + hacim,
+o şirketle ilgili **kod tarafında filtrelenmiş** haberler, kullanıcının pozisyonu
+ve portföy ağırlığı, risk profili, serbest nakit.
+
+**Bilanço verisi uygulamada YOKTUR.** CollectAPI `/economy/hisseSenedi` yalnızca
+fiyat, hacim ve gün aralığı verir; KAP/finansal tablo beslemesi bağlı değildir.
+Prompt bu yüzden modele F/K, ciro, kâr, temettü verimi gibi rakamları **sayıyla
+söylemeyi yasaklar**; şirket/sektör yorumu niteliksel kalır. Gerçek bilanço
+analizi istenirse önce bir finansal tablo kaynağı eklenmelidir.
+
+## Haber ve Kampanya Hattı (ÖNEMLİ)
+
+### Kategori slug'ları ASCII yazılır
+
+Cloud Functions Firestore'a **daima ASCII slug** yazar (`alisveris`, `doviz`,
+`sirket`) — istemcideki enum adlarıyla birebir aynı. Okuma tarafı
+`normalizeCategorySlug()` kullanır; Türkçe karakterli eski kayıtları da tanır,
+migration gerekmez.
+
+```dart
+CampaignCategory.fromString('alisveris')  // ✅
+CampaignCategory.fromString('alışveriş')  // ✅ eski kayıt
+```
+
+Eskiden `switch` yalnızca `'alışveriş'` ile eşleşiyordu ama Firestore'da
+`'alisveris'` duruyordu: **tüm alışveriş kampanyaları `diger`e düşüyordu**,
+kategori filtresi ve asistan eşleştirmesi çalışmıyordu.
+
+### Kampanyaların tamamı ÖRNEK veridir
+
+Bağlı bir canlı banka kaynağı yok. Denenen ve çalışmayan uçlar
+(2026-09-02'de doğrulandı):
+
+| Uç | Sonuç |
+|---|---|
+| `garantibbva.com.tr/api/v1/campaigns` | 404 |
+| `garantibbva.com.tr/kampanyalar.json` | 200 ama AEM sayfa metadatası, kampanya yok |
+| `kampanyalar.infinity.json` | yalnızca `.0.json` işaretçisi — derinlik kapalı |
+
+Bu yüzden her kayıt `isSample: true` damgalanır ve:
+
+- Arayüz "Örnek" rozeti gösterir
+- **`CampaignMatcher.toInsights` bunları bildirime çevirmez** — uydurma bir
+  kampanya için telefona bildirim göndermek kullanıcıyı olmayan bir teklife
+  göre harcamaya yöneltir
+- `CampaignOffer.promptLine` modele "[ÖRNEK İÇERİK — doğrulanmamış]" der
+
+Canlı kaynak bağlandığında `isSample: false` yazmak yeterlidir; bildirim ve
+prompt davranışı kendiliğinden değişir.
+
+`fetchCampaigns` artık **kaynakta olmayan kampanyaları siler** (`removeStale`).
+Eskiden yalnızca upsert vardı; seed'den çıkarılan kampanya Firestore'da sonsuza
+kadar kalıyordu.
+
+### RSS kaynakları doğrulanmalı
+
+Kaynaklar sessizce ölür. `parseFeed` hatayı yutuyordu, bu yüzden **beş
+kaynaktan üçü aylarca 404 verdiği hâlde** haber akışı %40 kapasiteyle çalışıyor
+ve logda iz bırakmıyordu. Kaldırılanlar: Mynet Finans, Dünya Gazetesi,
+Para Analiz. Eklenenler: TRT Haber Ekonomi, NTV Ekonomi, Hürriyet Ekonomi.
+
+Artık çalışmayan kaynak sayısı hem log'a hem `meta/news` dokümanına yazılır
+(`activeFeeds`, `totalFeeds`, `failedFeeds`).
+
+### Haber doküman ID'si bağlantının hash'idir
+
+```js
+makeId(slug, link, title) // md5(link).slice(0,16)
+```
+
+Eski yöntem URL'nin son path parçasını 40 karaktere kırpıyordu. Ayırt edici
+sayısal id slug'ın **sonunda** olduğu için kırpılıyor ve benzer başlıklı iki
+haber aynı dokümanı eziyordu. `Date.now()` fallback'i ise aynı haberi her saat
+yeni bir id ile yazıp koleksiyonu şişiriyordu.
+
+**Tarihi bilinmeyen haber:** `pubDate` alanı yazılmaz, mevcut kayıttaki tarih
+korunur; doküman yeniyse bir kez `now` damgalanır (`stampMissingDates`).
+Eskiden her turda `now` yazılıyordu — haber listenin tepesine yapışıyor ve
+7 günlük temizliğe hiç takılmıyordu.
+
+## Bütçe Limitleri
+
+Kategori bazlı aylık limitler `users/{uid}/settings/budgets` altında **tek
+dokümanda** map olarak tutulur — kategori sayısı sabit ve küçük (12), alt
+koleksiyon her açılışta 12 okuma demek olurdu.
+
+```dart
+provider.budget.limitFor(TransactionCategory.market)  // 5000 | null
+provider.budgetStatus                                 // bu ayın durumu
+provider.overBudget                                   // aşılan kategoriler
+await provider.setBudgetLimit(category, 5000);        // null/0 → limiti kaldırır
+```
+
+Anahtar **daima kanonik slug**'dır (`market`, `yemeicme`). `BudgetModel.fromMap`
+eski Türkçe etiketli kayıtları da slug'a çevirir.
+
+- Limiti olmayan kategori "sınırsız" sayılır — kullanıcı her kalem için rakam
+  girmeye zorlanmaz.
+- `BudgetStatus.ratio` gösterge çubuğu için 0–1 arasına kırpılır; aşımı görmek
+  için `rawRatio` veya `isOver` kullan.
+- Aşım `InsightEngine` üzerinden bildirime dönüşür (`budget_over_*`), limite
+  yaklaşma yalnızca uygulama içinde gösterilir (`budget_near_*`).
+
+## Bildirimler
+
+Bildirimlerin **tamamı** `AssistantNotifier` üzerinden gider. `NotificationService`
+yalnızca gösterim katmanıdır; içinde bildirim türü tanımı yoktur.
+
+Üç kural birlikte çalışır:
+
+| Kural | Yer |
+|---|---|
+| Aynı `id` günde bir kez | `AssistantNotifier` (SharedPreferences damgası) |
+| Günde en fazla 3 bildirim | `AssistantNotifier.maxPerDay` |
+| Kullanıcı tercihi kapalıysa gönderme | `NotificationPreferences` |
+
+`NotificationPreferences.categoryOf()` içgörü kimliğinden hangi tercihe ait
+olduğunu türetir; yeni içgörü eklendiğinde orayı güncellemek gerekmez.
+
+### Rotalar
+
+Uygulama `MaterialApp.routes` **kullanmıyor** — tüm ekranlar `MainScaffold`
+içindeki `IndexedStack`'te. Rota adı `AppRoutes.go()` ile sekmeye çevrilir.
+
+```dart
+AppRoutes.go('/accounts');            // ✅ sekme değiştirir
+Navigator.pushNamed(ctx, '/accounts') // ❌ kayıtlı rota yok, hata fırlatır
+```
+
+Bildirim payload'undaki rota `NotificationService.consumePendingRoute()` ile
+okunur ve `main.dart` içinde tüketilir. Uygulama kapalıyken gelen bildirim
+`getNotificationAppLaunchDetails` ile yakalanır.
+
+## Durum Bantları
+
+`EmailVerificationBanner` ve `StaleDataBanner` `MainScaffold._contentStack()`
+içinde tek yerde durur — her ekranın ayrı ayrı göstermesi gerekmez.
+Gösterilecek durum yoksa hiç yer kaplamazlar.
+
+- E-posta doğrulama: kayıtta otomatik gönderilir, band yeniden göndermeyi ve
+  durumu tazelemeyi sunar. Google/Apple girişleri doğrulanmış sayılır.
+- Bayat veri: piyasa 2 dakikada bir güncelleniyor; `StaleDataBanner.staleAfter`
+  (30 dk) aşılırsa band çıkar.
+
+## Kategori Sözleşmesi (ÖNEMLİ)
+
+Firestore'a **her zaman slug yazılır**, asla Türkçe etiket değil:
+
+```dart
+category: TransactionCategory.yatirim.slug   // 'yatirim'  ✅
+category: 'Yatırım'                           // ❌ net nakit hesabını bozar
+```
+
+Okuma tarafı `TransactionCategoryX.parse()` / `.slugOf()` kullanır; bunlar hem
+slug'ı hem de eski kayıtlardaki Türkçe etiketleri tanır (migration gerekmez).
+`yatirim` kategorisi net nakit ve gider toplamlarından hariç tutulur
+(servet transferi, gerçek gider değil).
+
+## Firestore Güvenlik Notu
+
+`users/{uid}` profil belgesinde `role` alanı **istemciden yazılamaz** — yalnızca
+`onUserCreated` / Admin SDK yazar. Bu yüzden profil belgesine yazarken
+`SetOptions(merge: true)` kullanılmalı; merge'siz `set()` `role` ve `fcmToken`
+alanlarını sileceği için güvenlik kuralı isteği reddeder.
+
 ## Localization & Formatting
 
 `formatters.dart` ile Türkçe para birimi (`289.847,50 TL`), yüzde (`+12,4%`), kompakt (`289,8B`).  
-`DateFormat` ile `tr_TR` locale import bağımlılığı sorun yaratabilir — `formatters.dart`'taki manuel ay isimlerini kullan (bkz. commit `0ca941b`).
+`DateFormat(..., 'tr_TR')` **kullanma** — `initializeDateFormatting('tr_TR')`
+çağrılmadığı için `LocaleDataException` atar. Bunun yerine `Formatters.date` /
+`Formatters.shortDate` / `Formatters.monthYear` kullan (manuel ay isimleri,
+bağımlılık yok). `NumberFormat.currency(locale: 'tr_TR', ...)` güvenlidir —
+sayı sembolleri intl paketiyle birlikte gelir.
 
 ## OCR / Belge Tarama
 

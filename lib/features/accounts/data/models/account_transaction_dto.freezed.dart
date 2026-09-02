@@ -34,9 +34,18 @@ mixin _$AccountTransactionDto {
   bool get isInstallment => throw _privateConstructorUsedError;
   int get installmentCount => throw _privateConstructorUsedError;
   int get installmentNumber => throw _privateConstructorUsedError;
+
+  /// Aynı taksitli alışverişin parçalarını birbirine bağlar.
+  String? get installmentGroupId => throw _privateConstructorUsedError;
   String? get merchantName => throw _privateConstructorUsedError;
   String? get statementId => throw _privateConstructorUsedError;
   String get source => throw _privateConstructorUsedError;
+
+  /// Para akışı türü (MoneyFlow.slug). Yoksa type+category'den türetilir.
+  String? get flow => throw _privateConstructorUsedError;
+
+  /// Karşı hesap — transfer ve kart ödemesinde dolu
+  String? get counterAccountId => throw _privateConstructorUsedError;
 
   /// Serializes this AccountTransactionDto to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -67,9 +76,12 @@ abstract class $AccountTransactionDtoCopyWith<$Res> {
     bool isInstallment,
     int installmentCount,
     int installmentNumber,
+    String? installmentGroupId,
     String? merchantName,
     String? statementId,
     String source,
+    String? flow,
+    String? counterAccountId,
   });
 }
 
@@ -102,9 +114,12 @@ class _$AccountTransactionDtoCopyWithImpl<
     Object? isInstallment = null,
     Object? installmentCount = null,
     Object? installmentNumber = null,
+    Object? installmentGroupId = freezed,
     Object? merchantName = freezed,
     Object? statementId = freezed,
     Object? source = null,
+    Object? flow = freezed,
+    Object? counterAccountId = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -152,6 +167,10 @@ class _$AccountTransactionDtoCopyWithImpl<
                 ? _value.installmentNumber
                 : installmentNumber // ignore: cast_nullable_to_non_nullable
                       as int,
+            installmentGroupId: freezed == installmentGroupId
+                ? _value.installmentGroupId
+                : installmentGroupId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             merchantName: freezed == merchantName
                 ? _value.merchantName
                 : merchantName // ignore: cast_nullable_to_non_nullable
@@ -164,6 +183,14 @@ class _$AccountTransactionDtoCopyWithImpl<
                 ? _value.source
                 : source // ignore: cast_nullable_to_non_nullable
                       as String,
+            flow: freezed == flow
+                ? _value.flow
+                : flow // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            counterAccountId: freezed == counterAccountId
+                ? _value.counterAccountId
+                : counterAccountId // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -191,9 +218,12 @@ abstract class _$$AccountTransactionDtoImplCopyWith<$Res>
     bool isInstallment,
     int installmentCount,
     int installmentNumber,
+    String? installmentGroupId,
     String? merchantName,
     String? statementId,
     String source,
+    String? flow,
+    String? counterAccountId,
   });
 }
 
@@ -223,9 +253,12 @@ class __$$AccountTransactionDtoImplCopyWithImpl<$Res>
     Object? isInstallment = null,
     Object? installmentCount = null,
     Object? installmentNumber = null,
+    Object? installmentGroupId = freezed,
     Object? merchantName = freezed,
     Object? statementId = freezed,
     Object? source = null,
+    Object? flow = freezed,
+    Object? counterAccountId = freezed,
   }) {
     return _then(
       _$AccountTransactionDtoImpl(
@@ -273,6 +306,10 @@ class __$$AccountTransactionDtoImplCopyWithImpl<$Res>
             ? _value.installmentNumber
             : installmentNumber // ignore: cast_nullable_to_non_nullable
                   as int,
+        installmentGroupId: freezed == installmentGroupId
+            ? _value.installmentGroupId
+            : installmentGroupId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         merchantName: freezed == merchantName
             ? _value.merchantName
             : merchantName // ignore: cast_nullable_to_non_nullable
@@ -285,6 +322,14 @@ class __$$AccountTransactionDtoImplCopyWithImpl<$Res>
             ? _value.source
             : source // ignore: cast_nullable_to_non_nullable
                   as String,
+        flow: freezed == flow
+            ? _value.flow
+            : flow // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        counterAccountId: freezed == counterAccountId
+            ? _value.counterAccountId
+            : counterAccountId // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -305,9 +350,12 @@ class _$AccountTransactionDtoImpl implements _AccountTransactionDto {
     this.isInstallment = false,
     this.installmentCount = 1,
     this.installmentNumber = 1,
+    this.installmentGroupId,
     this.merchantName,
     this.statementId,
     this.source = 'manual',
+    this.flow,
+    this.counterAccountId,
   });
 
   factory _$AccountTransactionDtoImpl.fromJson(Map<String, dynamic> json) =>
@@ -338,6 +386,10 @@ class _$AccountTransactionDtoImpl implements _AccountTransactionDto {
   @override
   @JsonKey()
   final int installmentNumber;
+
+  /// Aynı taksitli alışverişin parçalarını birbirine bağlar.
+  @override
+  final String? installmentGroupId;
   @override
   final String? merchantName;
   @override
@@ -346,9 +398,17 @@ class _$AccountTransactionDtoImpl implements _AccountTransactionDto {
   @JsonKey()
   final String source;
 
+  /// Para akışı türü (MoneyFlow.slug). Yoksa type+category'den türetilir.
+  @override
+  final String? flow;
+
+  /// Karşı hesap — transfer ve kart ödemesinde dolu
+  @override
+  final String? counterAccountId;
+
   @override
   String toString() {
-    return 'AccountTransactionDto(id: $id, accountId: $accountId, userId: $userId, amount: $amount, description: $description, date: $date, type: $type, category: $category, isInstallment: $isInstallment, installmentCount: $installmentCount, installmentNumber: $installmentNumber, merchantName: $merchantName, statementId: $statementId, source: $source)';
+    return 'AccountTransactionDto(id: $id, accountId: $accountId, userId: $userId, amount: $amount, description: $description, date: $date, type: $type, category: $category, isInstallment: $isInstallment, installmentCount: $installmentCount, installmentNumber: $installmentNumber, installmentGroupId: $installmentGroupId, merchantName: $merchantName, statementId: $statementId, source: $source, flow: $flow, counterAccountId: $counterAccountId)';
   }
 
   @override
@@ -373,11 +433,16 @@ class _$AccountTransactionDtoImpl implements _AccountTransactionDto {
                 other.installmentCount == installmentCount) &&
             (identical(other.installmentNumber, installmentNumber) ||
                 other.installmentNumber == installmentNumber) &&
+            (identical(other.installmentGroupId, installmentGroupId) ||
+                other.installmentGroupId == installmentGroupId) &&
             (identical(other.merchantName, merchantName) ||
                 other.merchantName == merchantName) &&
             (identical(other.statementId, statementId) ||
                 other.statementId == statementId) &&
-            (identical(other.source, source) || other.source == source));
+            (identical(other.source, source) || other.source == source) &&
+            (identical(other.flow, flow) || other.flow == flow) &&
+            (identical(other.counterAccountId, counterAccountId) ||
+                other.counterAccountId == counterAccountId));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -395,9 +460,12 @@ class _$AccountTransactionDtoImpl implements _AccountTransactionDto {
     isInstallment,
     installmentCount,
     installmentNumber,
+    installmentGroupId,
     merchantName,
     statementId,
     source,
+    flow,
+    counterAccountId,
   );
 
   /// Create a copy of AccountTransactionDto
@@ -431,9 +499,12 @@ abstract class _AccountTransactionDto implements AccountTransactionDto {
     final bool isInstallment,
     final int installmentCount,
     final int installmentNumber,
+    final String? installmentGroupId,
     final String? merchantName,
     final String? statementId,
     final String source,
+    final String? flow,
+    final String? counterAccountId,
   }) = _$AccountTransactionDtoImpl;
 
   factory _AccountTransactionDto.fromJson(Map<String, dynamic> json) =
@@ -461,12 +532,24 @@ abstract class _AccountTransactionDto implements AccountTransactionDto {
   int get installmentCount;
   @override
   int get installmentNumber;
+
+  /// Aynı taksitli alışverişin parçalarını birbirine bağlar.
+  @override
+  String? get installmentGroupId;
   @override
   String? get merchantName;
   @override
   String? get statementId;
   @override
   String get source;
+
+  /// Para akışı türü (MoneyFlow.slug). Yoksa type+category'den türetilir.
+  @override
+  String? get flow;
+
+  /// Karşı hesap — transfer ve kart ödemesinde dolu
+  @override
+  String? get counterAccountId;
 
   /// Create a copy of AccountTransactionDto
   /// with the given fields replaced by the non-null parameter values.

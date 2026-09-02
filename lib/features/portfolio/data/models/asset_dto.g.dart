@@ -47,6 +47,10 @@ _$MarketDataDtoImpl _$$MarketDataDtoImplFromJson(Map<String, dynamic> json) =>
       subLabel: json['subLabel'] as String?,
       lastUpdated: json['lastUpdated'] as String?,
       volume: (json['volume'] as num?)?.toDouble() ?? 0,
+      alis: (json['alis'] as num?)?.toDouble() ?? 0,
+      satis: (json['satis'] as num?)?.toDouble() ?? 0,
+      dayLow: (json['dayLow'] as num?)?.toDouble() ?? 0,
+      dayHigh: (json['dayHigh'] as num?)?.toDouble() ?? 0,
     );
 
 Map<String, dynamic> _$$MarketDataDtoImplToJson(_$MarketDataDtoImpl instance) =>
@@ -60,4 +64,8 @@ Map<String, dynamic> _$$MarketDataDtoImplToJson(_$MarketDataDtoImpl instance) =>
       'subLabel': instance.subLabel,
       'lastUpdated': instance.lastUpdated,
       'volume': instance.volume,
+      'alis': instance.alis,
+      'satis': instance.satis,
+      'dayLow': instance.dayLow,
+      'dayHigh': instance.dayHigh,
     };

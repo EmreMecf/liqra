@@ -55,8 +55,106 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
   final _loanNoteCtrl = TextEditingController();
   int _loanDueDay = 10;
 
+  // ── Doğrulama ──────────────────────────────────────────────────────────────
+  //
+  // Kaydet butonu eskiden her koşulda aktifti: limit 0, kullanılan > limit,
+  // ekstre > kullanılan gibi tutarsız kartlar kaydedilebiliyor ve sonraki tüm
+  // toplamları (kullanılabilir limit, kredi skoru, net servet) bozuyordu.
+
+  /// Türkçe ondalık ayracını kabul eder ("1.250,50" → 1250.5).
+  static double _parseAmount(TextEditingController c) {
+    final raw = c.text.trim();
+    if (raw.isEmpty) return 0;
+    return double.tryParse(raw.replaceAll('.', '').replaceAll(',', '.')) ??
+        double.tryParse(raw) ??
+        0;
+  }
+
+  /// Kredi kartı formundaki ilk hata (yoksa null).
+  String? get _cardError {
+    final limit     = _parseAmount(_limitCtrl);
+    final used      = _parseAmount(_usedCtrl);
+    final statement = _parseAmount(_statementCtrl);
+    final minPay    = _parseAmount(_minPayCtrl);
+
+    if (limit <= 0) return 'Kart limiti sıfırdan büyük olmalı';
+    if (used < 0) return 'Kullanılan tutar negatif olamaz';
+    if (used > limit) return 'Kullanılan tutar limitten büyük olamaz';
+    if (statement < 0) return 'Ekstre borcu negatif olamaz';
+    if (statement > used) return 'Ekstre borcu toplam borçtan büyük olamaz';
+    if (minPay < 0) return 'Asgari ödeme negatif olamaz';
+    if (minPay > statement) return 'Asgari ödeme ekstre borcundan büyük olamaz';
+
+    final last4 = _cardNoCtrl.text.trim();
+    if (last4.isNotEmpty && last4.length != 4) return 'Son 4 hane eksik';
+
+    // Aynı kartın iki kez eklenmesi tüm toplamları ikiye katlar.
+    final existing = context.read<AccountsViewModel>().creditCards;
+    final duplicate = existing.any((c) =>
+        c.bank == _bank &&
+        (last4.isNotEmpty
+            ? c.maskedCardNumber == last4
+            : c.name.trim().toLowerCase() ==
+                _nameCtrl.text.trim().toLowerCase()));
+    if (duplicate) return 'Bu kart zaten ekli';
+
+    return null;
+  }
+
+  /// Banka hesabı formundaki ilk hata (yoksa null).
+  String? get _bankError {
+    final iban = _ibanCtrl.text.replaceAll(' ', '').toUpperCase();
+    if (iban.isNotEmpty && (iban.length != 26 || !iban.startsWith('TR'))) {
+      return 'IBAN 26 karakter olmalı ve TR ile başlamalı';
+    }
+    final existing = context.read<AccountsViewModel>().bankAccounts;
+    if (iban.isNotEmpty &&
+        existing.any((a) => (a.iban ?? '').replaceAll(' ', '') == iban)) {
+      return 'Bu IBAN zaten kayıtlı';
+    }
+    return null;
+  }
+
+  /// Kredi formundaki ilk hata (yoksa null).
+  String? get _loanError {
+    final total   = _parseAmount(_loanTotalCtrl);
+    final monthly = _parseAmount(_loanMonthlyCtrl);
+    final count   = int.tryParse(_loanInstallmentsCtrl.text.trim()) ?? 0;
+
+    if (total <= 0) return 'Kredi tutarı sıfırdan büyük olmalı';
+    if (count <= 0) return 'Taksit sayısı girin';
+    if (monthly <= 0) return 'Aylık taksit tutarı girin';
+    if (monthly > total) return 'Aylık taksit kredi tutarından büyük olamaz';
+    return null;
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    // Alanlar değiştikçe doğrulama yeniden çalışır; kaydet butonu buna göre
+    // aktifleşir.
+    for (final c in [
+      _nameCtrl, _balanceCtrl, _ibanCtrl, _limitCtrl, _usedCtrl,
+      _statementCtrl, _minPayCtrl, _cardNoCtrl,
+      _loanTotalCtrl, _loanMonthlyCtrl, _loanInstallmentsCtrl,
+    ]) {
+      c.addListener(_onFieldChanged);
+    }
+  }
+
+  void _onFieldChanged() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void dispose() {
+    for (final c in [
+      _nameCtrl, _balanceCtrl, _ibanCtrl, _limitCtrl, _usedCtrl,
+      _statementCtrl, _minPayCtrl, _cardNoCtrl,
+      _loanTotalCtrl, _loanMonthlyCtrl, _loanInstallmentsCtrl,
+    ]) {
+      c.removeListener(_onFieldChanged);
+    }
     _nameCtrl.dispose(); _balanceCtrl.dispose(); _ibanCtrl.dispose();
     _limitCtrl.dispose(); _usedCtrl.dispose(); _statementCtrl.dispose();
     _minPayCtrl.dispose(); _cardNoCtrl.dispose();
@@ -179,13 +277,14 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
             dueDay: _loanDueDay,
             onDueDayChanged: (v) => setState(() => _loanDueDay = v),
             saving: _saving,
+            error: _loanError,
             onSave: _save,
           );
         }
         return _type == AccountType.bankAccount
             ? _StepBankDetails(
                 nameCtrl: _nameCtrl, balanceCtrl: _balanceCtrl, ibanCtrl: _ibanCtrl,
-                bank: _bank!, saving: _saving, onSave: _save)
+                bank: _bank!, saving: _saving, error: _bankError, onSave: _save)
             : _StepCardDetails(
                 nameCtrl: _nameCtrl, limitCtrl: _limitCtrl, usedCtrl: _usedCtrl,
                 statementCtrl: _statementCtrl, minPayCtrl: _minPayCtrl,
@@ -193,13 +292,21 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
                 closingDay: _closingDay, dueDay: _dueDay,
                 onClosingDayChanged: (v) => setState(() => _closingDay = v),
                 onDueDayChanged: (v) => setState(() => _dueDay = v),
-                saving: _saving, onSave: _save);
+                saving: _saving, error: _cardError, onSave: _save);
       default:
         return const SizedBox.shrink();
     }
   }
 
   Future<void> _save() async {
+    // Buton hatalıyken zaten pasif; yine de son bir kontrol.
+    final error = _typeExtra == _kLoanType
+        ? _loanError
+        : _type == AccountType.bankAccount
+            ? _bankError
+            : _cardError;
+    if (error != null) return;
+
     final vm = context.read<AccountsViewModel>();
     setState(() => _saving = true);
 
@@ -209,12 +316,9 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
             ? '${_bank!.displayName} Kredisi'
             : _loanNameCtrl.text.trim(),
         bank: _bank!,
-        totalAmount:
-            double.tryParse(_loanTotalCtrl.text.replaceAll(',', '.')) ?? 0,
-        monthlyPayment:
-            double.tryParse(_loanMonthlyCtrl.text.replaceAll(',', '.')) ?? 0,
-        interestRate:
-            double.tryParse(_loanInterestCtrl.text.replaceAll(',', '.')) ?? 0,
+        totalAmount:    _parseAmount(_loanTotalCtrl),
+        monthlyPayment: _parseAmount(_loanMonthlyCtrl),
+        interestRate:   _parseAmount(_loanInterestCtrl),
         totalInstallments:
             int.tryParse(_loanInstallmentsCtrl.text) ?? 0,
         paymentDueDay: _loanDueDay,
@@ -234,7 +338,7 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
             ? _bank!.displayName
             : _nameCtrl.text.trim(),
         bank: _bank!,
-        balance: double.tryParse(_balanceCtrl.text.replaceAll(',', '.')) ?? 0,
+        balance: _parseAmount(_balanceCtrl),
         iban: _ibanCtrl.text.trim().isEmpty ? null : _ibanCtrl.text.trim(),
       );
     } else {
@@ -243,10 +347,10 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
             ? '${_bank!.displayName} Kart'
             : _nameCtrl.text.trim(),
         bank: _bank!,
-        creditLimit: double.tryParse(_limitCtrl.text.replaceAll(',', '.')) ?? 0,
-        usedAmount: double.tryParse(_usedCtrl.text.replaceAll(',', '.')) ?? 0,
-        statementBalance: double.tryParse(_statementCtrl.text.replaceAll(',', '.')) ?? 0,
-        minimumPayment: double.tryParse(_minPayCtrl.text.replaceAll(',', '.')) ?? 0,
+        creditLimit: _parseAmount(_limitCtrl),
+        usedAmount: _parseAmount(_usedCtrl),
+        statementBalance: _parseAmount(_statementCtrl),
+        minimumPayment: _parseAmount(_minPayCtrl),
         statementClosingDay: _closingDay,
         paymentDueDay: _dueDay,
         maskedCardNumber: _cardNoCtrl.text.trim().isEmpty ? null : _cardNoCtrl.text.trim(),
@@ -414,11 +518,13 @@ class _StepBankDetails extends StatelessWidget {
   final TextEditingController nameCtrl, balanceCtrl, ibanCtrl;
   final BankName bank;
   final bool saving;
+  final String? error;
   final VoidCallback onSave;
 
   const _StepBankDetails({
     required this.nameCtrl, required this.balanceCtrl, required this.ibanCtrl,
-    required this.bank, required this.saving, required this.onSave,
+    required this.bank, required this.saving, required this.error,
+    required this.onSave,
   });
 
   @override
@@ -432,8 +538,9 @@ class _StepBankDetails extends StatelessWidget {
         const SizedBox(height: 12),
         _Field(ctrl: ibanCtrl, label: 'IBAN (opsiyonel)',
             hint: 'TR00 0000 0000 0000 0000 0000 00'),
-        const SizedBox(height: 24),
-        _SaveButton(saving: saving, onTap: onSave),
+        const SizedBox(height: 16),
+        _ErrorText(error),
+        _SaveButton(saving: saving, enabled: error == null, onTap: onSave),
         const SizedBox(height: 8),
       ],
     );
@@ -449,6 +556,7 @@ class _StepCardDetails extends StatelessWidget {
   final int closingDay, dueDay;
   final void Function(int) onClosingDayChanged, onDueDayChanged;
   final bool saving;
+  final String? error;
   final VoidCallback onSave;
 
   const _StepCardDetails({
@@ -456,7 +564,7 @@ class _StepCardDetails extends StatelessWidget {
     required this.statementCtrl, required this.minPayCtrl, required this.cardNoCtrl,
     required this.bank, required this.closingDay, required this.dueDay,
     required this.onClosingDayChanged, required this.onDueDayChanged,
-    required this.saving, required this.onSave,
+    required this.saving, required this.error, required this.onSave,
   });
 
   @override
@@ -501,8 +609,9 @@ class _StepCardDetails extends StatelessWidget {
             onChanged: onDueDayChanged,
           ),
 
-          const SizedBox(height: 24),
-          _SaveButton(saving: saving, onTap: onSave),
+          const SizedBox(height: 16),
+          _ErrorText(error),
+          _SaveButton(saving: saving, enabled: error == null, onTap: onSave),
           const SizedBox(height: 8),
         ],
       ),
@@ -519,6 +628,7 @@ class _StepLoanDetails extends StatelessWidget {
   final int dueDay;
   final void Function(int) onDueDayChanged;
   final bool saving;
+  final String? error;
   final VoidCallback onSave;
 
   const _StepLoanDetails({
@@ -532,6 +642,7 @@ class _StepLoanDetails extends StatelessWidget {
     required this.dueDay,
     required this.onDueDayChanged,
     required this.saving,
+    required this.error,
     required this.onSave,
   });
 
@@ -572,8 +683,9 @@ class _StepLoanDetails extends StatelessWidget {
             value: dueDay,
             onChanged: onDueDayChanged,
           ),
-          const SizedBox(height: 24),
-          _LoanSaveButton(saving: saving, onTap: onSave),
+          const SizedBox(height: 16),
+          _ErrorText(error),
+          _LoanSaveButton(saving: saving, enabled: error == null, onTap: onSave),
           const SizedBox(height: 8),
         ],
       ),
@@ -684,22 +796,30 @@ class _DaySelector extends StatelessWidget {
 
 class _SaveButton extends StatelessWidget {
   final bool saving;
+
+  /// Form geçerli mi? Geçersizken buton hem soluk hem de dokunulamaz olur.
+  final bool enabled;
   final VoidCallback onTap;
 
-  const _SaveButton({required this.saving, required this.onTap});
+  const _SaveButton({
+    required this.saving,
+    required this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final active = enabled && !saving;
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: GestureDetector(
-        onTap: saving ? null : onTap,
+        onTap: active ? onTap : null,
         child: Container(
           decoration: BoxDecoration(
-            color: saving
-                ? const Color(0xFF0AFFE0).withValues(alpha: 0.5)
-                : const Color(0xFF0AFFE0),
+            color: active
+                ? const Color(0xFF0AFFE0)
+                : const Color(0xFF0AFFE0).withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Center(
@@ -724,22 +844,28 @@ class _SaveButton extends StatelessWidget {
 
 class _LoanSaveButton extends StatelessWidget {
   final bool saving;
+  final bool enabled;
   final VoidCallback onTap;
 
-  const _LoanSaveButton({required this.saving, required this.onTap});
+  const _LoanSaveButton({
+    required this.saving,
+    required this.onTap,
+    this.enabled = true,
+  });
 
   @override
   Widget build(BuildContext context) {
+    final active = enabled && !saving;
     return SizedBox(
       width: double.infinity,
       height: 50,
       child: GestureDetector(
-        onTap: saving ? null : onTap,
+        onTap: active ? onTap : null,
         child: Container(
           decoration: BoxDecoration(
-            color: saving
-                ? const Color(0xFFFF6B7A).withValues(alpha: 0.5)
-                : const Color(0xFFFF6B7A),
+            color: active
+                ? const Color(0xFFFF6B7A)
+                : const Color(0xFFFF6B7A).withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Center(
@@ -759,6 +885,37 @@ class _LoanSaveButton extends StatelessWidget {
                   ),
           ),
         ),
+      ),
+    );
+  }
+}
+
+
+/// Form hatasını gösteren satır. Hata yoksa hiçbir yer kaplamaz.
+class _ErrorText extends StatelessWidget {
+  final String? message;
+  const _ErrorText(this.message);
+
+  @override
+  Widget build(BuildContext context) {
+    final text = message;
+    if (text == null) return const SizedBox(height: 8);
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.error_outline_rounded,
+              size: 14, color: Color(0xFFFF6B7A)),
+          const SizedBox(width: 6),
+          Expanded(
+            child: Text(
+              text,
+              style: GoogleFonts.outfit(
+                  fontSize: 12, color: const Color(0xFFFF6B7A)),
+            ),
+          ),
+        ],
       ),
     );
   }

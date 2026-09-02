@@ -27,6 +27,14 @@ mixin _$MarketDataEntity {
   DateTime? get lastUpdated => throw _privateConstructorUsedError;
   double get volume => throw _privateConstructorUsedError;
 
+  /// Döviz alış/satış (CollectAPI). 0 = bu enstrüman için verilmiyor.
+  double get alis => throw _privateConstructorUsedError;
+  double get satis => throw _privateConstructorUsedError;
+
+  /// Hisse günlük en düşük / en yüksek (CollectAPI). 0 = yok.
+  double get dayLow => throw _privateConstructorUsedError;
+  double get dayHigh => throw _privateConstructorUsedError;
+
   /// Create a copy of MarketDataEntity
   /// with the given fields replaced by the non-null parameter values.
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -51,6 +59,10 @@ abstract class $MarketDataEntityCopyWith<$Res> {
     String? subLabel,
     DateTime? lastUpdated,
     double volume,
+    double alis,
+    double satis,
+    double dayLow,
+    double dayHigh,
   });
 }
 
@@ -78,6 +90,10 @@ class _$MarketDataEntityCopyWithImpl<$Res, $Val extends MarketDataEntity>
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
     Object? volume = null,
+    Object? alis = null,
+    Object? satis = null,
+    Object? dayLow = null,
+    Object? dayHigh = null,
   }) {
     return _then(
       _value.copyWith(
@@ -117,6 +133,22 @@ class _$MarketDataEntityCopyWithImpl<$Res, $Val extends MarketDataEntity>
                 ? _value.volume
                 : volume // ignore: cast_nullable_to_non_nullable
                       as double,
+            alis: null == alis
+                ? _value.alis
+                : alis // ignore: cast_nullable_to_non_nullable
+                      as double,
+            satis: null == satis
+                ? _value.satis
+                : satis // ignore: cast_nullable_to_non_nullable
+                      as double,
+            dayLow: null == dayLow
+                ? _value.dayLow
+                : dayLow // ignore: cast_nullable_to_non_nullable
+                      as double,
+            dayHigh: null == dayHigh
+                ? _value.dayHigh
+                : dayHigh // ignore: cast_nullable_to_non_nullable
+                      as double,
           )
           as $Val,
     );
@@ -142,6 +174,10 @@ abstract class _$$MarketDataEntityImplCopyWith<$Res>
     String? subLabel,
     DateTime? lastUpdated,
     double volume,
+    double alis,
+    double satis,
+    double dayLow,
+    double dayHigh,
   });
 }
 
@@ -168,6 +204,10 @@ class __$$MarketDataEntityImplCopyWithImpl<$Res>
     Object? subLabel = freezed,
     Object? lastUpdated = freezed,
     Object? volume = null,
+    Object? alis = null,
+    Object? satis = null,
+    Object? dayLow = null,
+    Object? dayHigh = null,
   }) {
     return _then(
       _$MarketDataEntityImpl(
@@ -207,6 +247,22 @@ class __$$MarketDataEntityImplCopyWithImpl<$Res>
             ? _value.volume
             : volume // ignore: cast_nullable_to_non_nullable
                   as double,
+        alis: null == alis
+            ? _value.alis
+            : alis // ignore: cast_nullable_to_non_nullable
+                  as double,
+        satis: null == satis
+            ? _value.satis
+            : satis // ignore: cast_nullable_to_non_nullable
+                  as double,
+        dayLow: null == dayLow
+            ? _value.dayLow
+            : dayLow // ignore: cast_nullable_to_non_nullable
+                  as double,
+        dayHigh: null == dayHigh
+            ? _value.dayHigh
+            : dayHigh // ignore: cast_nullable_to_non_nullable
+                  as double,
       ),
     );
   }
@@ -225,6 +281,10 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
     this.subLabel,
     this.lastUpdated,
     this.volume = 0,
+    this.alis = 0,
+    this.satis = 0,
+    this.dayLow = 0,
+    this.dayHigh = 0,
   });
 
   @override
@@ -247,9 +307,25 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
   @JsonKey()
   final double volume;
 
+  /// Döviz alış/satış (CollectAPI). 0 = bu enstrüman için verilmiyor.
+  @override
+  @JsonKey()
+  final double alis;
+  @override
+  @JsonKey()
+  final double satis;
+
+  /// Hisse günlük en düşük / en yüksek (CollectAPI). 0 = yok.
+  @override
+  @JsonKey()
+  final double dayLow;
+  @override
+  @JsonKey()
+  final double dayHigh;
+
   @override
   String toString() {
-    return 'MarketDataEntity(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated, volume: $volume)';
+    return 'MarketDataEntity(symbol: $symbol, name: $name, icon: $icon, price: $price, changePercent: $changePercent, currency: $currency, subLabel: $subLabel, lastUpdated: $lastUpdated, volume: $volume, alis: $alis, satis: $satis, dayLow: $dayLow, dayHigh: $dayHigh)';
   }
 
   @override
@@ -269,7 +345,11 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
                 other.subLabel == subLabel) &&
             (identical(other.lastUpdated, lastUpdated) ||
                 other.lastUpdated == lastUpdated) &&
-            (identical(other.volume, volume) || other.volume == volume));
+            (identical(other.volume, volume) || other.volume == volume) &&
+            (identical(other.alis, alis) || other.alis == alis) &&
+            (identical(other.satis, satis) || other.satis == satis) &&
+            (identical(other.dayLow, dayLow) || other.dayLow == dayLow) &&
+            (identical(other.dayHigh, dayHigh) || other.dayHigh == dayHigh));
   }
 
   @override
@@ -284,6 +364,10 @@ class _$MarketDataEntityImpl implements _MarketDataEntity {
     subLabel,
     lastUpdated,
     volume,
+    alis,
+    satis,
+    dayLow,
+    dayHigh,
   );
 
   /// Create a copy of MarketDataEntity
@@ -309,6 +393,10 @@ abstract class _MarketDataEntity implements MarketDataEntity {
     final String? subLabel,
     final DateTime? lastUpdated,
     final double volume,
+    final double alis,
+    final double satis,
+    final double dayLow,
+    final double dayHigh,
   }) = _$MarketDataEntityImpl;
 
   @override
@@ -329,6 +417,18 @@ abstract class _MarketDataEntity implements MarketDataEntity {
   DateTime? get lastUpdated;
   @override
   double get volume;
+
+  /// Döviz alış/satış (CollectAPI). 0 = bu enstrüman için verilmiyor.
+  @override
+  double get alis;
+  @override
+  double get satis;
+
+  /// Hisse günlük en düşük / en yüksek (CollectAPI). 0 = yok.
+  @override
+  double get dayLow;
+  @override
+  double get dayHigh;
 
   /// Create a copy of MarketDataEntity
   /// with the given fields replaced by the non-null parameter values.

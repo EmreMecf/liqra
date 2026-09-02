@@ -1,17 +1,25 @@
 import '../../../../core/utils/result.dart';
 import '../entities/ai_message_entity.dart';
-import '../../data/models/ai_request_dto.dart';
 
-/// AI repository sözleşmesi — domain katmanı bunu bilir, impl'i bilmez
+/// AI repository sözleşmesi — domain katmanı bunu bilir, impl'i bilmez.
 abstract interface class AiRepository {
-  /// Claude API'ye mesaj gönder, yanıt al
+  /// Sohbet — geçmişle birlikte.
   Future<Result<AiMessageEntity>> sendMessage({
+    required String systemPrompt,
     required String message,
     required String mode,
-    required AiContextDto context,
     required List<Map<String, String>> history,
+    int maxTokens,
   });
 
-  /// Konuşma geçmişini temizle
+  /// Tek seferlik görev — geçmiş yok (hisse analizi, harcama denetimi,
+  /// birikim planı). Sonuç düz metin döner.
+  Future<Result<String>> complete({
+    required String systemPrompt,
+    required String userPrompt,
+    int maxTokens,
+  });
+
+  /// Konuşma geçmişini temizle.
   Future<Result<void>> clearHistory(String userId);
 }

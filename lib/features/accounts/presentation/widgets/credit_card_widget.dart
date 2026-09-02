@@ -210,16 +210,21 @@ class _CardInfo extends StatelessWidget {
           Row(
             children: [
               Text(
-                'Kullanılan',
+                card.isOverLimit ? 'Limit aşıldı' : 'Kullanılan',
                 style: GoogleFonts.outfit(
-                    fontSize: 11, color: Colors.white.withValues(alpha: 0.4)),
+                    fontSize: 11,
+                    color: card.isOverLimit
+                        ? const Color(0xFFFF4757)
+                        : Colors.white.withValues(alpha: 0.4)),
               ),
               const Spacer(),
               Text(
                 '${fmt.format(card.usedAmount)} / ${fmt.format(card.creditLimit)}',
                 style: GoogleFonts.dmMono(
                   fontSize: 11,
-                  color: Colors.white.withValues(alpha: 0.7),
+                  color: card.isOverLimit
+                      ? const Color(0xFFFF4757)
+                      : Colors.white.withValues(alpha: 0.7),
                 ),
               ),
             ],
@@ -232,7 +237,7 @@ class _CardInfo extends StatelessWidget {
               minHeight: 5,
               backgroundColor: Colors.white.withValues(alpha: 0.08),
               valueColor: AlwaysStoppedAnimation<Color>(
-                usage > 0.8
+                card.isOverLimit || usage > 0.8
                     ? const Color(0xFFFF4757)
                     : usage > 0.5
                         ? const Color(0xFFE4B84A)
@@ -253,10 +258,14 @@ class _CardInfo extends StatelessWidget {
               ),
               const SizedBox(width: 8),
               _InfoChip(
+                // isOverdue artık gerçek gecikmeyi gösterir; eskiden bu dal
+                // hiçbir zaman çalışmıyordu.
                 label: card.isOverdue
-                    ? 'Gecikmiş!'
-                    : '${card.daysUntilDue} gün',
-                value: card.isOverdue ? 'Ödenmedi' : 'Son Ödeme',
+                    ? '${card.daysPastDue} gün geçti'
+                    : card.daysUntilDue == 0
+                        ? 'Bugün'
+                        : '${card.daysUntilDue} gün',
+                value: card.isOverdue ? 'Gecikti' : 'Son Ödeme',
                 color: dueColor,
                 reversed: true,
               ),

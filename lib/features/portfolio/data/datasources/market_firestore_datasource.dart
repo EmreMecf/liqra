@@ -94,6 +94,11 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
           currency:      'TRY',
           subLabel:      meta.$4,
           lastUpdated:   value['lastUpdated'] as String?,
+          // CollectAPI dövizde alış/satış ayrı veriyor
+          alis:          _toDouble(value['alis']),
+          satis:         _toDouble(value['satis']),
+          // Binance kriptoda 24 saatlik TRY hacmi veriyor
+          volume:        _toDouble(value['volume24h']),
         ));
       }
     }
@@ -117,6 +122,9 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
           subLabel:      'bist',
           lastUpdated:   value['lastUpdated'] as String?,
           volume:        _toDouble(value['hacim']),
+          // CollectAPI günlük en düşük/en yüksek de veriyor
+          dayLow:        _toDouble(value['min']),
+          dayHigh:       _toDouble(value['max']),
         ));
       }
     }
@@ -137,8 +145,6 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
         'bilezik18':   ('18 Ayar Altın',    '🟡'),
         'bilezik14':   ('14 Ayar Altın',    '🔶'),
       };
-
-      double gramPrice = 0; // fallback hesaplama için
 
       for (final entry in goldMap.entries) {
         final key   = entry.key;
@@ -162,13 +168,14 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
             currency:      'TRY',
             subLabel:      'emtia',
             lastUpdated:   value['lastUpdated'] as String?,
+            alis:          alis,
+            satis:         satis,
           ));
         } else {
           final alis  = _toDouble(value['alis']);
           final satis = _toDouble(value['satis']);
           final price = alis > 0 ? alis : satis;
           if (price <= 0) continue;
-          if (key == 'gram') gramPrice = price;
           result.add(MarketDataDto(
             symbol:        key.toUpperCase(),
             name:          meta?.$1 ?? key,
@@ -178,32 +185,41 @@ class MarketFirestoreDataSource implements MarketRemoteDataSource {
             currency:      'TRY',
             subLabel:      'emtia',
             lastUpdated:   value['lastUpdated'] as String?,
+            alis:          alis,
+            satis:         satis,
           ));
         }
       }
 
-      // Bilezik verileri Firestore'da yoksa gram altından hesapla
-      if (gramPrice > 0) {
-        const ayarlar = [
-          ('bilezik22', '22 Ayar Altın', '💛', 22.0 / 24.0),
-          ('bilezik18', '18 Ayar Altın', '🟡', 18.0 / 24.0),
-          ('bilezik14', '14 Ayar Altın', '🔶', 14.0 / 24.0),
-        ];
-        final existingSymbols = result.map((d) => d.symbol).toSet();
-        for (final (key, name, icon, ratio) in ayarlar) {
-          if (!existingSymbols.contains(key.toUpperCase())) {
-            result.add(MarketDataDto(
-              symbol:        key.toUpperCase(),
-              name:          name,
-              icon:          icon,
-              price:         gramPrice * ratio,
-              changePercent: 0,
-              currency:      'TRY',
-              subLabel:      'hesaplama',
-              lastUpdated:   null,
-            ));
-          }
-        }
+      // NOT: Burada eskiden bilezik fiyatları API'de yoksa
+      // `gram × (ayar/24)` ile ÜRETİLİYORDU. Bu bir piyasa kotasyonu değildir —
+      // bilezik satış fiyatı işçilik/milyem içerir ve saf orandan sapar.
+      // Uydurma fiyatı piyasa listesinde göstermek yanıltıcı olduğu için
+      // kaldırıldı: API vermiyorsa o satır hiç görünmez.
+    }
+
+    // 4. TEFAS fonları (funds map)
+    //
+    // Bu map Cloud Functions tarafından yazılıyordu ama istemci hiç okumuyordu;
+    // "Fon" sekmesi bu yüzden her zaman boştu. Artık piyasa listesine dahil.
+    final funds = docData['funds'] as Map<String, dynamic>?;
+    if (funds != null) {
+      for (final entry in funds.entries) {
+        final code  = entry.key;
+        final value = entry.value;
+        if (value is! Map<String, dynamic>) continue;
+        final price = _toDouble(value['price']);
+        if (price <= 0) continue;
+        result.add(MarketDataDto(
+          symbol:        code,
+          name:          (value['name'] as String?) ?? code,
+          icon:          '📊',
+          price:         price,
+          changePercent: _toDouble(value['changePercent']),
+          currency:      'TRY',
+          subLabel:      'fon',
+          lastUpdated:   value['lastUpdated'] as String?,
+        ));
       }
     }
 

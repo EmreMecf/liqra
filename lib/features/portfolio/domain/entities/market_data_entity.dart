@@ -14,7 +14,18 @@ class MarketDataEntity with _$MarketDataEntity {
     String? subLabel,
     DateTime? lastUpdated,
     @Default(0) double volume,
+    /// Döviz alış/satış (CollectAPI). 0 = bu enstrüman için verilmiyor.
+    @Default(0) double alis,
+    @Default(0) double satis,
+    /// Hisse günlük en düşük / en yüksek (CollectAPI). 0 = yok.
+    @Default(0) double dayLow,
+    @Default(0) double dayHigh,
   }) = _MarketDataEntity;
+}
+
+extension MarketDataEntityX on MarketDataEntity {
+  bool get hasSpread   => alis > 0 && satis > 0;
+  bool get hasDayRange => dayLow > 0 && dayHigh > 0 && dayHigh >= dayLow;
 }
 
 @freezed

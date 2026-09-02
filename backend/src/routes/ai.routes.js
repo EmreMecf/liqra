@@ -4,8 +4,13 @@ const rateLimit    = require('express-rate-limit');
 const Joi          = require('joi');
 const claudeService = require('../services/claude.service');
 const config       = require('../config');
+const { verifyToken } = require('../middleware/checkRole.middleware');
 
 const router = express.Router();
+
+// Tüm AI uçları kimlik doğrulaması ister — aksi halde herkes Anthropic
+// kredisini harcayabilir ve rate limit anahtarı (req.user.id) hiç dolmaz.
+router.use(verifyToken);
 
 // ── Rate Limit — kullanıcı başı saatte 20 AI isteği ─────────────────────────
 const aiLimiter = rateLimit({

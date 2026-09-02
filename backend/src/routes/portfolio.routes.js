@@ -3,8 +3,12 @@ const express         = require('express');
 const Joi             = require('joi');
 const portfolioSvc    = require('../services/portfolio.service');
 const marketSvc       = require('../services/market.service');
+const { verifyToken } = require('../middleware/checkRole.middleware');
 
 const router = express.Router();
+
+// Portföy kullanıcıya özeldir — kimlik doğrulaması zorunlu
+router.use(verifyToken);
 
 // ── Validasyon şemaları ────────────────────────────────────────────────────
 
@@ -23,9 +27,10 @@ const updateSchema = Joi.object({
   avgCost:  Joi.number().positive(),
 }).min(1);
 
-// ── Helper: userId (JWT olmadan demo userId) ───────────────────────────────
-// TODO: JWT middleware eklenince req.user.id kullan
-const getUserId = (req) => req.headers['x-user-id'] || 'demo';
+// ── Helper: userId — DOĞRULANMIŞ token'dan gelir ───────────────────────────
+// Eskiden 'x-user-id' header'ı olduğu gibi kabul ediliyordu; herkes istediği
+// kullanıcının portföyünü okuyup değiştirebiliyordu.
+const getUserId = (req) => req.user.id;
 
 // ── GET /api/portfolio ─────────────────────────────────────────────────────
 router.get('/', async (req, res) => {

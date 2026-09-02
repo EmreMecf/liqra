@@ -30,10 +30,9 @@ const PAIR_META = {
   XRPTRY:  { key: "XRP_TRY",  symbol: "XRP/TRY",  name: "XRP",      icon: "✕"  },
   DOGETRY: { key: "DOGE_TRY", symbol: "DOGE/TRY", name: "Dogecoin", icon: "🐕" },
   USDTTRY: { key: "USDT_TRY", symbol: "USDT/TRY", name: "Tether",   icon: "💲" },
-  AVAXBTC: null, // Binance'de AVAX/TRY çifti yok — atlanır
 };
 
-const VALID_PAIRS = Object.keys(PAIR_META).filter(k => PAIR_META[k] !== null);
+const VALID_PAIRS = Object.keys(PAIR_META);
 
 // ─── Yardımcılar ──────────────────────────────────────────────────────────────
 

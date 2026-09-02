@@ -13,6 +13,7 @@ class CampaignDto {
   final String imageUrl;
   final String endDate;
   final DateTime? fetchedAt;
+  final bool isSample;
 
   const CampaignDto({
     required this.id,
@@ -26,6 +27,7 @@ class CampaignDto {
     required this.imageUrl,
     required this.endDate,
     this.fetchedAt,
+    this.isSample = false,
   });
 
   factory CampaignDto.fromFirestore(DocumentSnapshot doc) {
@@ -42,6 +44,7 @@ class CampaignDto {
       imageUrl:    d['imageUrl']    as String? ?? '',
       endDate:     d['endDate']     as String? ?? '',
       fetchedAt:   (d['fetchedAt'] as Timestamp?)?.toDate(),
+      isSample:    d['isSample'] as bool? ?? false,
     );
   }
 
@@ -57,5 +60,6 @@ class CampaignDto {
     imageUrl:    imageUrl.isEmpty ? null : imageUrl,
     endDate:     endDate.isEmpty  ? null : endDate,
     fetchedAt:   fetchedAt,
+    isSample:    isSample,
   );
 }

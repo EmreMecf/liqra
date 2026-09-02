@@ -1,5 +1,8 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
+// CupertinoPageTransitionsBuilder artık material.dart'tan export edilmiyor
+// (Flutter 3.4x) — cupertino.dart'tan gelir.
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
@@ -8,10 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'core/constants/app_colors.dart';
 import 'core/di/injection.dart';
 import 'core/services/auth_service.dart';
+import 'core/navigation/app_routes.dart';
 import 'core/services/notification_service.dart';
 import 'core/services/analytics_service.dart';
 import 'core/services/crash_service.dart';
 import 'core/services/feature_flag_service.dart';
+import 'core/services/ledger_backfill_service.dart';
 import 'data/providers/app_provider.dart';
 import 'features/ai_assistant/presentation/viewmodel/ai_assistant_viewmodel.dart';
 import 'features/spending/presentation/viewmodel/spending_viewmodel.dart';
@@ -19,6 +24,9 @@ import 'features/portfolio/presentation/viewmodel/portfolio_viewmodel.dart';
 import 'features/portfolio/presentation/viewmodel/market_viewmodel.dart';
 import 'features/dashboard/presentation/viewmodel/dashboard_viewmodel.dart';
 import 'features/accounts/presentation/viewmodels/accounts_viewmodel.dart';
+import 'features/campaigns/presentation/viewmodel/campaign_viewmodel.dart';
+import 'features/news/presentation/viewmodel/news_viewmodel.dart';
+import 'features/ai_assistant/presentation/assistant_context_builder.dart';
 import 'firebase_options.dart';
 import 'presentation/auth/auth_screen.dart';
 import 'presentation/onboarding/intro_onboarding_screen.dart';
@@ -83,6 +91,15 @@ class LiqraApp extends StatelessWidget {
         ),
         ChangeNotifierProvider<AccountsViewModel>(
           create: (_) => getIt<AccountsViewModel>(),
+        ),
+        // Kampanya ve haberler uygulama kökünde: asistan bunları hisse
+        // analizinde ve kampanya önerisinde kullanıyor, Keşfet ekranına
+        // bağlı kalamaz.
+        ChangeNotifierProvider<CampaignViewModel>(
+          create: (_) => getIt<CampaignViewModel>(),
+        ),
+        ChangeNotifierProvider<NewsViewModel>(
+          create: (_) => getIt<NewsViewModel>(),
         ),
       ],
       child: MaterialApp(
@@ -202,6 +219,10 @@ class _AuthGateState extends State<_AuthGate> {
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
+      // Geçmiş cüzdan hareketlerini ana deftere taşı (kullanıcı başına bir kez,
+      // idempotent). Dashboard'ın kredi kartı geçmişini de görmesi için gerekli.
+      LedgerBackfillService.instance.runIfNeeded();
+
       context.read<AppProvider>().loadUserProfile();
       context.read<DashboardViewModel>().load();
       context.read<SpendingViewModel>().loadCurrentMonth();
@@ -221,7 +242,54 @@ class _AuthGateState extends State<_AuthGate> {
 
       portfolioVm.addListener(syncOnce);
       portfolioVm.load(); // load tamamlanınca syncOnce çağrılır
+
+      _refreshAssistant(context);
     });
+  }
+
+  /// Bildirime dokunarak gelindiyse ilgili sekmeye geçer.
+  ///
+  /// Bildirimler '/spending', '/accounts' gibi rotalar taşıyordu ama bu değer
+  /// hiçbir yerde okunmuyordu: kullanıcı bildirime dokunuyor, uygulama
+  /// açılıyor ve ana sayfada kalıyordu.
+  void _consumeNotificationRoute() {
+    // İlk kare çizildikten sonra — MainScaffold'un state'i hazır olmalı.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final route = NotificationService.instance.consumePendingRoute();
+      if (route != null) AppRoutes.go(route);
+    });
+
+    // Uygulama açıkken gelen bildirime dokunulursa anında yönlendir.
+    NotificationService.instance.onRouteRequested = (route) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        NotificationService.instance.clearPendingRoute();
+        AppRoutes.go(route);
+      });
+    };
+  }
+
+  /// Veriler yüklendikten sonra asistanın içgörülerini üretir ve gerekiyorsa
+  /// bildirim gönderir.
+  ///
+  /// İçgörüler modele hiç gitmez (bkz. InsightEngine) — bu yüzden açılışta
+  /// çalıştırmak ne para ne de görünür gecikme maliyeti yaratır. Bildirimler
+  /// günde bir kez ve en fazla üç tane gönderilir.
+  Future<void> _refreshAssistant(BuildContext context) async {
+    final accounts  = context.read<AccountsViewModel>();
+    final assistant = context.read<AiAssistantViewModel>();
+    final app       = context.read<AppProvider>();
+
+    // Cüzdan ve harcama verisi gelmeden içgörü üretmek yanıltıcı olur.
+    await Future.wait([
+      accounts.load(),
+      app.loadUserProfile(),
+    ]);
+    if (!mounted || !context.mounted) return;
+
+    await assistant.refreshInsights(
+      AssistantContextBuilder.fromContext(context),
+      userBanks: AssistantContextBuilder.userBanks(accounts),
+    );
   }
 
   @override
@@ -255,6 +323,7 @@ class _AuthGateState extends State<_AuthGate> {
 
             // Profil tamam → verileri bir kez yükle
             _loadUserData(context);
+            _consumeNotificationRoute();
             return MainScaffold();
           },
         );

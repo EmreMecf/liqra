@@ -56,19 +56,22 @@ class SubscriptionsScreen extends StatefulWidget {
 }
 
 class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
-  String? _uid;
   String _selectedCategory = 'Tümü';
+
+  /// Her erişimde güncel uid — initState'te cache'lenirse çıkış/giriş sonrası
+  /// önceki kullanıcının uid'si ile Firestore'a yazılabilir.
+  String? get _uid => AuthService.instance.userId;
 
   @override
   void initState() {
     super.initState();
-    _uid = AuthService.instance.userId;
     WidgetsBinding.instance.addPostFrameCallback((_) => _load());
   }
 
   void _load() {
-    if (_uid == null) return;
-    context.read<SubscriptionViewModel>().load(_uid!);
+    final uid = _uid;
+    if (uid == null) return;
+    context.read<SubscriptionViewModel>().load(uid);
   }
 
   @override
@@ -141,7 +144,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         return _SubCard(
                           subscription: sub,
                           onToggle: (v) =>
-                              vm.toggle(_uid!, sub.id, v),
+                              vm.toggle(_uid ?? '', sub.id, v),
                           onEdit: () => _openEditSheet(sub),
                           onDelete: () => _confirmDelete(sub),
                         ).animate(delay: Duration(milliseconds: 60 * i))
@@ -173,7 +176,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
                         final sub = state.inactive[i];
                         return _SubCard(
                           subscription: sub,
-                          onToggle: (v) => vm.toggle(_uid!, sub.id, v),
+                          onToggle: (v) => vm.toggle(_uid ?? '', sub.id, v),
                           onEdit: () => _openEditSheet(sub),
                           onDelete: () => _confirmDelete(sub),
                         );
@@ -265,7 +268,7 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           TextButton(
             onPressed: () {
               Navigator.pop(ctx);
-              context.read<SubscriptionViewModel>().delete(_uid!, sub.id);
+              context.read<SubscriptionViewModel>().delete(_uid ?? '', sub.id);
             },
             child: const Text('Sil', style: TextStyle(color: AppColors.accentRed)),
           ),

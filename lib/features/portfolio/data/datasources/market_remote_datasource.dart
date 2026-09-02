@@ -101,12 +101,23 @@ class MarketRemoteDataSourceImpl extends MarketRemoteDataSource {
       'content-type':  'application/json',
     };
 
+    // catchError((_) => null) Future<Response> için TİP HATASI verir:
+    // null non-nullable Response'a atanamaz ve hata yutulmak yerine
+    // TypeError olarak yeniden fırlar. try/catch ile nullable'a çeviriyoruz.
+    Future<Response?> safeGet(Future<Response> req) async {
+      try {
+        return await req;
+      } catch (_) {
+        return null;
+      }
+    }
+
     final futures = await Future.wait([
-      _collect.get('/economy/goldPrice',
-          options: Options(headers: headers)).catchError((_) => null),
-      _collect.get('/economy/currencyToAll',
+      safeGet(_collect.get('/economy/goldPrice',
+          options: Options(headers: headers))),
+      safeGet(_collect.get('/economy/currencyToAll',
           queryParameters: {'from': 'USD'},
-          options: Options(headers: headers)).catchError((_) => null),
+          options: Options(headers: headers))),
     ]);
 
     final goldResp     = futures[0];
@@ -147,31 +158,42 @@ class MarketRemoteDataSourceImpl extends MarketRemoteDataSource {
     }
 
     // USD/TRY + EUR/TRY
+    //
+    // İstek `/economy/currencyToAll?from=USD` — dönen her satır 1 USD'nin o
+    // para birimindeki karşılığıdır:
+    //   code=TRY → USD/TRY   (doğrudan kullanılabilir)
+    //   code=EUR → USD/EUR   (≈0.92) — bu EUR/TRY DEĞİLDİR!
+    // EUR/TRY = (USD/TRY) / (USD/EUR) şeklinde türetilmelidir.
     if (currencyResp != null) {
       final data = currencyResp.data;
       final list = (data is Map ? data['result'] : null) as List?;
       if (list != null) {
+        double usdTry = 0;
+        double usdEur = 0;
         for (final item in list) {
-          if (item is Map) {
-            final code = (item['code'] ?? item['code_'] ?? '').toString().toUpperCase();
-            final rate = _n(item['rate'] ?? item['calculateAmount'] ?? 0);
-            if (rate <= 0) continue;
-            if (code == 'TRY') {
-              result.add(MarketDataDto(
-                symbol: 'USD/TRY', name: 'Dolar/TL', icon: '💵',
-                price: rate, changePercent: 0,
-                currency: 'TRY', subLabel: 'CollectAPI',
-                lastUpdated: now,
-              ));
-            } else if (code == 'EUR') {
-              result.add(MarketDataDto(
-                symbol: 'EUR/TRY', name: 'Euro/TL', icon: '💶',
-                price: rate, changePercent: 0,
-                currency: 'TRY', subLabel: 'CollectAPI',
-                lastUpdated: now,
-              ));
-            }
-          }
+          if (item is! Map) continue;
+          final code = (item['code'] ?? item['code_'] ?? '').toString().toUpperCase();
+          final rate = _n(item['rate'] ?? item['calculateAmount'] ?? 0);
+          if (rate <= 0) continue;
+          if (code == 'TRY') usdTry = rate;
+          if (code == 'EUR') usdEur = rate;
+        }
+
+        if (usdTry > 0) {
+          result.add(MarketDataDto(
+            symbol: 'USD/TRY', name: 'Dolar/TL', icon: '💵',
+            price: usdTry, changePercent: 0,
+            currency: 'TRY', subLabel: 'CollectAPI',
+            lastUpdated: now,
+          ));
+        }
+        if (usdTry > 0 && usdEur > 0) {
+          result.add(MarketDataDto(
+            symbol: 'EUR/TRY', name: 'Euro/TL', icon: '💶',
+            price: usdTry / usdEur, changePercent: 0,
+            currency: 'TRY', subLabel: 'CollectAPI',
+            lastUpdated: now,
+          ));
         }
       }
     }
@@ -201,18 +223,22 @@ class MarketRemoteDataSourceImpl extends MarketRemoteDataSource {
     final btcChg = _n(map['BTCTRY']?['priceChangePercent']);
     final ethChg = _n(map['ETHTRY']?['priceChangePercent']);
 
-    if (btcTry > 0) items.add(MarketDataDto(
-      symbol: 'BTC/TRY', name: 'Bitcoin/TL', icon: '₿',
-      price: btcTry, changePercent: btcChg,
-      currency: 'TRY', subLabel: 'Binance',
-      lastUpdated: now,
-    ));
-    if (ethTry > 0) items.add(MarketDataDto(
-      symbol: 'ETH/TRY', name: 'Ethereum/TL', icon: '⟠',
-      price: ethTry, changePercent: ethChg,
-      currency: 'TRY', subLabel: 'Binance',
-      lastUpdated: now,
-    ));
+    if (btcTry > 0) {
+      items.add(MarketDataDto(
+        symbol: 'BTC/TRY', name: 'Bitcoin/TL', icon: '₿',
+        price: btcTry, changePercent: btcChg,
+        currency: 'TRY', subLabel: 'Binance',
+        lastUpdated: now,
+      ));
+    }
+    if (ethTry > 0) {
+      items.add(MarketDataDto(
+        symbol: 'ETH/TRY', name: 'Ethereum/TL', icon: '⟠',
+        price: ethTry, changePercent: ethChg,
+        currency: 'TRY', subLabel: 'Binance',
+        lastUpdated: now,
+      ));
+    }
     return items;
   }
 
@@ -322,18 +348,22 @@ class MarketRemoteDataSourceImpl extends MarketRemoteDataSource {
 
       final now = DateTime.now().toIso8601String();
       final items = <MarketDataDto>[];
-      if (usdtTry > 0) items.add(MarketDataDto(
-        symbol: 'USD/TRY', name: 'Dolar/TL', icon: '💵',
-        price: usdtTry, changePercent: usdChg,
-        currency: 'TRY', subLabel: 'Binance',
-        lastUpdated: now,
-      ));
-      if (eurTry > 0) items.add(MarketDataDto(
-        symbol: 'EUR/TRY', name: 'Euro/TL', icon: '💶',
-        price: eurTry, changePercent: eurChg,
-        currency: 'TRY', subLabel: 'Binance',
-        lastUpdated: now,
-      ));
+      if (usdtTry > 0) {
+        items.add(MarketDataDto(
+          symbol: 'USD/TRY', name: 'Dolar/TL', icon: '💵',
+          price: usdtTry, changePercent: usdChg,
+          currency: 'TRY', subLabel: 'Binance',
+          lastUpdated: now,
+        ));
+      }
+      if (eurTry > 0) {
+        items.add(MarketDataDto(
+          symbol: 'EUR/TRY', name: 'Euro/TL', icon: '💶',
+          price: eurTry, changePercent: eurChg,
+          currency: 'TRY', subLabel: 'Binance',
+          lastUpdated: now,
+        ));
+      }
       return items;
     } catch (_) {
       return [];

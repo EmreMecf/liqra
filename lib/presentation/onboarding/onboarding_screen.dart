@@ -249,9 +249,9 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: AppColors.accentGreen.withOpacity(0.1),
+              color: AppColors.accentGreen.withValues(alpha: 0.1),
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: AppColors.accentGreen.withOpacity(0.3)),
+              border: Border.all(color: AppColors.accentGreen.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [
@@ -285,7 +285,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                         activeTrackColor: AppColors.accentGreen,
                         inactiveTrackColor: AppColors.borderSubtle,
                         thumbColor: AppColors.accentGreen,
-                        overlayColor: AppColors.accentGreen.withOpacity(0.1),
+                        overlayColor: AppColors.accentGreen.withValues(alpha: 0.1),
                         trackHeight: 3,
                       ),
                       child: Slider(
@@ -369,12 +369,12 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
             decoration: BoxDecoration(
               gradient: LinearGradient(
                 colors: [
-                  AppColors.accentGreen.withOpacity(0.1),
-                  AppColors.accentBlue.withOpacity(0.05),
+                  AppColors.accentGreen.withValues(alpha: 0.1),
+                  AppColors.accentBlue.withValues(alpha: 0.05),
                 ],
               ),
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.accentGreen.withOpacity(0.3)),
+              border: Border.all(color: AppColors.accentGreen.withValues(alpha: 0.3)),
             ),
             child: Row(
               children: [

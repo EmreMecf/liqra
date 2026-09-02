@@ -26,13 +26,20 @@ class Formatters {
     return showSymbol ? '$intPart,$decStr TL' : '$intPart,$decStr';
   }
 
-  /// Yüzde: +12,4% veya -3,2%
+  /// Yüzde: +12,4% veya -3,2% — her zaman tek ondalık.
+  ///
+  /// Eski sürümde iki hata vardı:
+  ///  1) `toStringAsFixed` negatif değerde eksiyi zaten yazıyordu, üstüne bir
+  ///     eksi daha ekleniyordu → "--3,2%".
+  ///  2) |değer| >= 10 olduğunda ondalık atılıyordu; bu hem yukarıdaki
+  ///     dokümantasyonla hem de DeltaChip'in gösterimiyle çelişiyordu.
   static String percent(double value, {bool showSign = true}) {
-    final String sign = (showSign && value > 0) ? '+' : '';
-    final String formatted = value.abs() < 10
-        ? value.toStringAsFixed(1).replaceAll('.', ',')
-        : value.toStringAsFixed(0);
-    return '$sign${value < 0 ? "-" : ""}$formatted%';
+    final String sign = value < 0
+        ? '-'
+        : (showSign && value > 0 ? '+' : '');
+    final String formatted =
+        value.abs().toStringAsFixed(1).replaceAll('.', ',');
+    return '$sign$formatted%';
   }
 
   /// Kısa sayı: 289.847 → 289,8B veya 1.240.000 → 1,2M

@@ -1,5 +1,7 @@
 import 'package:freezed_annotation/freezed_annotation.dart';
 
+import '../../../../core/utils/category_slug.dart';
+
 part 'campaign_entity.freezed.dart';
 
 enum CampaignCategory {
@@ -21,15 +23,22 @@ enum CampaignCategory {
     CampaignCategory.diger     => '🏷️ Diğer',
   };
 
-  static CampaignCategory fromString(String? s) => switch (s) {
-    'yemek'      => CampaignCategory.yemek,
-    'market'     => CampaignCategory.market,
-    'akaryakit'  => CampaignCategory.akaryakit,
-    'seyahat'    => CampaignCategory.seyahat,
-    'alışveriş'  => CampaignCategory.alisveris,
-    'fatura'     => CampaignCategory.fatura,
-    _            => CampaignCategory.diger,
-  };
+  /// Firestore'daki slug'ı enum'a çevirir.
+  ///
+  /// Cloud Functions ASCII slug yazar (`alisveris`); eski kayıtlarda ve elle
+  /// girilen veride Türkçe karakterli hâli (`alışveriş`) de bulunabilir.
+  /// [normalizeCategorySlug] ikisini de tanır — eskiden yalnızca Türkçe hâl
+  /// eşleşiyordu ve **tüm alışveriş kampanyaları `diger`e düşüyordu**.
+  static CampaignCategory fromString(String? s) =>
+      switch (normalizeCategorySlug(s)) {
+        'yemek'     => CampaignCategory.yemek,
+        'market'    => CampaignCategory.market,
+        'akaryakit' => CampaignCategory.akaryakit,
+        'seyahat'   => CampaignCategory.seyahat,
+        'alisveris' => CampaignCategory.alisveris,
+        'fatura'    => CampaignCategory.fatura,
+        _           => CampaignCategory.diger,
+      };
 }
 
 @freezed
@@ -46,5 +55,8 @@ class CampaignEntity with _$CampaignEntity {
     String? imageUrl,
     String? endDate,
     DateTime? fetchedAt,
+    /// true = Cloud Functions seed verisi (gerçek banka API'sinden gelmedi).
+    /// UI bunu "Örnek" rozetiyle gösterir.
+    @Default(false) bool isSample,
   }) = _CampaignEntity;
 }

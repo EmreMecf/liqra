@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:muhasebe/core/utils/formatters.dart';
 import 'package:muhasebe/core/utils/result.dart';
 import 'package:muhasebe/core/services/auth_service.dart';
+import 'package:muhasebe/data/models/transaction_model.dart';
 
 void main() {
   // ── Formatters ─────────────────────────────────────────────────────────────
@@ -44,8 +45,19 @@ void main() {
       expect(Formatters.percent(-3.2), '-3,2%');
     });
 
-    test('10 ve üstü değerlerde ondalık göstermez', () {
-      expect(Formatters.percent(15.7), '+16%');
+    // Not: Bu test eskiden '+16%' bekliyordu; aynı dosyadaki
+    // "pozitif değerlere + işareti ekler" testi ise percent(12.4) için
+    // '+12,4%' bekliyordu — ikisi aynı anda doğru olamazdı.
+    // Formatters.percent dokümantasyonu ve DeltaChip gösterimi tek ondalıklı
+    // olduğu için davranış her değerde tek ondalık olarak sabitlendi.
+    test('büyük değerlerde de tek ondalık gösterir', () {
+      expect(Formatters.percent(15.7), '+15,7%');
+      expect(Formatters.percent(120.0), '+120,0%');
+    });
+
+    test('negatifte çift eksi yazmaz', () {
+      expect(Formatters.percent(-5.0), '-5,0%');
+      expect(Formatters.percent(-12.5), '-12,5%');
     });
 
     test('showSign false ise + eklenmez', () {
@@ -176,6 +188,53 @@ void main() {
       expect(Formatters.frequency('annual'), 'Yıllık');
       expect(Formatters.frequency('weekly'), 'Haftalık');
       expect(Formatters.frequency('other'), 'other');
+    });
+  });
+
+  // ── TransactionCategory ayrıştırma ─────────────────────────────────────────
+  //
+  // Firestore'a slug yazılır; ancak eski kayıtlarda Türkçe etiketler var.
+  // parse() ikisini de tanımalı — aksi halde "Yatırım" harcaması gider olarak
+  // sayılır ve net nakit yanlış hesaplanır.
+
+  group('TransactionCategoryX.parse', () {
+    test('slug değerlerini tanır', () {
+      expect(TransactionCategoryX.parse('market'), TransactionCategory.market);
+      expect(TransactionCategoryX.parse('yemeicme'), TransactionCategory.yemeicme);
+      expect(TransactionCategoryX.parse('yatirim'), TransactionCategory.yatirim);
+    });
+
+    test('eski Türkçe etiketleri tanır', () {
+      expect(TransactionCategoryX.parse('Yatırım'), TransactionCategory.yatirim);
+      expect(TransactionCategoryX.parse('Yeme-İçme'), TransactionCategory.yemeicme);
+      expect(TransactionCategoryX.parse('Ulaşım'), TransactionCategory.ulasim);
+      expect(TransactionCategoryX.parse('Sağlık'), TransactionCategory.saglik);
+      expect(TransactionCategoryX.parse('Eğitim'), TransactionCategory.egitim);
+    });
+
+    test('OCR ve muhasebe varyantlarını eşler', () {
+      expect(TransactionCategoryX.parse('Alışveriş'), TransactionCategory.market);
+      expect(TransactionCategoryX.parse('Kredi'), TransactionCategory.fatura);
+      expect(TransactionCategoryX.parse('maas'), TransactionCategory.gelir);
+    });
+
+    test('bilinmeyen ve boş değerler diger olur', () {
+      expect(TransactionCategoryX.parse('zzz'), TransactionCategory.diger);
+      expect(TransactionCategoryX.parse(''), TransactionCategory.diger);
+      expect(TransactionCategoryX.parse(null), TransactionCategory.diger);
+    });
+
+    test('slugOf her zaman kanonik slug döner', () {
+      expect(TransactionCategoryX.slugOf('Yatırım'), 'yatirim');
+      expect(TransactionCategoryX.slugOf('yatirim'), 'yatirim');
+      expect(TransactionCategoryX.slugOf('Market'), 'market');
+    });
+
+    test('slug ile enum adı aynıdır', () {
+      for (final c in TransactionCategory.values) {
+        expect(c.slug, c.name);
+        expect(TransactionCategoryX.parse(c.slug), c);
+      }
     });
   });
 }

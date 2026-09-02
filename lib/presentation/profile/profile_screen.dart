@@ -82,10 +82,10 @@ class ProfileScreen extends StatelessWidget {
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 8, vertical: 3),
                               decoration: BoxDecoration(
-                                color: AppColors.accentGold.withOpacity(0.15),
+                                color: AppColors.accentGold.withValues(alpha: 0.15),
                                 borderRadius: BorderRadius.circular(6),
                                 border: Border.all(
-                                  color: AppColors.accentGold.withOpacity(0.3),
+                                  color: AppColors.accentGold.withValues(alpha: 0.3),
                                 ),
                               ),
                               child: Text(user.riskLabel,
@@ -343,10 +343,13 @@ class ProfileScreen extends StatelessWidget {
                     children: [
                       Text('Veri & Gizlilik', style: AppTypography.headlineS),
                       const SizedBox(height: 12),
+                      // Üçü de aynı ekrana gider; alt başlıklar hangi işlemin
+                      // orada yapılacağını açıkça belirtir.
                       _SettingsRow(
                         icon: Icons.download_rounded,
                         iconColor: AppColors.accentGreen,
                         label: 'Verileri Dışa Aktar (CSV)',
+                        subtitle: 'Veri & Gizlilik ekranında',
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -357,6 +360,7 @@ class ProfileScreen extends StatelessWidget {
                         icon: Icons.lock_rounded,
                         iconColor: AppColors.accentBlue,
                         label: 'Gizlilik Politikası (KVKK)',
+                        subtitle: 'Haklarınız ve veri işleme esasları',
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(
@@ -367,6 +371,7 @@ class ProfileScreen extends StatelessWidget {
                         icon: Icons.delete_rounded,
                         iconColor: AppColors.accentRed,
                         label: 'Hesabı Sil',
+                        subtitle: 'Kalıcı — tüm veriler silinir',
                         textColor: AppColors.accentRed,
                         onTap: () => Navigator.push(
                           context,
@@ -385,13 +390,13 @@ class ProfileScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     gradient: LinearGradient(
                       colors: [
-                        AppColors.accentGold.withOpacity(0.15),
-                        AppColors.accentAmber.withOpacity(0.05),
+                        AppColors.accentGold.withValues(alpha: 0.15),
+                        AppColors.accentAmber.withValues(alpha: 0.05),
                       ],
                     ),
                     borderRadius: BorderRadius.circular(16),
                     border: Border.all(
-                      color: AppColors.accentGold.withOpacity(0.3),
+                      color: AppColors.accentGold.withValues(alpha: 0.3),
                     ),
                   ),
                   child: Row(
@@ -615,7 +620,7 @@ class _NotificationToggleState extends State<_NotificationToggle> {
           Switch(
             value: _value,
             onChanged: _toggle,
-            activeColor: AppColors.accentGreen,
+            activeThumbColor: AppColors.accentGreen,
             activeTrackColor: AppColors.accentGreen.withAlpha(76),
             inactiveThumbColor: AppColors.textDisabled,
             inactiveTrackColor: AppColors.bgTertiary,
@@ -803,7 +808,7 @@ class _EditProfileSheetState extends State<_EditProfileSheet> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       color: selected
-                          ? AppColors.accentGreen.withOpacity(0.12)
+                          ? AppColors.accentGreen.withValues(alpha: 0.12)
                           : AppColors.bgTertiary,
                       borderRadius: BorderRadius.circular(10),
                       border: Border.all(

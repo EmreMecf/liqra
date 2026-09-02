@@ -43,6 +43,11 @@ class FirestoreService {
   CollectionReference<Map<String, dynamic>> subscriptions(String uid) =>
       _db.collection('users').doc(uid).collection('subscriptions');
 
+  /// Kategori bazlı aylık bütçe limitleri — tek döküman
+  /// (bkz. [BudgetModel]).
+  DocumentReference<Map<String, dynamic>> budgets(String uid) =>
+      _db.collection('users').doc(uid).collection('settings').doc('budgets');
+
   // ── Yardımcı ──────────────────────────────────────────────────────────────
 
   /// Timestamp → ISO string

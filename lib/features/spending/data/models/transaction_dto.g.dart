@@ -16,6 +16,8 @@ _$TransactionDtoImpl _$$TransactionDtoImplFromJson(Map<String, dynamic> json) =>
       source: json['source'] as String,
       date: json['date'] as String,
       note: json['note'] as String?,
+      flow: json['flow'] as String?,
+      accountId: json['accountId'] as String?,
     );
 
 Map<String, dynamic> _$$TransactionDtoImplToJson(
@@ -29,6 +31,8 @@ Map<String, dynamic> _$$TransactionDtoImplToJson(
   'source': instance.source,
   'date': instance.date,
   'note': instance.note,
+  'flow': instance.flow,
+  'accountId': instance.accountId,
 };
 
 _$MonthlySummaryDtoImpl _$$MonthlySummaryDtoImplFromJson(

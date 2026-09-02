@@ -307,6 +307,10 @@ class _NewsCard extends StatelessWidget {
 
   String get _timeAgo {
     final diff = DateTime.now().difference(news.pubDate);
+    // Kaynaklar zaman zaman ileri tarihli damga gönderiyor (saat dilimi
+    // kayması). Negatif farkı karşılamazsak "-45d önce" yazıyordu.
+    if (diff.isNegative) return 'Şimdi';
+    if (diff.inMinutes < 1)  return 'Şimdi';
     if (diff.inMinutes < 60) return '${diff.inMinutes}d önce';
     if (diff.inHours < 24)   return '${diff.inHours}s önce';
     return '${news.pubDate.day} ${_months[news.pubDate.month - 1]}';
@@ -322,7 +326,7 @@ class _NewsCard extends StatelessWidget {
         padding: EdgeInsets.zero,
         child: InkWell(
           borderRadius: BorderRadius.circular(16),
-          onTap: () => _openUrl(news.url),
+          onTap: () => _openUrl(context, news.url),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -421,12 +425,21 @@ class _NewsCard extends StatelessWidget {
     );
   }
 
-  Future<void> _openUrl(String url) async {
-    if (url.isEmpty) return;
-    final uri = Uri.tryParse(url);
-    if (uri == null) return;
-    try {
-      await launchUrl(uri, mode: LaunchMode.externalApplication);
-    } catch (_) {}
+  /// Bağlantıyı tarayıcıda açar.
+  ///
+  /// Eskiden hata sessizce yutuluyordu: kullanıcı karta dokunuyor, hiçbir şey
+  /// olmuyor ve nedenini anlamıyordu. Artık başarısızlık söyleniyor.
+  Future<void> _openUrl(BuildContext context, String url) async {
+    final uri = url.isEmpty ? null : Uri.tryParse(url);
+    final opened = uri == null
+        ? false
+        : await launchUrl(uri, mode: LaunchMode.externalApplication)
+            .catchError((_) => false);
+
+    if (!opened && context.mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Haber bağlantısı açılamadı.')),
+      );
+    }
   }
 }

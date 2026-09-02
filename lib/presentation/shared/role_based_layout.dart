@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../../core/constants/app_colors.dart';
 import '../../data/providers/app_provider.dart';
 
 /// Role-Based Dashboard Layout
@@ -15,7 +16,7 @@ import '../../data/providers/app_provider.dart';
 ///   )
 
 class RoleBasedLayout extends StatelessWidget {
-  const RoleBasedLayout({Key? key}) : super(key: key);
+  const RoleBasedLayout({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -48,7 +49,7 @@ class RoleBasedLayout extends StatelessWidget {
 /// ════════════════════════════════════════════════════════════════════════════
 
 class PersonalDashboard extends StatelessWidget {
-  const PersonalDashboard({Key? key}) : super(key: key);
+  const PersonalDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -58,7 +59,7 @@ class PersonalDashboard extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            color: const Color(0x0AFFE0).withOpacity(0.1),
+            color: AppColors.accentGreen.withValues(alpha: 0.1),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -191,7 +192,7 @@ class PersonalDashboard extends StatelessWidget {
 /// ════════════════════════════════════════════════════════════════════════════
 
 class MerchantAdminDashboard extends StatelessWidget {
-  const MerchantAdminDashboard({Key? key}) : super(key: key);
+  const MerchantAdminDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -201,7 +202,7 @@ class MerchantAdminDashboard extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.orange.withOpacity(0.1),
+            color: Colors.orange.withValues(alpha: 0.1),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -402,7 +403,7 @@ class MerchantAdminDashboard extends StatelessWidget {
 /// ════════════════════════════════════════════════════════════════════════════
 
 class MerchantCashierDashboard extends StatelessWidget {
-  const MerchantCashierDashboard({Key? key}) : super(key: key);
+  const MerchantCashierDashboard({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -412,7 +413,7 @@ class MerchantCashierDashboard extends StatelessWidget {
           // Header
           Container(
             padding: const EdgeInsets.all(16),
-            color: Colors.blue.withOpacity(0.1),
+            color: Colors.blue.withValues(alpha: 0.1),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [

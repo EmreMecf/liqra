@@ -24,6 +24,8 @@ class FinancialAccountDto with _$FinancialAccountDto {
     double? minimumPayment,
     int? statementClosingDay,
     int? paymentDueDay,
+    /// Kayıtlı `statementBalance` hangi kesim tarihine ait (ISO 8601).
+    String? statementClosedAt,
     String? maskedCardNumber,
   }) = _FinancialAccountDto;
 

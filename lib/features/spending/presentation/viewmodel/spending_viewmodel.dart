@@ -1,4 +1,6 @@
 import 'package:flutter/foundation.dart';
+import '../../../../data/models/money_flow.dart';
+import '../../../../data/models/transaction_model.dart';
 import '../../domain/entities/transaction_entity.dart';
 import '../../domain/usecases/add_transaction_usecase.dart';
 import '../../domain/usecases/delete_transaction_usecase.dart';
@@ -138,18 +140,22 @@ class SpendingViewModel extends ChangeNotifier {
     required double amount,
     required String category,
     required String type,
+    MoneyFlow? flow,
     String source = 'manual',
     String? note,
     DateTime? date,
+    String? accountId,
     bool reload = true,
   }) async {
     final result = await _addTransaction(
       amount: amount,
       category: category,
       type: type,
+      flow: flow,
       source: source,
       note: note,
       date: date,
+      accountId: accountId,
     );
 
     return result.when(
@@ -188,8 +194,10 @@ class SpendingViewModel extends ChangeNotifier {
     final topCategories = summary.byCategory.entries.toList()
       ..sort((a, b) => b.value.compareTo(a.value));
 
+    // byCategory slug tutar — AI'ya okunabilir Türkçe etiket gönder
     final categoryLines = topCategories.take(5).map((e) {
-      return '${e.key}: ${e.value.toStringAsFixed(0)} TL';
+      final label = TransactionCategoryX.parse(e.key).label;
+      return '$label: ${e.value.toStringAsFixed(0)} TL';
     }).join(', ');
 
     return 'Gelir: ${summary.totalIncome.toStringAsFixed(0)} TL, '

@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import '../core/constants/app_colors.dart';
 import '../core/constants/app_typography.dart';
 import '../core/di/injection.dart';
+import '../features/portfolio/presentation/viewmodel/market_viewmodel.dart';
 import '../features/subscriptions/presentation/viewmodel/subscription_viewmodel.dart';
 
 import 'dashboard/dashboard_screen.dart';
@@ -16,6 +17,7 @@ import 'subscriptions/subscriptions_screen.dart';
 import 'kesfet/kesfet_screen.dart';
 import 'profile/profile_screen.dart';
 import 'widgets/liqra_logo.dart';
+import 'widgets/status_banners.dart';
 
 /// Ana scaffold — mobil: bottom nav + FAB  |  web (≥900px): sol sidebar
 class MainScaffold extends StatefulWidget {
@@ -39,7 +41,9 @@ class _MainScaffoldState extends State<MainScaffold>
   late final Animation<double> _fadeAnim;
 
   // ── 8 ekran lazy cache ────────────────────────────────────────────────────
-  static final List<Widget?> _cache = List.filled(8, null);
+  // INSTANCE alanı — static OLMAMALI. Static olsaydı çıkış/giriş sonrası
+  // önceki kullanıcının ekran widget'ları yeniden kullanılırdı.
+  final List<Widget?> _cache = List.filled(8, null);
   static const List<Widget Function()> _builders = [
     DashboardScreen.new,    // 0
     SpendingScreen.new,     // 1
@@ -56,7 +60,7 @@ class _MainScaffoldState extends State<MainScaffold>
     _NavDef(Icons.home_outlined,           Icons.home_rounded,        'Ana Sayfa',  0),
     _NavDef(Icons.receipt_long_outlined,   Icons.receipt_long_rounded,'Harcamalar', 1),
     _NavDef(Icons.candlestick_chart_outlined, Icons.candlestick_chart, 'Yatırımlar', 3),
-    _NavDef(Icons.auto_awesome_outlined,   Icons.auto_awesome,        'AI',         4),
+    _NavDef(Icons.auto_awesome_outlined,   Icons.auto_awesome,        'Liqra',      4),
   ];
 
   // ── FAB speed-dial ───────────────────────────────────────────────────────
@@ -96,8 +100,11 @@ class _MainScaffoldState extends State<MainScaffold>
 
   void _toggleFab() {
     setState(() => _fabOpen = !_fabOpen);
-    if (_fabOpen) _fabCtrl.forward();
-    else _fabCtrl.reverse();
+    if (_fabOpen) {
+      _fabCtrl.forward();
+    } else {
+      _fabCtrl.reverse();
+    }
   }
 
   void _closeFab() {
@@ -114,10 +121,25 @@ class _MainScaffoldState extends State<MainScaffold>
   }
 
   // ── İçerik yığını (paylaşımlı) ───────────────────────────────────────────
-  Widget _contentStack() => _LazyIndexedStack(
-        index: _selectedIndex,
-        builders: _builders,
-        cache: _cache,
+  /// İçerik + durum bantları.
+  ///
+  /// Bantlar ekranların üstünde tek yerde durur; her ekranın ayrı ayrı
+  /// göstermesi gerekmez. Gösterilecek bir durum yoksa hiç yer kaplamazlar.
+  Widget _contentStack() => Column(
+        children: [
+          const EmailVerificationBanner(),
+          Consumer<MarketViewModel>(
+            builder: (_, mvm, __) =>
+                StaleDataBanner(lastUpdated: mvm.lastUpdated),
+          ),
+          Expanded(
+            child: _LazyIndexedStack(
+              index: _selectedIndex,
+              builders: _builders,
+              cache: _cache,
+            ),
+          ),
+        ],
       );
 
   @override
@@ -340,7 +362,7 @@ class _WebSidebar extends StatelessWidget {
       _SideItem(Icons.autorenew_rounded,          Icons.autorenew_rounded,          'Abonelikler', 5),
     ]),
     _SideSection('KEŞİF', [
-      _SideItem(Icons.auto_awesome_outlined,      Icons.auto_awesome,               'AI Asistan',  4),
+      _SideItem(Icons.auto_awesome_outlined,      Icons.auto_awesome,               'Liqra',       4),
       _SideItem(Icons.explore_outlined,           Icons.explore_rounded,            'Keşfet',      6),
     ]),
     _SideSection('HESAP', [

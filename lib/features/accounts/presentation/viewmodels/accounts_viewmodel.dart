@@ -2,17 +2,20 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../../../core/services/auth_service.dart';
-import '../../../../core/utils/result.dart';
+import '../../../../data/models/money_flow.dart';
+import '../../../../data/models/transaction_model.dart';
 import '../../data/datasources/loan_firestore_datasource.dart';
 import '../../domain/entities/account_transaction_entity.dart';
 import '../../domain/entities/financial_account_entity.dart';
 import '../../domain/entities/loan_entity.dart';
+import '../../domain/statement_rollover.dart';
 import '../../domain/usecases/add_account_transaction_usecase.dart';
 import '../../domain/usecases/add_account_usecase.dart';
 import '../../domain/usecases/delete_account_usecase.dart';
 import '../../domain/usecases/get_account_transactions_usecase.dart';
 import '../../domain/usecases/get_accounts_usecase.dart';
 import '../../domain/usecases/import_statement_usecase.dart';
+import '../../domain/usecases/record_money_movement_usecase.dart';
 import '../../domain/usecases/update_account_usecase.dart';
 import '../../../spending/presentation/viewmodel/spending_viewmodel.dart';
 import 'accounts_state.dart';
@@ -25,6 +28,10 @@ class AccountsViewModel extends ChangeNotifier {
   final GetAccountTransactionsUseCase _getTransactions;
   final AddAccountTransactionUseCase _addTransaction;
   final ImportStatementUseCase _importStatement;
+  final RecordCreditPaymentUseCase _recordCreditPayment;
+  final RecordTransferUseCase _recordTransfer;
+  final RecordAccountMovementUseCase _recordMovement;
+  final RecordInstallmentPurchaseUseCase _recordInstallment;
   final LoanFirestoreDataSource _loanDs = LoanFirestoreDataSource();
 
   AccountsState _state = const AccountsState.initial();
@@ -41,13 +48,21 @@ class AccountsViewModel extends ChangeNotifier {
     required GetAccountTransactionsUseCase getTransactions,
     required AddAccountTransactionUseCase addTransaction,
     required ImportStatementUseCase importStatement,
+    required RecordCreditPaymentUseCase recordCreditPayment,
+    required RecordTransferUseCase recordTransfer,
+    required RecordAccountMovementUseCase recordMovement,
+    required RecordInstallmentPurchaseUseCase recordInstallment,
   })  : _getAccounts = getAccounts,
         _addAccount = addAccount,
         _deleteAccount = deleteAccount,
         _updateAccount = updateAccount,
         _getTransactions = getTransactions,
         _addTransaction = addTransaction,
-        _importStatement = importStatement;
+        _importStatement = importStatement,
+        _recordCreditPayment = recordCreditPayment,
+        _recordTransfer = recordTransfer,
+        _recordMovement = recordMovement,
+        _recordInstallment = recordInstallment;
 
   // ── Getters ───────────────────────────────────────────────────────────────
 
@@ -63,14 +78,43 @@ class AccountsViewModel extends ChangeNotifier {
   double get totalBankBalance =>
       bankAccounts.fold(0.0, (sum, a) => sum + a.balance);
 
+  /// Kartların TOPLAM borcu — ekstreye yansımış ve yansımamış tümü.
   double get totalCreditUsed =>
       creditCards.fold(0.0, (sum, c) => sum + c.usedAmount);
 
   double get totalCreditLimit =>
       creditCards.fold(0.0, (sum, c) => sum + c.creditLimit);
 
+  /// Yalnızca kesilmiş ekstrelerin toplamı — yaklaşan ödeme yükü.
   double get totalStatementDebt =>
       creditCards.fold(0.0, (sum, c) => sum + c.statementBalance);
+
+  /// Henüz ekstreye girmemiş harcamalar — gelecek ayın ödeme yükü.
+  double get totalUnbilled =>
+      creditCards.fold(0.0, (sum, c) => sum + c.unbilledAmount);
+
+  double get totalAvailableLimit =>
+      creditCards.fold(0.0, (sum, c) => sum + c.availableLimit);
+
+  /// Kart kullanım oranı — toplam borç / toplam limit.
+  ///
+  /// Kartların kullanım oranlarının ortalaması DEĞİLDİR: 100.000 limitli boş
+  /// bir kartla 1.000 limitli dolu bir kart eşit ağırlık taşımamalı.
+  /// Bankalar da bu oranı böyle hesaplar.
+  double get creditUtilization =>
+      totalCreditLimit > 0 ? totalCreditUsed / totalCreditLimit : 0.0;
+
+  /// Son ödeme tarihi geçmiş ve hâlâ borcu olan kartlar.
+  List<CreditCardEntity> get overdueCards =>
+      creditCards.where((c) => c.isOverdue).toList();
+
+  /// Kredi sağlığı skoru (0–100). Kullanım oranı + gecikme cezası.
+  int get creditHealthScore {
+    if (creditCards.isEmpty) return 100;
+    final penalty = creditUtilization.clamp(0.0, 1.0) * 80 +
+        overdueCards.length * 15;
+    return (100 - penalty).clamp(0.0, 100.0).round();
+  }
 
   List<AccountTransactionEntity> transactionsFor(String accountId) {
     if (_state is AccountsLoaded) {
@@ -104,16 +148,78 @@ class AccountsViewModel extends ChangeNotifier {
     final accountResult = await accountsFuture;
     _loans = await loansFuture;
 
-    accountResult.when(
-      success: (accounts) {
-        _state = AccountsState.loaded(
-          accounts: accounts,
-          transactionsByAccount: {},
-        );
-      },
-      failure: (f) => _state = AccountsState.error(message: f.message),
+    if (accountResult.isFailure) {
+      _state = AccountsState.error(message: accountResult.failure.message);
+      notifyListeners();
+      return;
+    }
+
+    final accounts = accountResult.data;
+    // Kredi kartlarının hareketleri baştan yüklenir: ekstre devri ve
+    // "kesimden sonraki harcama" hesabı bunlara dayanır.
+    final txByAccount = await _loadCardTransactions(accounts);
+    final synced = await _rollOverStatements(accounts, txByAccount);
+
+    _state = AccountsState.loaded(
+      accounts: synced,
+      transactionsByAccount: txByAccount,
     );
     notifyListeners();
+  }
+
+  /// Tüm kredi kartlarının hareketlerini paralel yükler.
+  Future<Map<String, List<AccountTransactionEntity>>> _loadCardTransactions(
+      List<FinancialAccountEntity> accounts) async {
+    final cards = accounts.whereType<CreditCardEntity>().toList();
+    if (cards.isEmpty) return {};
+
+    final results = await Future.wait(cards.map((c) => _getTransactions(c.id)));
+    final map = <String, List<AccountTransactionEntity>>{};
+    for (var i = 0; i < cards.length; i++) {
+      results[i].when(
+        success: (txs) => map[cards[i].id] = txs,
+        failure: (_) {},
+      );
+    }
+    return map;
+  }
+
+  /// Kesim günü geçmiş kartların ekstresini keser ve Firestore'a yazar.
+  ///
+  /// Devir idempotenttir (bkz. [StatementRollover]); burada yalnızca kesimden
+  /// sonraki harcama toplamı hesaplanır.
+  Future<List<FinancialAccountEntity>> _rollOverStatements(
+    List<FinancialAccountEntity> accounts,
+    Map<String, List<AccountTransactionEntity>> txByAccount,
+  ) async {
+    final updated = <FinancialAccountEntity>[];
+    var changed = false;
+
+    for (final acc in accounts) {
+      if (acc is! CreditCardEntity || !StatementRollover.isDue(acc)) {
+        updated.add(acc);
+        continue;
+      }
+
+      final closing = acc.lastClosingDate;
+      final unbilled = (txByAccount[acc.id] ?? const [])
+          .where((t) =>
+              t.moneyFlow == MoneyFlow.cardExpense &&
+              t.date.isAfter(closing))
+          .fold(0.0, (sum, t) => sum + t.amount);
+
+      final rolled = StatementRollover.apply(acc, unbilledSinceClosing: unbilled);
+      if (rolled == null) {
+        updated.add(acc);
+        continue;
+      }
+
+      changed = true;
+      updated.add(rolled);
+      await _updateAccount(rolled); // hata olursa bir sonraki açılışta tekrarlanır
+    }
+
+    return changed ? updated : accounts;
   }
 
   Future<void> loadTransactions(String accountId) async {
@@ -186,16 +292,14 @@ class AccountsViewModel extends ChangeNotifier {
   }
 
   Future<bool> deleteAccount(String id) async {
-    // Optimistic UI — hesabı hemen kaldır
+    // Optimistic UI — hesabı hemen kaldır.
+    // Hesap kimliği tüm birleşim üyelerinde ortak olduğu için doğrudan okunur;
+    // pozisyonel destructuring kullanılsaydı her yeni alanda bozulurdu.
     if (_state is AccountsLoaded) {
       final loaded = _state as AccountsLoaded;
-      final updated = loaded.accounts.where((a) {
-        return a.when(
-          bankAccount: (aid, _, __, ___, ____, _____, ______, _______, ________) => aid != id,
-          creditCard: (aid, _, __, ___, ____, _____, ______, _______, ________, _________, __________, ___________, ____________) => aid != id,
-        );
-      }).toList();
-      _state = loaded.copyWith(accounts: updated);
+      _state = loaded.copyWith(
+        accounts: loaded.accounts.where((a) => a.id != id).toList(),
+      );
       notifyListeners();
     }
 
@@ -216,9 +320,11 @@ class AccountsViewModel extends ChangeNotifier {
     required double newMinimumPayment,
   }) async {
     final updated = card.copyWith(
-      usedAmount: newUsedAmount,
-      statementBalance: newStatementBalance,
-      minimumPayment: newMinimumPayment,
+      usedAmount:        newUsedAmount,
+      statementBalance:  newStatementBalance,
+      minimumPayment:    newMinimumPayment,
+      // Elle girilen değerler devir tarafından ezilmesin
+      statementClosedAt: card.lastClosingDate,
     );
     final result = await _updateAccount(updated);
     return result.when(
@@ -287,144 +393,127 @@ class AccountsViewModel extends ChangeNotifier {
 
   // ── Muhasebe İşlemleri ────────────────────────────────────────────────────
 
-  /// Gelir kaydı — banka hesabına para girer, bakiye güncellenir
+  /// Gelir kaydı — banka hesabına para girer.
+  ///
+  /// Hesap hareketi + ANA DEFTER kaydı + bakiye TEK batch'te yazılır.
+  /// Eskiden üç ayrı yazma vardı ve ana deftere hiç yazılmıyordu; bu yüzden
+  /// cüzdandan girilen gelir Dashboard'da görünmüyordu.
   Future<bool> recordIncome({
     required String bankAccountId,
     required double amount,
     required String description,
     required String category,
     DateTime? date,
-  }) async {
-    final txResult = await _addTransaction(
-      accountId: bankAccountId,
-      amount: amount,
-      description: description,
-      type: 'income',
-      category: category,
-      date: date,
-    );
-    if (txResult is Failure) return false;
+  }) =>
+      _movement(
+        accountId:   bankAccountId,
+        amount:      amount,
+        description: description,
+        category:    category,
+        flow:        MoneyFlow.income,
+        date:        date,
+      );
 
-    final banks = bankAccounts.where((a) => a.id == bankAccountId);
-    if (banks.isNotEmpty) {
-      final bank = banks.first;
-      final updated = bank.copyWith(balance: bank.balance + amount);
-      await _updateAccount(updated);
-    }
-
-    await load();
-    return true;
-  }
-
-  /// Banka harcaması — banka hesabından para çıkar
+  /// Banka harcaması — nakit çıkar, gider sayılır.
   Future<bool> recordBankExpense({
     required String bankAccountId,
     required double amount,
     required String description,
     required String category,
     DateTime? date,
-  }) async {
-    final txResult = await _addTransaction(
-      accountId: bankAccountId,
-      amount: amount,
-      description: description,
-      type: 'expense',
-      category: category,
-      date: date,
-    );
-    if (txResult is Failure) return false;
+  }) =>
+      _movement(
+        accountId:   bankAccountId,
+        amount:      amount,
+        description: description,
+        category:    category,
+        flow:        MoneyFlow.expense,
+        date:        date,
+      );
 
-    final banks = bankAccounts.where((a) => a.id == bankAccountId);
-    if (banks.isNotEmpty) {
-      final bank = banks.first;
-      final updated = bank.copyWith(balance: bank.balance - amount);
-      await _updateAccount(updated);
-    }
-
-    await load();
-    return true;
-  }
-
-  /// Kredi kartı harcaması — kart kullanım miktarı artar, banka etkilenmez
+  /// Kredi kartı harcaması — kart borcu artar, NAKİT ETKİLENMEZ.
+  /// Tahakkuk esası: gider satın alma anında yazılır, ödeme anında değil.
   Future<bool> recordCreditExpense({
     required String creditCardId,
     required double amount,
     required String description,
     required String category,
     DateTime? date,
+  }) =>
+      _movement(
+        accountId:   creditCardId,
+        amount:      amount,
+        description: description,
+        category:    category,
+        flow:        MoneyFlow.cardExpense,
+        date:        date,
+      );
+
+  /// Taksitli kart alışverişi — her taksit kendi ayının gideri olur.
+  Future<bool> recordInstallmentPurchase({
+    required String creditCardId,
+    required double totalAmount,
+    required int installmentCount,
+    required String description,
+    required String category,
+    DateTime? date,
   }) async {
-    final txResult = await _addTransaction(
-      accountId: creditCardId,
-      amount: amount,
-      description: description,
-      type: 'expense',
-      category: category,
-      date: date,
+    final result = await _recordInstallment(
+      creditCardId:     creditCardId,
+      totalAmount:      totalAmount,
+      installmentCount: installmentCount,
+      description:      description,
+      category:         category,
+      date:             date,
     );
-    if (txResult is Failure) return false;
-
-    final cards = creditCards.where((c) => c.id == creditCardId);
-    if (cards.isNotEmpty) {
-      final card = cards.first;
-      final updated = card.copyWith(usedAmount: card.usedAmount + amount);
-      await _updateAccount(updated);
-    }
-
+    if (result.isFailure) return false;
     await load();
     return true;
   }
 
-  /// Kredi kartı ödemesi — bankadan ödeme yapılır, kart borcu düşer
+  Future<bool> _movement({
+    required String accountId,
+    required double amount,
+    required String description,
+    required String category,
+    required MoneyFlow flow,
+    DateTime? date,
+  }) async {
+    final result = await _recordMovement(
+      accountId:   accountId,
+      amount:      amount,
+      description: description,
+      category:    category,
+      flow:        flow,
+      date:        date,
+    );
+    if (result.isFailure) return false;
+    await load();
+    return true;
+  }
+
   Future<bool> recordCreditPayment({
     required String bankAccountId,
     required String creditCardId,
     required double amount,
     DateTime? date,
   }) async {
-    // 1. Banka hesabında gider işlemi
-    await _addTransaction(
-      accountId: bankAccountId,
-      amount: amount,
-      description: 'Kredi Kartı Ödemesi',
-      type: 'creditPayment',
-      category: creditCardId,
-      date: date,
+    // Tek batch: banka gideri + kart ödemesi + iki bakiye güncellemesi.
+    // Eskiden 4 ayrı yazma yapılıyordu; ortada hata olursa bakiye tutarsız
+    // kalıyordu. Bakiyeler FieldValue.increment ile güncellenir (yarış yok).
+    final result = await _recordCreditPayment(
+      bankAccountId: bankAccountId,
+      creditCardId:  creditCardId,
+      amount:        amount,
+      date:          date,
     );
 
-    // 2. Banka bakiyesini güncelle
-    final banks = bankAccounts.where((a) => a.id == bankAccountId);
-    if (banks.isNotEmpty) {
-      final bank = banks.first;
-      await _updateAccount(bank.copyWith(balance: bank.balance - amount));
-    }
-
-    // 3. Kredi kartında gelir işlemi
-    await _addTransaction(
-      accountId: creditCardId,
-      amount: amount,
-      description: 'Ödeme Alındı',
-      type: 'income',
-      category: 'odeme',
-      date: date,
-    );
-
-    // 4. Kart borçlarını güncelle
-    final cards = creditCards.where((c) => c.id == creditCardId);
-    if (cards.isNotEmpty) {
-      final card = cards.first;
-      final newUsed = (card.usedAmount - amount).clamp(0.0, card.creditLimit);
-      final newStmt = (card.statementBalance - amount).clamp(0.0, double.infinity);
-      await _updateAccount(card.copyWith(
-        usedAmount: newUsed,
-        statementBalance: newStmt,
-      ));
-    }
-
+    if (result.isFailure) return false;
     await load();
     return true;
   }
 
-  /// Hesaplar arası transfer
+  /// Hesaplar arası transfer — tek batch, atomik
   Future<bool> recordTransfer({
     required String fromAccountId,
     required String toAccountId,
@@ -432,51 +521,36 @@ class AccountsViewModel extends ChangeNotifier {
     String description = '',
     DateTime? date,
   }) async {
-    // Gönderen hesap gider işlemi
-    await _addTransaction(
-      accountId: fromAccountId,
-      amount: amount,
-      description: description.isEmpty ? 'Transfer' : description,
-      type: 'transfer',
-      category: toAccountId,
-      date: date,
+    if (fromAccountId == toAccountId) return false;
+
+    final result = await _recordTransfer(
+      fromAccountId: fromAccountId,
+      toAccountId:   toAccountId,
+      amount:        amount,
+      description:   description,
+      date:          date,
     );
 
-    final fromBanks = bankAccounts.where((a) => a.id == fromAccountId);
-    if (fromBanks.isNotEmpty) {
-      final bank = fromBanks.first;
-      await _updateAccount(bank.copyWith(balance: bank.balance - amount));
-    }
-
-    // Alıcı hesap gelir işlemi
-    await _addTransaction(
-      accountId: toAccountId,
-      amount: amount,
-      description: description.isEmpty ? 'Transfer Alındı' : description,
-      type: 'income',
-      category: fromAccountId,
-      date: date,
-    );
-
-    final toBanks = bankAccounts.where((a) => a.id == toAccountId);
-    if (toBanks.isNotEmpty) {
-      final bank = toBanks.first;
-      await _updateAccount(bank.copyWith(balance: bank.balance + amount));
-    }
-
+    if (result.isFailure) return false;
     await load();
     return true;
   }
 
-  /// Ekstre güncelleme — kredi kartı ayıklandığında yeni ekstrenin tutarını gir
+  /// Ekstre tutarını elle düzeltir.
+  ///
+  /// Ekstre artık kesim gününde otomatik oluşuyor (bkz. [StatementRollover]);
+  /// bu yol yalnızca banka ekstresi farklı geldiğinde düzeltme içindir.
+  /// `statementClosedAt` damgalanmazsa devir bir sonraki açılışta kullanıcının
+  /// girdiği değeri ezerdi.
   Future<bool> updateStatement({
     required CreditCardEntity card,
     required double statementBalance,
     required double minimumPayment,
   }) async {
     final updated = card.copyWith(
-      statementBalance: statementBalance,
-      minimumPayment: minimumPayment,
+      statementBalance:  statementBalance,
+      minimumPayment:    minimumPayment,
+      statementClosedAt: card.lastClosingDate,
     );
     final result = await _updateAccount(updated);
     return result.when(
@@ -553,15 +627,18 @@ class AccountsViewModel extends ChangeNotifier {
         remainingAmount: newRemainingAmount,
         remainingInstallments: newRemaining,
         status: newRemaining <= 0 ? 'completed' : 'active',
+        lastPaymentDate: DateTime.now(), // gecikme uyarısı hemen kalksin
       );
       _loans = _loans.map((l) => l.id == loan.id ? updated : l).toList();
       notifyListeners();
 
-      // Harcama kaydı ekle
+      // Harcama kaydı ekle — kredi taksidi ayrı bir akış tipidir:
+      // nakit çıkar ve bütçe gerçekliği açısından gider sayılır.
       await spendingVm.addTransaction(
         amount: amount,
-        category: 'Kredi',
-        type: 'gider',
+        category: TransactionCategory.fatura.slug,
+        type: 'expense',
+        flow: MoneyFlow.loanPayment,
         source: 'loan',
         note: '${loan.name} taksit ödemesi',
         reload: false,
@@ -574,6 +651,10 @@ class AccountsViewModel extends ChangeNotifier {
     }
   }
 
-  /// Net varlık: banka bakiyesi - ekstre borcu
-  double get netWorth => totalBankBalance - totalStatementDebt;
+  /// Net varlık: banka bakiyesi − kartların TOPLAM borcu.
+  ///
+  /// Ekstre borcu değil toplam borç düşülür: kesimden sonra yapılan harcamalar
+  /// henüz ekstreye girmese de borçtur. Eskiden yalnızca ekstre borcu
+  /// düşülüyor ve net servet olduğundan yüksek görünüyordu.
+  double get netWorth => totalBankBalance - totalCreditUsed;
 }

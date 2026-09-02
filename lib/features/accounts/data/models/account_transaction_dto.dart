@@ -17,9 +17,15 @@ class AccountTransactionDto with _$AccountTransactionDto {
     @Default(false) bool isInstallment,
     @Default(1) int installmentCount,
     @Default(1) int installmentNumber,
+    /// Aynı taksitli alışverişin parçalarını birbirine bağlar.
+    String? installmentGroupId,
     String? merchantName,
     String? statementId,
     @Default('manual') String source,
+    /// Para akışı türü (MoneyFlow.slug). Yoksa type+category'den türetilir.
+    String? flow,
+    /// Karşı hesap — transfer ve kart ödemesinde dolu
+    String? counterAccountId,
   }) = _AccountTransactionDto;
 
   factory AccountTransactionDto.fromJson(Map<String, dynamic> json) =>

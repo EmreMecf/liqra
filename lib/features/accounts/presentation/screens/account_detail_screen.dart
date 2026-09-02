@@ -4,6 +4,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
 
+import '../../../../core/utils/formatters.dart';
 import '../../domain/entities/financial_account_entity.dart';
 import '../viewmodels/accounts_viewmodel.dart';
 import '../widgets/account_transaction_tile.dart';
@@ -22,31 +23,21 @@ class _AccountDetailScreenState extends State<AccountDetailScreen> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final id = widget.account.when(
-        bankAccount: (id, _, __, ___, ____, _____, ______, _______, ________) => id,
-        creditCard: (id, _, __, ___, ____, _____, ______, _______, ________, _________, __________, ___________, ____________) => id,
-      );
-      context.read<AccountsViewModel>().loadTransactions(id);
+      context.read<AccountsViewModel>().loadTransactions(widget.account.id);
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    return widget.account.when(
-      bankAccount: (id, _, name, bank, balance, currency, iban, masked, createdAt) =>
-          _BankAccountDetail(
-            id: id, name: name, bank: bank, balance: balance,
-            iban: iban, currency: currency,
-          ),
-      creditCard: (id, _, name, bank, limit, used, statement, minPay,
-          closingDay, dueDay, maskedNo, currency, createdAt) =>
-          _CreditCardDetail(
-            id: id, name: name, bank: bank,
-            creditLimit: limit, usedAmount: used,
-            statementBalance: statement, minimumPayment: minPay,
-            statementClosingDay: closingDay, paymentDueDay: dueDay,
-            maskedCardNumber: maskedNo,
-          ),
+    // Pozisyonel destructuring yerine doğrudan tip kontrolü: entity'ye alan
+    // eklendiğinde bu ekran sessizce bozulmasın.
+    final account = widget.account;
+    if (account is CreditCardEntity) return _CreditCardDetail(card: account);
+    account as BankAccountEntity;
+    return _BankAccountDetail(
+      id: account.id, name: account.name, bank: account.bank,
+      balance: account.balance, iban: account.iban,
+      currency: account.currency,
     );
   }
 }
@@ -148,31 +139,16 @@ class _BankAccountDetail extends StatelessWidget {
 // ── Kredi Kartı Detay ──────────────────────────────────────────────────────
 
 class _CreditCardDetail extends StatelessWidget {
-  final String id, name;
-  final BankName bank;
-  final double creditLimit, usedAmount, statementBalance, minimumPayment;
-  final int statementClosingDay, paymentDueDay;
-  final String? maskedCardNumber;
+  final CreditCardEntity card;
 
-  const _CreditCardDetail({
-    required this.id, required this.name, required this.bank,
-    required this.creditLimit, required this.usedAmount,
-    required this.statementBalance, required this.minimumPayment,
-    required this.statementClosingDay, required this.paymentDueDay,
-    this.maskedCardNumber,
-  });
+  const _CreditCardDetail({required this.card});
 
   @override
   Widget build(BuildContext context) {
-    final bankColor = bank.primaryColor;
+    final bankColor = card.bank.primaryColor;
     final fmt = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 0);
-    final usagePct = creditLimit > 0 ? (usedAmount / creditLimit).clamp(0.0, 1.0) : 0.0;
-
-    // Due date hesapla
-    final now = DateTime.now();
-    var due = DateTime(now.year, now.month, paymentDueDay);
-    if (due.isBefore(now)) due = DateTime(now.year, now.month + 1, paymentDueDay);
-    final daysLeft = due.difference(now).inDays;
+    final usagePct = card.usagePercent;
+    final daysLeft = card.daysUntilDue;
 
     return Scaffold(
       backgroundColor: const Color(0xFF05080F),
@@ -199,20 +175,20 @@ class _CreditCardDetail extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     const SizedBox(height: 50),
-                    Text(bank.emoji, style: const TextStyle(fontSize: 28)),
+                    Text(card.bank.emoji, style: const TextStyle(fontSize: 28)),
                     const SizedBox(height: 6),
-                    Text(name,
+                    Text(card.name,
                         style: GoogleFonts.outfit(
                             fontSize: 16, fontWeight: FontWeight.w600, color: Colors.white)),
                     const SizedBox(height: 2),
-                    if (maskedCardNumber != null)
-                      Text('•••• •••• •••• $maskedCardNumber',
+                    if (card.maskedCardNumber != null)
+                      Text('•••• •••• •••• ${card.maskedCardNumber}',
                           style: GoogleFonts.dmMono(
                               fontSize: 12, color: Colors.white.withValues(alpha: 0.4))),
                     const SizedBox(height: 16),
                     // Limit arc
                     _LimitArc(usage: usagePct, color: bankColor,
-                        used: fmt.format(usedAmount), limit: fmt.format(creditLimit)),
+                        used: fmt.format(card.usedAmount), limit: fmt.format(card.creditLimit)),
                   ],
                 ),
               ),
@@ -227,22 +203,26 @@ class _CreditCardDetail extends StatelessWidget {
                 children: [
                   _InfoBox(
                     label: 'Ekstre Borcu',
-                    value: fmt.format(statementBalance),
+                    value: fmt.format(card.statementBalance),
                     color: bankColor,
                   ),
                   const SizedBox(width: 8),
                   _InfoBox(
                     label: 'Asgari Ödeme',
-                    value: fmt.format(minimumPayment),
+                    value: fmt.format(card.minimumPayment),
                     color: Colors.white.withValues(alpha: 0.5),
                   ),
                   const SizedBox(width: 8),
                   _InfoBox(
-                    label: daysLeft < 0 ? 'GECİKMİŞ' : '$daysLeft Gün Kaldı',
+                    label: card.isOverdue
+                        ? '${card.daysPastDue} gün gecikti'
+                        : daysLeft == 0
+                            ? 'Bugün son gün'
+                            : '$daysLeft gün kaldı',
                     value: 'Son Ödeme',
-                    color: daysLeft < 0
+                    color: card.isOverdue
                         ? const Color(0xFFFF4757)
-                        : daysLeft <= 3
+                        : card.isDueSoon
                             ? const Color(0xFFE4B84A)
                             : Colors.white.withValues(alpha: 0.5),
                   ),
@@ -251,15 +231,52 @@ class _CreditCardDetail extends StatelessWidget {
             ),
           ),
 
+          // Ekstreye girmemiş harcamalar — gelecek ayın yükü
+          if (card.unbilledAmount > 0)
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 8, 16, 0),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: Colors.white.withValues(alpha: 0.04),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(Icons.pending_actions_rounded,
+                          size: 15, color: Colors.white.withValues(alpha: 0.4)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Kesim sonrası harcama — ${Formatters.shortDate(card.nextClosingDate)} ekstresine girecek',
+                          style: GoogleFonts.outfit(
+                              fontSize: 11.5, color: Colors.white.withValues(alpha: 0.55)),
+                        ),
+                      ),
+                      Text(
+                        fmt.format(card.unbilledAmount),
+                        style: GoogleFonts.dmMono(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600,
+                            color: Colors.white.withValues(alpha: 0.8)),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+
           // Kesim / ödeme günleri
           SliverToBoxAdapter(
             child: Padding(
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
               child: Row(
                 children: [
-                  _DayBadge(label: 'Kesim Günü', day: statementClosingDay, color: bankColor),
+                  _DayBadge(label: 'Kesim Günü', day: card.statementClosingDay, color: bankColor),
                   const SizedBox(width: 8),
-                  _DayBadge(label: 'Son Ödeme Günü', day: paymentDueDay, color: const Color(0xFFE4B84A)),
+                  _DayBadge(label: 'Son Ödeme Günü', day: card.paymentDueDay, color: const Color(0xFFE4B84A)),
                 ],
               ),
             ),
@@ -284,7 +301,7 @@ class _CreditCardDetail extends StatelessWidget {
                       Icon(Icons.receipt_long_rounded, color: bankColor, size: 16),
                       const SizedBox(width: 8),
                       Text(
-                        'Ekstre Güncelle',
+                        'Ekstreyi Düzelt',
                         style: GoogleFonts.outfit(
                           fontSize: 13,
                           fontWeight: FontWeight.w600,
@@ -298,7 +315,7 @@ class _CreditCardDetail extends StatelessWidget {
             ),
           ),
 
-          _TransactionsList(accountId: id),
+          _TransactionsList(accountId: card.id),
           const SliverToBoxAdapter(child: SizedBox(height: 100)),
         ],
       ),
@@ -335,7 +352,7 @@ class _CreditCardDetail extends StatelessWidget {
       vm: vm,
       bankAccounts: vm.bankAccounts,
       creditCards: vm.creditCards,
-      preSelectedAccountId: id,
+      preSelectedAccountId: card.id,
       preSelectedType: 'creditCard',
     );
   }
@@ -347,14 +364,16 @@ class _CreditCardDetail extends StatelessWidget {
       vm: vm,
       bankAccounts: vm.bankAccounts,
       creditCards: vm.creditCards,
-      preSelectedAccountId: id,
+      preSelectedAccountId: card.id,
       preSelectedType: 'creditCard',
+      // "Ödeme Yap" butonu doğrudan kart ödemesi modunu açmalı
+      preSelectedTxType: 'cardPayment',
     );
   }
 
   void _showUpdateStatement(BuildContext context) {
-    final stmtCtrl = TextEditingController(text: statementBalance.toStringAsFixed(2));
-    final minCtrl = TextEditingController(text: minimumPayment.toStringAsFixed(2));
+    final stmtCtrl = TextEditingController(text: card.statementBalance.toStringAsFixed(2));
+    final minCtrl = TextEditingController(text: card.minimumPayment.toStringAsFixed(2));
 
     showModalBottomSheet(
       context: context,
@@ -382,11 +401,13 @@ class _CreditCardDetail extends StatelessWidget {
                   ),
                 ),
               ),
-              Text('Ekstre Güncelle',
+              Text('Ekstreyi Düzelt',
                   style: GoogleFonts.fraunces(
                       fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
               const SizedBox(height: 4),
-              Text('Aylık ekstrenizi alınca buradaki değerleri güncelleyin.',
+              Text(
+                  'Ekstre kesim gününde otomatik oluşur. Bankanızdan gelen '
+                  'tutar farklıysa buradan düzeltebilirsiniz.',
                   style: GoogleFonts.outfit(fontSize: 12, color: Colors.white54)),
               const SizedBox(height: 20),
 
@@ -431,9 +452,9 @@ class _CreditCardDetail extends StatelessWidget {
               _StatementSaveButton(
                 stmtCtrl: stmtCtrl,
                 minCtrl: minCtrl,
-                statementBalance: statementBalance,
-                minimumPayment: minimumPayment,
-                cardId: id,
+                statementBalance: card.statementBalance,
+                minimumPayment: card.minimumPayment,
+                cardId: card.id,
                 sheetContext: ctx,
               ),
             ],
@@ -714,256 +735,5 @@ class _StatementSaveButtonState extends State<_StatementSaveButton> {
     if (widget.sheetContext.mounted) {
       Navigator.pop(widget.sheetContext);
     }
-  }
-}
-
-// ── Manuel İşlem Ekleme Sheet ─────────────────────────────────────────────
-
-class _AddTransactionSheet extends StatefulWidget {
-  final String accountId;
-  const _AddTransactionSheet({required this.accountId});
-
-  static void show(BuildContext context, String accountId) {
-    showModalBottomSheet(
-      context: context,
-      isScrollControlled: true,
-      backgroundColor: Colors.transparent,
-      builder: (_) => _AddTransactionSheet(accountId: accountId),
-    );
-  }
-
-  @override
-  State<_AddTransactionSheet> createState() => _AddTransactionSheetState();
-}
-
-class _AddTransactionSheetState extends State<_AddTransactionSheet> {
-  final _descCtrl = TextEditingController();
-  final _amtCtrl = TextEditingController();
-  String _type = 'expense';
-  String _category = 'diger';
-  bool _saving = false;
-
-  static const _categories = [
-    ('market', '🛒', 'Market'),
-    ('yemeicme', '🍽️', 'Yeme-İçme'),
-    ('fatura', '📄', 'Fatura'),
-    ('ulasim', '🚗', 'Ulaşım'),
-    ('saglik', '🏥', 'Sağlık'),
-    ('eglence', '🎮', 'Eğlence'),
-    ('giyim', '👕', 'Giyim'),
-    ('teknoloji', '💻', 'Teknoloji'),
-    ('gelir', '💰', 'Gelir'),
-    ('diger', '💳', 'Diğer'),
-  ];
-
-  @override
-  void dispose() {
-    _descCtrl.dispose(); _amtCtrl.dispose(); super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final bottom = MediaQuery.of(context).viewInsets.bottom;
-
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF0C1120),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + bottom),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Center(
-            child: Container(
-              width: 36, height: 4,
-              margin: const EdgeInsets.only(top: 12, bottom: 16),
-              decoration: BoxDecoration(
-                color: Colors.white.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-          ),
-          Text('İşlem Ekle',
-              style: GoogleFonts.fraunces(
-                  fontSize: 18, fontWeight: FontWeight.w700, color: Colors.white)),
-          const SizedBox(height: 16),
-
-          // Tip seçimi
-          Row(
-            children: [
-              _TypeBtn(label: 'Gider', selected: _type == 'expense',
-                  color: const Color(0xFFFF4757),
-                  onTap: () => setState(() => _type = 'expense')),
-              const SizedBox(width: 8),
-              _TypeBtn(label: 'Gelir', selected: _type == 'income',
-                  color: const Color(0xFF0AFFE0),
-                  onTap: () => setState(() => _type = 'income')),
-            ],
-          ),
-          const SizedBox(height: 14),
-
-          // Tutar
-          TextField(
-            controller: _amtCtrl,
-            keyboardType: TextInputType.number,
-            style: GoogleFonts.dmMono(fontSize: 22, color: Colors.white, fontWeight: FontWeight.w600),
-            decoration: InputDecoration(
-              hintText: '0,00',
-              hintStyle: GoogleFonts.dmMono(fontSize: 22, color: Colors.white.withValues(alpha: 0.2)),
-              prefixText: '₺ ',
-              prefixStyle: GoogleFonts.dmMono(fontSize: 22, color: Colors.white.withValues(alpha: 0.4)),
-              filled: true, fillColor: Colors.white.withValues(alpha: 0.04),
-              border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-              enabledBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-              focusedBorder: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF0AFFE0), width: 1.5)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Açıklama
-          TextField(
-            controller: _descCtrl,
-            style: GoogleFonts.outfit(fontSize: 14, color: Colors.white),
-            decoration: InputDecoration(
-              hintText: 'Açıklama',
-              hintStyle: GoogleFonts.outfit(color: Colors.white.withValues(alpha: 0.25)),
-              filled: true, fillColor: Colors.white.withValues(alpha: 0.04),
-              border: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-              enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                  borderSide: BorderSide(color: Colors.white.withValues(alpha: 0.08))),
-              focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                  borderSide: const BorderSide(color: Color(0xFF0AFFE0), width: 1.5)),
-              contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-            ),
-          ),
-          const SizedBox(height: 10),
-
-          // Kategori seçimi
-          SizedBox(
-            height: 36,
-            child: ListView(
-              scrollDirection: Axis.horizontal,
-              children: _categories.map((c) {
-                final selected = _category == c.$1;
-                return GestureDetector(
-                  onTap: () => setState(() => _category = c.$1),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 6),
-                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: selected
-                          ? const Color(0xFF0AFFE0).withValues(alpha: 0.12)
-                          : Colors.white.withValues(alpha: 0.05),
-                      borderRadius: BorderRadius.circular(20),
-                      border: Border.all(
-                          color: selected
-                              ? const Color(0xFF0AFFE0).withValues(alpha: 0.4)
-                              : Colors.white.withValues(alpha: 0.08)),
-                    ),
-                    child: Row(
-                      children: [
-                        Text(c.$2, style: const TextStyle(fontSize: 12)),
-                        const SizedBox(width: 4),
-                        Text(c.$3,
-                            style: GoogleFonts.outfit(
-                                fontSize: 11,
-                                color: selected
-                                    ? const Color(0xFF0AFFE0)
-                                    : Colors.white.withValues(alpha: 0.5))),
-                      ],
-                    ),
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
-          const SizedBox(height: 20),
-
-          SizedBox(
-            width: double.infinity,
-            height: 48,
-            child: GestureDetector(
-              onTap: _saving ? null : _save,
-              child: Container(
-                decoration: BoxDecoration(
-                  color: _saving
-                      ? const Color(0xFF0AFFE0).withValues(alpha: 0.5)
-                      : const Color(0xFF0AFFE0),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: _saving
-                      ? const SizedBox(width: 18, height: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF05080F)))
-                      : Text('Kaydet',
-                          style: GoogleFonts.outfit(
-                              fontSize: 14, fontWeight: FontWeight.w700,
-                              color: const Color(0xFF05080F))),
-                ),
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Future<void> _save() async {
-    final amount = double.tryParse(_amtCtrl.text.replaceAll(',', '.')) ?? 0;
-    if (amount <= 0) return;
-
-    setState(() => _saving = true);
-    final ok = await context.read<AccountsViewModel>().addTransaction(
-      accountId: widget.accountId,
-      amount: amount,
-      description: _descCtrl.text.trim().isEmpty ? _category : _descCtrl.text.trim(),
-      type: _type,
-      category: _category,
-    );
-    setState(() => _saving = false);
-    if (ok && mounted) Navigator.pop(context);
-  }
-}
-
-class _TypeBtn extends StatelessWidget {
-  final String label;
-  final bool selected;
-  final Color color;
-  final VoidCallback onTap;
-
-  const _TypeBtn({required this.label, required this.selected, required this.color, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) {
-    return Expanded(
-      child: GestureDetector(
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 10),
-          decoration: BoxDecoration(
-            color: selected ? color.withValues(alpha: 0.12) : Colors.white.withValues(alpha: 0.04),
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(
-                color: selected ? color.withValues(alpha: 0.4) : Colors.white.withValues(alpha: 0.08)),
-          ),
-          child: Center(
-            child: Text(label,
-                style: GoogleFonts.outfit(
-                    fontSize: 13, fontWeight: FontWeight.w600,
-                    color: selected ? color : Colors.white.withValues(alpha: 0.4))),
-          ),
-        ),
-      ),
-    );
   }
 }

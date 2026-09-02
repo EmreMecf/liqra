@@ -44,10 +44,21 @@ class AuthService extends ChangeNotifier {
     required String password,
   }) async {
     try {
-      await _auth.createUserWithEmailAndPassword(
+      final cred = await _auth.createUserWithEmailAndPassword(
         email: email.trim(),
         password: password,
       );
+
+      // Doğrulama e-postası gönder. Eskiden hiç gönderilmiyordu: var olmayan
+      // bir adresle kayıt olunabiliyor ve o hesap için şifre sıfırlama
+      // çalışmıyordu. Gönderim başarısız olsa bile kayıt iptal edilmez —
+      // kullanıcı daha sonra tekrar gönderebilir.
+      try {
+        await cred.user?.sendEmailVerification();
+      } catch (e) {
+        debugPrint('[AuthService] doğrulama e-postası gönderilemedi: \$e');
+      }
+
       _profileComplete = false;
       notifyListeners();
       return AuthResult.success();
@@ -154,6 +165,51 @@ class AuthService extends ChangeNotifier {
       return AuthResult.error(e.message ?? 'Apple girişi başarısız.');
     } catch (e) {
       return AuthResult.error('Apple girişi başarısız.');
+    }
+  }
+
+  // ── E-posta doğrulama ──────────────────────────────────────────────────────
+
+  /// Girişli kullanıcının e-postası doğrulanmış mı?
+  ///
+  /// Google ve Apple ile girenler sağlayıcı tarafından zaten doğrulanmıştır.
+  bool get isEmailVerified {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    if (user.emailVerified) return true;
+    // Sosyal girişlerde e-posta sağlayıcı tarafından doğrulanmış sayılır
+    return user.providerData.any((p) => p.providerId != 'password');
+  }
+
+  /// Doğrulama e-postasını yeniden gönderir.
+  Future<AuthResult> resendEmailVerification() async {
+    final user = _auth.currentUser;
+    if (user == null) return AuthResult.error('Oturum bulunamadı.');
+    if (user.emailVerified) return AuthResult.success();
+
+    try {
+      await user.sendEmailVerification();
+      return AuthResult.success();
+    } on FirebaseAuthException catch (e) {
+      // Çok sık istenirse Firebase 'too-many-requests' döner
+      return AuthResult.error(_firebaseErrorMessage(e.code));
+    } catch (e) {
+      return AuthResult.error('E-posta gönderilemedi.');
+    }
+  }
+
+  /// Firebase'den kullanıcıyı yeniden okur — kullanıcı e-postadaki bağlantıya
+  /// tıkladıktan sonra uygulamanın bunu görmesi için gerekir.
+  Future<bool> reloadUser() async {
+    final user = _auth.currentUser;
+    if (user == null) return false;
+    try {
+      await user.reload();
+      notifyListeners();
+      return _auth.currentUser?.emailVerified ?? false;
+    } catch (e) {
+      debugPrint('[AuthService] reload hatası: $e');
+      return false;
     }
   }
 

@@ -39,6 +39,9 @@ mixin _$FinancialAccountDto {
   double? get minimumPayment => throw _privateConstructorUsedError;
   int? get statementClosingDay => throw _privateConstructorUsedError;
   int? get paymentDueDay => throw _privateConstructorUsedError;
+
+  /// Kayıtlı `statementBalance` hangi kesim tarihine ait (ISO 8601).
+  String? get statementClosedAt => throw _privateConstructorUsedError;
   String? get maskedCardNumber => throw _privateConstructorUsedError;
 
   /// Serializes this FinancialAccountDto to a JSON map.
@@ -75,6 +78,7 @@ abstract class $FinancialAccountDtoCopyWith<$Res> {
     double? minimumPayment,
     int? statementClosingDay,
     int? paymentDueDay,
+    String? statementClosedAt,
     String? maskedCardNumber,
   });
 }
@@ -110,6 +114,7 @@ class _$FinancialAccountDtoCopyWithImpl<$Res, $Val extends FinancialAccountDto>
     Object? minimumPayment = freezed,
     Object? statementClosingDay = freezed,
     Object? paymentDueDay = freezed,
+    Object? statementClosedAt = freezed,
     Object? maskedCardNumber = freezed,
   }) {
     return _then(
@@ -178,6 +183,10 @@ class _$FinancialAccountDtoCopyWithImpl<$Res, $Val extends FinancialAccountDto>
                 ? _value.paymentDueDay
                 : paymentDueDay // ignore: cast_nullable_to_non_nullable
                       as int?,
+            statementClosedAt: freezed == statementClosedAt
+                ? _value.statementClosedAt
+                : statementClosedAt // ignore: cast_nullable_to_non_nullable
+                      as String?,
             maskedCardNumber: freezed == maskedCardNumber
                 ? _value.maskedCardNumber
                 : maskedCardNumber // ignore: cast_nullable_to_non_nullable
@@ -214,6 +223,7 @@ abstract class _$$FinancialAccountDtoImplCopyWith<$Res>
     double? minimumPayment,
     int? statementClosingDay,
     int? paymentDueDay,
+    String? statementClosedAt,
     String? maskedCardNumber,
   });
 }
@@ -248,6 +258,7 @@ class __$$FinancialAccountDtoImplCopyWithImpl<$Res>
     Object? minimumPayment = freezed,
     Object? statementClosingDay = freezed,
     Object? paymentDueDay = freezed,
+    Object? statementClosedAt = freezed,
     Object? maskedCardNumber = freezed,
   }) {
     return _then(
@@ -316,6 +327,10 @@ class __$$FinancialAccountDtoImplCopyWithImpl<$Res>
             ? _value.paymentDueDay
             : paymentDueDay // ignore: cast_nullable_to_non_nullable
                   as int?,
+        statementClosedAt: freezed == statementClosedAt
+            ? _value.statementClosedAt
+            : statementClosedAt // ignore: cast_nullable_to_non_nullable
+                  as String?,
         maskedCardNumber: freezed == maskedCardNumber
             ? _value.maskedCardNumber
             : maskedCardNumber // ignore: cast_nullable_to_non_nullable
@@ -345,6 +360,7 @@ class _$FinancialAccountDtoImpl implements _FinancialAccountDto {
     this.minimumPayment,
     this.statementClosingDay,
     this.paymentDueDay,
+    this.statementClosedAt,
     this.maskedCardNumber,
   });
 
@@ -385,12 +401,16 @@ class _$FinancialAccountDtoImpl implements _FinancialAccountDto {
   final int? statementClosingDay;
   @override
   final int? paymentDueDay;
+
+  /// Kayıtlı `statementBalance` hangi kesim tarihine ait (ISO 8601).
+  @override
+  final String? statementClosedAt;
   @override
   final String? maskedCardNumber;
 
   @override
   String toString() {
-    return 'FinancialAccountDto(id: $id, userId: $userId, type: $type, name: $name, bank: $bank, currency: $currency, createdAt: $createdAt, balance: $balance, iban: $iban, maskedAccountNumber: $maskedAccountNumber, creditLimit: $creditLimit, usedAmount: $usedAmount, statementBalance: $statementBalance, minimumPayment: $minimumPayment, statementClosingDay: $statementClosingDay, paymentDueDay: $paymentDueDay, maskedCardNumber: $maskedCardNumber)';
+    return 'FinancialAccountDto(id: $id, userId: $userId, type: $type, name: $name, bank: $bank, currency: $currency, createdAt: $createdAt, balance: $balance, iban: $iban, maskedAccountNumber: $maskedAccountNumber, creditLimit: $creditLimit, usedAmount: $usedAmount, statementBalance: $statementBalance, minimumPayment: $minimumPayment, statementClosingDay: $statementClosingDay, paymentDueDay: $paymentDueDay, statementClosedAt: $statementClosedAt, maskedCardNumber: $maskedCardNumber)';
   }
 
   @override
@@ -423,6 +443,8 @@ class _$FinancialAccountDtoImpl implements _FinancialAccountDto {
                 other.statementClosingDay == statementClosingDay) &&
             (identical(other.paymentDueDay, paymentDueDay) ||
                 other.paymentDueDay == paymentDueDay) &&
+            (identical(other.statementClosedAt, statementClosedAt) ||
+                other.statementClosedAt == statementClosedAt) &&
             (identical(other.maskedCardNumber, maskedCardNumber) ||
                 other.maskedCardNumber == maskedCardNumber));
   }
@@ -447,6 +469,7 @@ class _$FinancialAccountDtoImpl implements _FinancialAccountDto {
     minimumPayment,
     statementClosingDay,
     paymentDueDay,
+    statementClosedAt,
     maskedCardNumber,
   );
 
@@ -485,6 +508,7 @@ abstract class _FinancialAccountDto implements FinancialAccountDto {
     final double? minimumPayment,
     final int? statementClosingDay,
     final int? paymentDueDay,
+    final String? statementClosedAt,
     final String? maskedCardNumber,
   }) = _$FinancialAccountDtoImpl;
 
@@ -523,6 +547,10 @@ abstract class _FinancialAccountDto implements FinancialAccountDto {
   int? get statementClosingDay;
   @override
   int? get paymentDueDay;
+
+  /// Kayıtlı `statementBalance` hangi kesim tarihine ait (ISO 8601).
+  @override
+  String? get statementClosedAt;
   @override
   String? get maskedCardNumber;
 

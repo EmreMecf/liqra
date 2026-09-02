@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import '../../../../core/services/auth_service.dart';
+import '../../../../data/models/transaction_model.dart';
 import '../../../spending/domain/usecases/get_transactions_usecase.dart';
 import '../../../portfolio/domain/usecases/get_portfolio_usecase.dart';
 import '../../../spending/domain/entities/transaction_entity.dart';
@@ -89,15 +90,18 @@ class DashboardViewModel extends ChangeNotifier {
     final prevTransactions = prevResult.isSuccess ? prevResult.data : <TransactionEntity>[];
     final portfolio        = portResult.data;
 
+    // TEK gider tanımı: TransactionEntityX.isExpense (flow tabanlı).
+    // Yatırım, transfer ve kart ödemesi ne gidere ne kategori dağılımına girer.
     double income = 0, expenses = 0;
     final Map<String, double> byCat = {};
     for (final tx in transactions) {
       if (tx.isIncome) {
         income += tx.amount;
-      } else {
-        byCat[tx.category] = (byCat[tx.category] ?? 0) + tx.amount;
-        // Yatırım harcaması net nakiti etkilemez (servet transferi)
-        if (tx.category != 'yatirim') expenses += tx.amount;
+      } else if (tx.isExpense) {
+        expenses += tx.amount;
+        // Bütçe eşikleri slug anahtarlarıyla tanımlı
+        final slug = TransactionCategoryX.slugOf(tx.category);
+        byCat[slug] = (byCat[slug] ?? 0) + tx.amount;
       }
     }
 
@@ -105,7 +109,7 @@ class DashboardViewModel extends ChangeNotifier {
     for (final tx in prevTransactions) {
       if (tx.isIncome) {
         prevIncome += tx.amount;
-      } else if (tx.category != 'yatirim') {
+      } else if (tx.isExpense) {
         prevExpenses += tx.amount;
       }
     }
@@ -166,16 +170,7 @@ class DashboardViewModel extends ChangeNotifier {
     notifyListeners();
   }
 
-  String _categoryLabel(String cat) => switch (cat) {
-    'yemeicme'  => 'yeme-içme',
-    'market'    => 'market',
-    'eglence'   => 'eğlence',
-    'ulasim'    => 'ulaşım',
-    'fatura'    => 'fatura',
-    'saglik'    => 'sağlık',
-    'giyim'     => 'giyim',
-    'egitim'    => 'eğitim',
-    'teknoloji' => 'teknoloji',
-    _           => cat,
-  };
+  /// Uyarı metinlerinde kullanılacak Türkçe etiket — tek kaynak enum
+  String _categoryLabel(String cat) =>
+      TransactionCategoryX.parse(cat).label.toLowerCase();
 }

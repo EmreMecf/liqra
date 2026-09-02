@@ -2,8 +2,12 @@
 const express  = require('express');
 const Joi      = require('joi');
 const ocrSvc   = require('../services/ocr.service');
+const { verifyToken } = require('../middleware/checkRole.middleware');
 
 const router = express.Router();
+
+// OCR ücretli model çağırır — kimlik doğrulaması zorunlu
+router.use(verifyToken);
 
 // Dosya boyutu limiti: 5 MB base64 ≈ 3.75 MB gerçek görüntü
 const MAX_BASE64_SIZE = 5 * 1024 * 1024;

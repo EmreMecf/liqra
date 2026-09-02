@@ -34,9 +34,16 @@ mixin _$AccountTransactionEntity {
   bool get isInstallment => throw _privateConstructorUsedError;
   int get installmentCount => throw _privateConstructorUsedError;
   int get installmentNumber => throw _privateConstructorUsedError;
+
+  /// Aynı taksitli alışverişin parçalarını birbirine bağlar.
+  String? get installmentGroupId => throw _privateConstructorUsedError;
   String? get merchantName => throw _privateConstructorUsedError;
   String? get statementId => throw _privateConstructorUsedError;
   String get source => throw _privateConstructorUsedError;
+
+  /// Para akışı türü (MoneyFlow.slug) — ana deftere bu değerle yazılır
+  String? get flow => throw _privateConstructorUsedError;
+  String? get counterAccountId => throw _privateConstructorUsedError;
 
   /// Serializes this AccountTransactionEntity to a JSON map.
   Map<String, dynamic> toJson() => throw _privateConstructorUsedError;
@@ -67,9 +74,12 @@ abstract class $AccountTransactionEntityCopyWith<$Res> {
     bool isInstallment,
     int installmentCount,
     int installmentNumber,
+    String? installmentGroupId,
     String? merchantName,
     String? statementId,
     String source,
+    String? flow,
+    String? counterAccountId,
   });
 }
 
@@ -102,9 +112,12 @@ class _$AccountTransactionEntityCopyWithImpl<
     Object? isInstallment = null,
     Object? installmentCount = null,
     Object? installmentNumber = null,
+    Object? installmentGroupId = freezed,
     Object? merchantName = freezed,
     Object? statementId = freezed,
     Object? source = null,
+    Object? flow = freezed,
+    Object? counterAccountId = freezed,
   }) {
     return _then(
       _value.copyWith(
@@ -152,6 +165,10 @@ class _$AccountTransactionEntityCopyWithImpl<
                 ? _value.installmentNumber
                 : installmentNumber // ignore: cast_nullable_to_non_nullable
                       as int,
+            installmentGroupId: freezed == installmentGroupId
+                ? _value.installmentGroupId
+                : installmentGroupId // ignore: cast_nullable_to_non_nullable
+                      as String?,
             merchantName: freezed == merchantName
                 ? _value.merchantName
                 : merchantName // ignore: cast_nullable_to_non_nullable
@@ -164,6 +181,14 @@ class _$AccountTransactionEntityCopyWithImpl<
                 ? _value.source
                 : source // ignore: cast_nullable_to_non_nullable
                       as String,
+            flow: freezed == flow
+                ? _value.flow
+                : flow // ignore: cast_nullable_to_non_nullable
+                      as String?,
+            counterAccountId: freezed == counterAccountId
+                ? _value.counterAccountId
+                : counterAccountId // ignore: cast_nullable_to_non_nullable
+                      as String?,
           )
           as $Val,
     );
@@ -191,9 +216,12 @@ abstract class _$$AccountTransactionEntityImplCopyWith<$Res>
     bool isInstallment,
     int installmentCount,
     int installmentNumber,
+    String? installmentGroupId,
     String? merchantName,
     String? statementId,
     String source,
+    String? flow,
+    String? counterAccountId,
   });
 }
 
@@ -226,9 +254,12 @@ class __$$AccountTransactionEntityImplCopyWithImpl<$Res>
     Object? isInstallment = null,
     Object? installmentCount = null,
     Object? installmentNumber = null,
+    Object? installmentGroupId = freezed,
     Object? merchantName = freezed,
     Object? statementId = freezed,
     Object? source = null,
+    Object? flow = freezed,
+    Object? counterAccountId = freezed,
   }) {
     return _then(
       _$AccountTransactionEntityImpl(
@@ -276,6 +307,10 @@ class __$$AccountTransactionEntityImplCopyWithImpl<$Res>
             ? _value.installmentNumber
             : installmentNumber // ignore: cast_nullable_to_non_nullable
                   as int,
+        installmentGroupId: freezed == installmentGroupId
+            ? _value.installmentGroupId
+            : installmentGroupId // ignore: cast_nullable_to_non_nullable
+                  as String?,
         merchantName: freezed == merchantName
             ? _value.merchantName
             : merchantName // ignore: cast_nullable_to_non_nullable
@@ -288,6 +323,14 @@ class __$$AccountTransactionEntityImplCopyWithImpl<$Res>
             ? _value.source
             : source // ignore: cast_nullable_to_non_nullable
                   as String,
+        flow: freezed == flow
+            ? _value.flow
+            : flow // ignore: cast_nullable_to_non_nullable
+                  as String?,
+        counterAccountId: freezed == counterAccountId
+            ? _value.counterAccountId
+            : counterAccountId // ignore: cast_nullable_to_non_nullable
+                  as String?,
       ),
     );
   }
@@ -308,9 +351,12 @@ class _$AccountTransactionEntityImpl implements _AccountTransactionEntity {
     this.isInstallment = false,
     this.installmentCount = 1,
     this.installmentNumber = 1,
+    this.installmentGroupId,
     this.merchantName,
     this.statementId,
     this.source = 'manual',
+    this.flow,
+    this.counterAccountId,
   });
 
   factory _$AccountTransactionEntityImpl.fromJson(Map<String, dynamic> json) =>
@@ -341,6 +387,10 @@ class _$AccountTransactionEntityImpl implements _AccountTransactionEntity {
   @override
   @JsonKey()
   final int installmentNumber;
+
+  /// Aynı taksitli alışverişin parçalarını birbirine bağlar.
+  @override
+  final String? installmentGroupId;
   @override
   final String? merchantName;
   @override
@@ -349,9 +399,15 @@ class _$AccountTransactionEntityImpl implements _AccountTransactionEntity {
   @JsonKey()
   final String source;
 
+  /// Para akışı türü (MoneyFlow.slug) — ana deftere bu değerle yazılır
+  @override
+  final String? flow;
+  @override
+  final String? counterAccountId;
+
   @override
   String toString() {
-    return 'AccountTransactionEntity(id: $id, accountId: $accountId, userId: $userId, amount: $amount, description: $description, date: $date, type: $type, category: $category, isInstallment: $isInstallment, installmentCount: $installmentCount, installmentNumber: $installmentNumber, merchantName: $merchantName, statementId: $statementId, source: $source)';
+    return 'AccountTransactionEntity(id: $id, accountId: $accountId, userId: $userId, amount: $amount, description: $description, date: $date, type: $type, category: $category, isInstallment: $isInstallment, installmentCount: $installmentCount, installmentNumber: $installmentNumber, installmentGroupId: $installmentGroupId, merchantName: $merchantName, statementId: $statementId, source: $source, flow: $flow, counterAccountId: $counterAccountId)';
   }
 
   @override
@@ -376,11 +432,16 @@ class _$AccountTransactionEntityImpl implements _AccountTransactionEntity {
                 other.installmentCount == installmentCount) &&
             (identical(other.installmentNumber, installmentNumber) ||
                 other.installmentNumber == installmentNumber) &&
+            (identical(other.installmentGroupId, installmentGroupId) ||
+                other.installmentGroupId == installmentGroupId) &&
             (identical(other.merchantName, merchantName) ||
                 other.merchantName == merchantName) &&
             (identical(other.statementId, statementId) ||
                 other.statementId == statementId) &&
-            (identical(other.source, source) || other.source == source));
+            (identical(other.source, source) || other.source == source) &&
+            (identical(other.flow, flow) || other.flow == flow) &&
+            (identical(other.counterAccountId, counterAccountId) ||
+                other.counterAccountId == counterAccountId));
   }
 
   @JsonKey(includeFromJson: false, includeToJson: false)
@@ -398,9 +459,12 @@ class _$AccountTransactionEntityImpl implements _AccountTransactionEntity {
     isInstallment,
     installmentCount,
     installmentNumber,
+    installmentGroupId,
     merchantName,
     statementId,
     source,
+    flow,
+    counterAccountId,
   );
 
   /// Create a copy of AccountTransactionEntity
@@ -433,9 +497,12 @@ abstract class _AccountTransactionEntity implements AccountTransactionEntity {
     final bool isInstallment,
     final int installmentCount,
     final int installmentNumber,
+    final String? installmentGroupId,
     final String? merchantName,
     final String? statementId,
     final String source,
+    final String? flow,
+    final String? counterAccountId,
   }) = _$AccountTransactionEntityImpl;
 
   factory _AccountTransactionEntity.fromJson(Map<String, dynamic> json) =
@@ -463,12 +530,22 @@ abstract class _AccountTransactionEntity implements AccountTransactionEntity {
   int get installmentCount;
   @override
   int get installmentNumber;
+
+  /// Aynı taksitli alışverişin parçalarını birbirine bağlar.
+  @override
+  String? get installmentGroupId;
   @override
   String? get merchantName;
   @override
   String? get statementId;
   @override
   String get source;
+
+  /// Para akışı türü (MoneyFlow.slug) — ana deftere bu değerle yazılır
+  @override
+  String? get flow;
+  @override
+  String? get counterAccountId;
 
   /// Create a copy of AccountTransactionEntity
   /// with the given fields replaced by the non-null parameter values.

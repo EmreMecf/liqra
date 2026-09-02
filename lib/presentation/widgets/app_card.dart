@@ -33,7 +33,12 @@ class _AppCardState extends State<AppCard> {
       duration: const Duration(milliseconds: 150),
       curve: Curves.easeOutCubic,
       transform: Matrix4.identity()
-        ..scale(_pressed && hasTap ? 0.975 : 1.0),
+        ..scaleByDouble(
+          _pressed && hasTap ? 0.975 : 1.0,
+          _pressed && hasTap ? 0.975 : 1.0,
+          1.0,
+          1.0,
+        ),
       transformAlignment: Alignment.center,
       decoration: BoxDecoration(
         color: AppColors.bgSecondary,

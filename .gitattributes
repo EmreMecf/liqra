@@ -1,0 +1,13 @@
+# Depoda her zaman LF; checkout'ta platforma bırak.
+# Windows/macOS/Linux arasında gereksiz diff gürültüsünü önler.
+* text=auto eol=lf
+
+# İkili dosyalar dönüştürülmesin
+*.png  binary
+*.jpg  binary
+*.jpeg binary
+*.ico  binary
+*.jks  binary
+*.keystore binary
+*.ttf  binary
+*.otf  binary

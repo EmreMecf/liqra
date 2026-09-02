@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
 
 import '../../../../core/constants/app_colors.dart';
 import '../../../../core/constants/app_typography.dart';
+import '../../../../core/utils/formatters.dart';
+import '../../domain/billing_cycle.dart';
+import '../../domain/installment_plan.dart';
 import '../../domain/entities/financial_account_entity.dart';
 import '../viewmodels/accounts_viewmodel.dart';
 
@@ -105,6 +107,10 @@ class AccountingTransactionSheet extends StatefulWidget {
   final String? preSelectedAccountId;
   final String? preSelectedType; // 'bank' | 'creditCard'
 
+  /// Açılışta seçili gelecek işlem türü. Verilmezse hesap tipinden türetilir.
+  /// "Ödeme Yap" gibi özel butonlar bunu [_TxType.cardPayment] ile geçer.
+  final String? preSelectedTxType; // 'income'|'bankExpense'|'cardExpense'|'cardPayment'|'transfer'
+
   const AccountingTransactionSheet({
     super.key,
     required this.vm,
@@ -112,6 +118,7 @@ class AccountingTransactionSheet extends StatefulWidget {
     required this.creditCards,
     this.preSelectedAccountId,
     this.preSelectedType,
+    this.preSelectedTxType,
   });
 
   static Future<void> show(
@@ -121,6 +128,7 @@ class AccountingTransactionSheet extends StatefulWidget {
     required List<CreditCardEntity> creditCards,
     String? preSelectedAccountId,
     String? preSelectedType,
+    String? preSelectedTxType,
   }) {
     return showModalBottomSheet(
       context: context,
@@ -133,6 +141,7 @@ class AccountingTransactionSheet extends StatefulWidget {
         creditCards: creditCards,
         preSelectedAccountId: preSelectedAccountId,
         preSelectedType: preSelectedType,
+        preSelectedTxType: preSelectedTxType,
       ),
     );
   }
@@ -151,6 +160,7 @@ class _AccountingTransactionSheetState
   String? _fromCardId;
   String _category = 'diger';
   DateTime _date = DateTime.now();
+  int _installmentCount = 1;
   bool _saving = false;
 
   final _amtCtrl = TextEditingController();
@@ -178,15 +188,20 @@ class _AccountingTransactionSheetState
       } else {
         _fromAccountId = widget.preSelectedAccountId;
       }
-    } else {
-      // Default selections
-      if (widget.bankAccounts.isNotEmpty) {
-        _fromAccountId = widget.bankAccounts.first.id;
-      }
-      if (widget.creditCards.isNotEmpty) {
-        _fromCardId = widget.creditCards.first.id;
-      }
     }
+
+    // Seçilmemiş tarafları varsayılanla doldur — kart ödemesi/transfer
+    // her iki taraf da seçili olmadan kaydedilemez.
+    if (_fromAccountId == null && widget.bankAccounts.isNotEmpty) {
+      _fromAccountId = widget.bankAccounts.first.id;
+    }
+    if (_fromCardId == null && widget.creditCards.isNotEmpty) {
+      _fromCardId = widget.creditCards.first.id;
+    }
+
+    // Çağıran özel bir işlem türü istediyse onu uygula ("Ödeme Yap" butonu)
+    final requested = _txTypeFromName(widget.preSelectedTxType);
+    if (requested != null) _txType = requested;
 
     if (widget.bankAccounts.length > 1) {
       _toAccountId = widget.bankAccounts
@@ -200,6 +215,22 @@ class _AccountingTransactionSheetState
     }
 
     _setDefaultCategory();
+
+    // Taksit önizlemesi tutara bağlı — yazıldıkça güncellensin.
+    _amtCtrl.addListener(_onAmountChanged);
+  }
+
+  void _onAmountChanged() {
+    if (_installmentCount > 1 && mounted) setState(() {});
+  }
+
+  /// 'cardPayment' gibi string adı _TxType'a çevirir. Bilinmiyorsa null.
+  static _TxType? _txTypeFromName(String? name) {
+    if (name == null) return null;
+    for (final t in _TxType.values) {
+      if (t.name == name) return t;
+    }
+    return null;
   }
 
   void _setDefaultCategory() {
@@ -214,6 +245,7 @@ class _AccountingTransactionSheetState
 
   @override
   void dispose() {
+    _amtCtrl.removeListener(_onAmountChanged);
     _amtCtrl.dispose();
     _descCtrl.dispose();
     _amtFocus.dispose();
@@ -223,6 +255,8 @@ class _AccountingTransactionSheetState
   void _onTypeChanged(_TxType type) {
     setState(() {
       _txType = type;
+      // Taksit yalnızca kart harcamasında anlamlı
+      if (type != _TxType.cardExpense) _installmentCount = 1;
       _setDefaultCategory();
     });
   }
@@ -267,13 +301,22 @@ class _AccountingTransactionSheetState
 
         case _TxType.cardExpense:
           if (_fromCardId == null) break;
-          ok = await widget.vm.recordCreditExpense(
-            creditCardId: _fromCardId!,
-            amount: amount,
-            description: effectiveDesc,
-            category: _category,
-            date: _date,
-          );
+          ok = _installmentCount > 1
+              ? await widget.vm.recordInstallmentPurchase(
+                  creditCardId:     _fromCardId!,
+                  totalAmount:      amount,
+                  installmentCount: _installmentCount,
+                  description:      effectiveDesc,
+                  category:         _category,
+                  date:             _date,
+                )
+              : await widget.vm.recordCreditExpense(
+                  creditCardId: _fromCardId!,
+                  amount:       amount,
+                  description:  effectiveDesc,
+                  category:     _category,
+                  date:         _date,
+                );
           break;
 
         case _TxType.cardPayment:
@@ -503,6 +546,27 @@ class _AccountingTransactionSheetState
           color: color,
           onChanged: (c) => setState(() => _category = c),
         ),
+        const SizedBox(height: 12),
+
+        // Taksit — Türkiye'de kart kullanımının merkezinde. Seçilen taksit
+        // sayısı kadar hareket yazılır; her taksit kendi ayının gideri olur.
+        _SectionLabel('Taksit'),
+        const SizedBox(height: 6),
+        _InstallmentSelector(
+          count: _installmentCount,
+          color: color,
+          onChanged: (n) => setState(() => _installmentCount = n),
+        ),
+        if (_installmentCount > 1) ...[
+          const SizedBox(height: 8),
+          _InstallmentPreview(
+            total: double.tryParse(_amtCtrl.text.replaceAll(',', '.')) ?? 0,
+            count: _installmentCount,
+            firstDate: _date,
+            color: color,
+          ),
+        ],
+
         const SizedBox(height: 12),
         _DateChip(date: _date, color: color, onTap: _pickDate),
       ],
@@ -1083,7 +1147,9 @@ class _DateChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final fmt = DateFormat('d MMMM yyyy', 'tr_TR');
+    // DateFormat('...', 'tr_TR') initializeDateFormatting gerektirir —
+    // Formatters.date manuel Türkçe ay isimleri kullanır, bağımlılığı yok.
+    final formatted = Formatters.date(date);
     final isToday = DateUtils.isSameDay(date, DateTime.now());
 
     return GestureDetector(
@@ -1104,7 +1170,7 @@ class _DateChip extends StatelessWidget {
                 color: color, size: 14),
             const SizedBox(width: 6),
             Text(
-              isToday ? 'Bugün — ${fmt.format(date)}' : fmt.format(date),
+              isToday ? 'Bugün — $formatted' : formatted,
               style: GoogleFonts.outfit(
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -1211,6 +1277,121 @@ class _SaveButton extends StatelessWidget {
                       .copyWith(fontSize: 16),
                 ),
         ),
+      ),
+    );
+  }
+}
+
+// ── Taksit seçici ───────────────────────────────────────────────────────────
+
+/// Taksit sayısı seçimi. Türkiye'de yaygın taksit adetleri sunulur;
+/// 1 "Tek Çekim" anlamına gelir.
+class _InstallmentSelector extends StatelessWidget {
+  final int count;
+  final Color color;
+  final void Function(int) onChanged;
+
+  const _InstallmentSelector({
+    required this.count,
+    required this.color,
+    required this.onChanged,
+  });
+
+  static const _options = InstallmentPlan.commonCounts;
+
+  @override
+  Widget build(BuildContext context) {
+    return SizedBox(
+      height: 34,
+      child: ListView.separated(
+        scrollDirection: Axis.horizontal,
+        itemCount: _options.length,
+        separatorBuilder: (_, __) => const SizedBox(width: 6),
+        itemBuilder: (ctx, i) {
+          final n = _options[i];
+          final selected = n == count;
+          return GestureDetector(
+            onTap: () => onChanged(n),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: selected
+                    ? color.withValues(alpha: 0.16)
+                    : Colors.white.withValues(alpha: 0.04),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: selected
+                      ? color.withValues(alpha: 0.5)
+                      : Colors.white.withValues(alpha: 0.08),
+                ),
+              ),
+              child: Text(
+                n == 1 ? 'Tek Çekim' : '$n Taksit',
+                style: GoogleFonts.outfit(
+                  fontSize: 12,
+                  fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                  color: selected
+                      ? color
+                      : Colors.white.withValues(alpha: 0.55),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+/// Taksit planının özeti — aylık tutar ve son taksit tarihi.
+class _InstallmentPreview extends StatelessWidget {
+  final double total;
+  final int count;
+  final DateTime firstDate;
+  final Color color;
+
+  const _InstallmentPreview({
+    required this.total,
+    required this.count,
+    required this.firstDate,
+    required this.color,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    if (total <= 0) {
+      return Text(
+        'Tutarı girince taksit planı burada görünecek.',
+        style: GoogleFonts.outfit(
+            fontSize: 11.5, color: Colors.white.withValues(alpha: 0.35)),
+      );
+    }
+
+    final monthly = total / count;
+    final last = BillingCycle.dayInMonth(
+        firstDate.year, firstDate.month + count - 1, firstDate.day);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: color.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.calendar_month_outlined, size: 14, color: color),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              'Ayda ${Formatters.currency(monthly)} · son taksit '
+              '${Formatters.shortDate(last)}',
+              style: GoogleFonts.outfit(
+                  fontSize: 12, color: Colors.white.withValues(alpha: 0.75)),
+            ),
+          ),
+        ],
       ),
     );
   }

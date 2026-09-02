@@ -59,25 +59,28 @@ class PortfolioRepositoryImpl implements PortfolioRepository {
   Future<Result<List<TopFundEntity>>> getTopFunds() async {
     try {
       final funds = await _tefasDataSource.getAllFunds();
+      if (funds.isEmpty) return const Success([]);
 
-      if (funds.isEmpty) return _mockTopFunds();
+      // TEFAS'ın ücretsiz katalog ucu getiri alanlarını doldurmuyor
+      // (getiri1a/1y… daima null). Getirisi olmayan fonları "en iyi" diye
+      // sıralamak %0,00 getirili rastgele bir liste üretir ve yanıltıcıdır —
+      // gerçek getiri verisi olmadan boş dönüyoruz.
+      final withReturn =
+          funds.where((f) => f.yearlyReturn != 0).toList();
+      if (withReturn.isEmpty) return const Success([]);
 
-      // 1 yıllık getiriye göre sırala, en iyi 5'i al
-      final sorted = [...funds]
-        ..sort((a, b) => b.yearlyReturn.compareTo(a.yearlyReturn));
+      withReturn.sort((a, b) => b.yearlyReturn.compareTo(a.yearlyReturn));
 
-      return Success(sorted.take(5).map((f) => TopFundEntity(
+      return Success(withReturn.take(5).map((f) => TopFundEntity(
         code:          f.code,
         name:          f.name,
         type:          f.type,
         returnPercent: f.yearlyReturn,
       )).toList());
     } catch (_) {
-      return _mockTopFunds();
+      return const Success([]);
     }
   }
-
-  static Result<List<TopFundEntity>> _mockTopFunds() => const Success([]);
 
   @override
   Future<Result<AssetEntity>> addAsset(AssetEntity asset, String userId) async {
@@ -147,6 +150,10 @@ class PortfolioRepositoryImpl implements PortfolioRepository {
         lastUpdated: dto.lastUpdated != null
             ? DateTime.tryParse(dto.lastUpdated!)
             : DateTime.now(),
-        volume: dto.volume,
+        volume:  dto.volume,
+        alis:    dto.alis,
+        satis:   dto.satis,
+        dayLow:  dto.dayLow,
+        dayHigh: dto.dayHigh,
       );
 }

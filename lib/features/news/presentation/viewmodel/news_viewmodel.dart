@@ -29,6 +29,10 @@ class NewsViewModel extends ChangeNotifier {
     return _all.map((n) => n.source).where(seen.add).toList();
   }
 
+  /// Filtreden geçmemiş tüm haberler — asistan hisse analizinde kendi
+  /// filtresini uygular, kullanıcının ekran filtresine takılmamalı.
+  List<NewsEntity> get allNews => List.unmodifiable(_all);
+
   /// Filtrelenmiş liste
   List<NewsEntity> get news {
     var list = _all;

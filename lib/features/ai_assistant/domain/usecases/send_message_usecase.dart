@@ -1,9 +1,10 @@
 import '../../../../core/utils/result.dart';
+import '../assistant_context.dart';
+import '../assistant_prompts.dart';
 import '../entities/ai_message_entity.dart';
 import '../repositories/ai_repository.dart';
-import '../../data/models/ai_request_dto.dart';
 
-/// Kullanıcı mesajını AI'ya gönderir, yanıt entity döner
+/// Sohbet mesajı gönderir. Sistem promptunu bağlamdan burada kurar.
 class SendMessageUseCase {
   final AiRepository _repository;
 
@@ -12,14 +13,13 @@ class SendMessageUseCase {
   Future<Result<AiMessageEntity>> call({
     required String message,
     required String mode,
-    required AiContextDto context,
+    required AssistantContext context,
     required List<Map<String, String>> history,
-  }) {
-    return _repository.sendMessage(
-      message: message,
-      mode: mode,
-      context: context,
-      history: history,
-    );
-  }
+  }) =>
+      _repository.sendMessage(
+        systemPrompt: AssistantPrompts.chat(mode, context),
+        message:      message,
+        mode:         mode,
+        history:      history,
+      );
 }

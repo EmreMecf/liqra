@@ -35,7 +35,8 @@ exports.onUserCreated = onDocumentCreated('users/{uid}', async (event) => {
     // 2) Firestore dokümanına role alanını yaz (yoksa)
     const db = getFirestore();
     await db.collection('users').doc(uid).set(
-      { role: 'personal', updatedAt: new Date().toIso8601String?.() ?? new Date().toISOString() },
+      // toIso8601String Dart API'sidir; JS'de karşılığı toISOString()
+      { role: 'personal', updatedAt: new Date().toISOString() },
       { merge: true }
     );
 

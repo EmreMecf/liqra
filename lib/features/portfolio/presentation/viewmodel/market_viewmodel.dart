@@ -64,7 +64,11 @@ class MarketViewModel extends ChangeNotifier {
         _state       = MarketState.loaded(data: data, topFunds: currentFunds);
         _lastUpdated = DateTime.now();
         notifyListeners();
-        if (_lastUpdated != null) _fetchTopFunds();
+        // NOT: Burada eskiden `if (_lastUpdated != null) _fetchTopFunds();`
+        // vardı. Koşul bir satır önce atandığı için HER ZAMAN doğruydu; yani
+        // her Firestore snapshot'ında (2 dk'da bir + her yerel yazmada)
+        // yeniden fon çekiliyor ve fazladan rebuild tetikleniyordu.
+        // Fonlar artık yalnızca load() ve refresh() içinde bir kez çekilir.
       },
       onError: (Object e) {
         _state = MarketState.error(
@@ -88,15 +92,20 @@ class MarketViewModel extends ChangeNotifier {
       },
       onError: (_) {}, // sessiz hata — mevcut veriyi koru
     );
+
+    // Fonları bir kez çek (stream değil — TEFAS anlık güncellenmiyor)
+    await _fetchTopFunds();
   }
 
-  /// Manuel yenileme
+  /// Manuel yenileme — fiyatlar zaten stream'den geliyor, fon listesi tazelenir
   Future<void> refresh() => _fetchTopFunds();
 
   Future<void> _fetchTopFunds() async {
     final fundsResult = await _getMarketData.topFunds();
     fundsResult.when(
       success: (funds) {
+        // Hata state'ini "loaded"a çevirme — yalnızca zaten yüklüyse güncelle
+        if (_state is MarketError) return;
         _state = MarketState.loaded(data: _state.marketData, topFunds: funds);
         notifyListeners();
       },
@@ -157,26 +166,10 @@ class MarketViewModel extends ChangeNotifier {
         }
       }
 
-      // Bilezik fiyatı Firestore'da yoksa veya 0 ise → gram altından hesapla
-      if (isBilezik && alis <= 0 && satis <= 0) {
-        final gramData  = goldMap['gram'] as Map<String, dynamic>?;
-        final gramAlis  = _toDouble(gramData?['alis']);
-        final gramSatis = _toDouble(gramData?['satis']);
-        final gramPrice = gramAlis > 0 ? gramAlis : gramSatis;
-        if (gramPrice > 0) {
-          final ratio = switch (code) {
-            'bilezik22' => 22.0 / 24.0,
-            'bilezik18' => 18.0 / 24.0,
-            'bilezik14' => 14.0 / 24.0,
-            _           => 0.0,
-          };
-          if (ratio > 0) {
-            alis  = gramPrice * ratio;
-            satis = alis;
-          }
-        }
-      }
-
+      // NOT: Eskiden bilezik fiyatı API'de yoksa `gram × (ayar/24)` ile
+      // üretiliyordu. Bilezik satış fiyatı işçilik/milyem içerdiği için bu
+      // oran gerçek kotasyonu vermez — kullanıcıya uydurma fiyat gösterilmesin
+      // diye kaldırıldı. Veri yoksa satır listelenmez.
       if (alis <= 0 && satis <= 0) continue;
       if (alis <= 0)  alis  = satis;
       if (satis <= 0) satis = alis;
