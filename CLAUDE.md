@@ -600,6 +600,29 @@ Banka marka renkleri (`BankNameExt.primaryColor`), grafik paleti
 (`AppColors.chartColors`) ve Google giriş düğmesi (`googleBlue`) bilinçli
 istisnalardır — token'a çekilmezler.
 
+### Alt navigasyon
+
+Nav çubuğu `presentation/widgets/liqra_bottom_nav.dart` içinde ayrı bir
+bileşendir — `MainScaffold` içinde özel metot olduğu sürece tasarım
+önizlemesinde gösterilemiyordu.
+
+İki ölçü kuralı birlikte çalışır; biri bozulursa çentik kırılır:
+
+```dart
+LiqraBottomNav.fabSize      // 58 — FAB çapı
+LiqraBottomNav.notchMargin  // 10 — BottomAppBar.notchMargin ile AYNI
+LiqraBottomNav.notchWidth   // 78 — sekmeler arası boşluk bundan küçük olamaz
+```
+
+- **Çocuk widget arka plan boyamamalı.** `BottomAppBar` çentikli şekli kendi
+  çizer; içine `color`/`gradient` taşıyan bir `Container` konursa düz
+  dikdörtgen üste boyanır ve **çentik hiç görünmez** — FAB çubuğun üstüne
+  yapıştırılmış gibi durur. Üst kenarlık yerine `elevation` kullanılır;
+  `Border(top:)` çentiğin etrafını dolanamaz.
+- **Sekmeler `Expanded`.** Sabit genişlikteyken 4×72 + 68 = 356 piksel
+  gerekiyordu; 360 piksellik ekranda 4 piksel kalıyor, 320 pikselde
+  taşıyordu.
+
 ### Tasarım önizleme
 
 Uygulama `google-services.json` olmadan derlenmiyor, bu yüzden bileşenleri

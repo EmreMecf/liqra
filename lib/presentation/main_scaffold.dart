@@ -17,6 +17,7 @@ import 'subscriptions/subscriptions_screen.dart';
 import 'kesfet/kesfet_screen.dart';
 import 'profile/profile_screen.dart';
 import 'widgets/liqra_logo.dart';
+import 'widgets/liqra_bottom_nav.dart';
 import 'widgets/status_banners.dart';
 
 /// Ana scaffold — mobil: bottom nav + FAB  |  web (≥900px): sol sidebar
@@ -56,11 +57,11 @@ class _MainScaffoldState extends State<MainScaffold>
   ];
 
   // ── Mobil bottom nav (4 item) ────────────────────────────────────────────
-  static const _navItems = [
-    _NavDef(Icons.home_outlined,           Icons.home_rounded,        'Ana Sayfa',  0),
-    _NavDef(Icons.receipt_long_outlined,   Icons.receipt_long_rounded,'Harcamalar', 1),
-    _NavDef(Icons.candlestick_chart_outlined, Icons.candlestick_chart, 'Yatırımlar', 3),
-    _NavDef(Icons.auto_awesome_outlined,   Icons.auto_awesome,        'Liqra',      4),
+  static const _navItems = <NavDef>[
+    NavDef(Icons.home_outlined,           Icons.home_rounded,        'Ana Sayfa',  0),
+    NavDef(Icons.receipt_long_outlined,   Icons.receipt_long_rounded,'Harcamalar', 1),
+    NavDef(Icons.candlestick_chart_outlined, Icons.candlestick_chart, 'Yatırımlar', 3),
+    NavDef(Icons.auto_awesome_outlined,   Icons.auto_awesome,        'Liqra',      4),
   ];
 
   // ── FAB speed-dial ───────────────────────────────────────────────────────
@@ -216,8 +217,10 @@ class _MainScaffoldState extends State<MainScaffold>
     );
   }
 
+  /// FAB menüsünün konumu için çubuğun gerçek yüksekliği.
+  /// Elle 64 yazılıyordu ama çubuk 62 pikseldi — menü 2 piksel kayıyordu.
   double _bottomNavHeight(BuildContext context) =>
-      64 + MediaQuery.of(context).padding.bottom;
+      LiqraBottomNav.barHeight + MediaQuery.of(context).padding.bottom;
 
   // ── FAB ana butonu ─────────────────────────────────────────────────────────
   Widget _buildFab() {
@@ -226,8 +229,10 @@ class _MainScaffoldState extends State<MainScaffold>
       builder: (_, __) => GestureDetector(
         onTap: _toggleFab,
         child: Container(
-          width: 58,
-          height: 58,
+          // Çentik genişliği bu çaptan türetilir — ikisi ayrı yerde
+          // tanımlanırsa çentik FAB'a uymaz.
+          width: LiqraBottomNav.fabSize,
+          height: LiqraBottomNav.fabSize,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
             gradient: LinearGradient(
@@ -299,43 +304,12 @@ class _MainScaffoldState extends State<MainScaffold>
   }
 
   // ── Alt navigasyon çubuğu ─────────────────────────────────────────────────
-  Widget _buildBottomBar() {
-    return BottomAppBar(
-      color: AppColors.bgSecondary,
-      elevation: 0,
-      notchMargin: 10,
-      shape: const CircularNotchedRectangle(),
-      child: Container(
-        decoration: BoxDecoration(
-          border: Border(
-            top: BorderSide(
-              color: AppColors.borderSubtle.withAlpha(100),
-              width: 0.5,
-            ),
-          ),
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              AppColors.bgSecondary,
-              AppColors.bgSecondary.withAlpha(245),
-            ],
-          ),
-        ),
-        height: 62,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.spaceAround,
-          children: [
-            _NavItem(def: _navItems[0], current: _selectedIndex, onTap: _onNavTap),
-            _NavItem(def: _navItems[1], current: _selectedIndex, onTap: _onNavTap),
-            const SizedBox(width: 68), // FAB boşluğu
-            _NavItem(def: _navItems[2], current: _selectedIndex, onTap: _onNavTap),
-            _NavItem(def: _navItems[3], current: _selectedIndex, onTap: _onNavTap, badge: true),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget _buildBottomBar() => LiqraBottomNav(
+        items: _navItems,
+        selectedIndex: _selectedIndex,
+        onTap: _onNavTap,
+        badgeIndex: _navItems.last.index,
+      );
 }
 
 // ══════════════════════════════════════════════════════════════════════════════
@@ -520,13 +494,8 @@ class _SidebarItemTile extends StatelessWidget {
 // VERİ SINIFLARI
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _NavDef {
-  final IconData icon;
-  final IconData activeIcon;
-  final String label;
-  final int index;
-  const _NavDef(this.icon, this.activeIcon, this.label, this.index);
-}
+// NavDef artık widgets/liqra_bottom_nav.dart içinde — nav çubuğu tasarım
+// önizlemesinde gösterilebilsin diye oraya taşındı.
 
 class _FabDef {
   final IconData icon;
@@ -554,102 +523,6 @@ class _SideSection {
 // MOBİL NAV ITEM
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _NavItem extends StatelessWidget {
-  final _NavDef def;
-  final int current;
-  final ValueChanged<int> onTap;
-  final bool badge;
-
-  const _NavItem({
-    required this.def,
-    required this.current,
-    required this.onTap,
-    this.badge = false,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final isActive = def.index == current;
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => onTap(def.index),
-      child: SizedBox(
-        width: 72,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Stack(
-              alignment: Alignment.center,
-              children: [
-                // Pill indicator
-                AnimatedContainer(
-                  duration: const Duration(milliseconds: 220),
-                  curve: Curves.easeOutCubic,
-                  width: isActive ? 46 : 36,
-                  height: 30,
-                  decoration: BoxDecoration(
-                    color: isActive
-                        ? AppColors.accentGreen.withAlpha(28)
-                        : Colors.transparent,
-                    borderRadius: BorderRadius.circular(16),
-                    boxShadow: isActive
-                        ? [
-                            BoxShadow(
-                              color: AppColors.accentGreen.withAlpha(20),
-                              blurRadius: 8,
-                              spreadRadius: 1,
-                            )
-                          ]
-                        : null,
-                  ),
-                  child: Icon(
-                    isActive ? def.activeIcon : def.icon,
-                    color: isActive
-                        ? AppColors.accentGreen
-                        : AppColors.textSecondary,
-                    size: 21,
-                  ),
-                ),
-                if (badge && !isActive)
-                  Positioned(
-                    right: 8,
-                    top: 4,
-                    child: Container(
-                      width: 6,
-                      height: 6,
-                      decoration: BoxDecoration(
-                        color: AppColors.accentGreen,
-                        shape: BoxShape.circle,
-                        boxShadow: [
-                          BoxShadow(
-                            color: AppColors.accentGreen.withAlpha(80),
-                            blurRadius: 4,
-                          )
-                        ],
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            const SizedBox(height: 1),
-            AnimatedDefaultTextStyle(
-              duration: const Duration(milliseconds: 200),
-              style: GoogleFonts.outfit(
-                fontSize: 10,
-                fontWeight: isActive ? FontWeight.w700 : FontWeight.w400,
-                color: isActive ? AppColors.accentGreen : AppColors.textSecondary,
-                letterSpacing: isActive ? 0.2 : 0,
-              ),
-              child: Text(def.label, maxLines: 1),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
 
 // ══════════════════════════════════════════════════════════════════════════════
 // FAB MENÜ ITEM

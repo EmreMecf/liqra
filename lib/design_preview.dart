@@ -13,6 +13,7 @@ import 'features/ai_assistant/domain/assistant_insight.dart';
 import 'features/ai_assistant/presentation/widgets/insight_card.dart';
 import 'presentation/widgets/app_card.dart';
 import 'presentation/widgets/delta_chip.dart';
+import 'presentation/widgets/liqra_bottom_nav.dart';
 import 'presentation/widgets/status_banners.dart';
 
 /// Tasarım önizleme girişi — **Firebase'e hiç dokunmaz**.
@@ -185,6 +186,9 @@ class _Gallery extends StatelessWidget {
             child: ListView(
               padding: const EdgeInsets.symmetric(vertical: 20),
               children: [
+                const _SectionTitle('Alt navigasyon'),
+                const _NavPreview(),
+
                 const _SectionTitle('Durum bantları'),
                 const StaleDataBanner(lastUpdated: null),
                 StaleDataBanner(
@@ -314,6 +318,82 @@ class _Gallery extends StatelessWidget {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Nav çubuğu — FAB ve çentikle birlikte, gerçek Scaffold içinde.
+/// Üç genişlikte gösterilir: dar Android, standart ve geniş telefon.
+class _NavPreview extends StatefulWidget {
+  const _NavPreview();
+
+  @override
+  State<_NavPreview> createState() => _NavPreviewState();
+}
+
+class _NavPreviewState extends State<_NavPreview> {
+  int _index = 0;
+
+  static const _items = [
+    NavDef(Icons.home_outlined, Icons.home_rounded, 'Ana Sayfa', 0),
+    NavDef(Icons.receipt_long_outlined, Icons.receipt_long_rounded,
+        'Harcamalar', 1),
+    NavDef(Icons.candlestick_chart_outlined, Icons.candlestick_chart,
+        'Yatırımlar', 3),
+    NavDef(Icons.auto_awesome_outlined, Icons.auto_awesome, 'Liqra', 4),
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (final width in [320.0, 360.0, 412.0]) ...[
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 6, 20, 4),
+            child: Align(
+              alignment: Alignment.centerLeft,
+              child: Text('${width.toInt()} px',
+                  style: AppTypography.capsLabel),
+            ),
+          ),
+          Center(
+            child: SizedBox(
+              width: width,
+              height: 108,
+              child: MediaQuery(
+                data: MediaQueryData(size: Size(width, 108)),
+                child: Scaffold(
+                  backgroundColor: AppColors.bgPrimary,
+                  body: const SizedBox.shrink(),
+                  floatingActionButton: Container(
+                    width: LiqraBottomNav.fabSize,
+                    height: LiqraBottomNav.fabSize,
+                    decoration: const BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [AppColors.accentGreen, Color(0xFF00B896)],
+                      ),
+                    ),
+                    child: const Icon(Icons.add_rounded,
+                        color: Colors.white, size: 30),
+                  ),
+                  floatingActionButtonLocation:
+                      FloatingActionButtonLocation.centerDocked,
+                  bottomNavigationBar: LiqraBottomNav(
+                    items: _items,
+                    selectedIndex: _index,
+                    badgeIndex: 4,
+                    onTap: (i) => setState(() => _index = i),
+                  ),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+        ],
+      ],
     );
   }
 }
