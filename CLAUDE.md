@@ -562,6 +562,34 @@ slug'ı hem de eski kayıtlardaki Türkçe etiketleri tanır (migration gerekmez
 `SetOptions(merge: true)` kullanılmalı; merge'siz `set()` `role` ve `fcmToken`
 alanlarını sileceği için güvenlik kuralı isteği reddeder.
 
+## Yayın Hazırlığı
+
+Ayrıntılı kontrol listesi: `docs/yayin-kontrol-listesi.md`
+Gizlilik politikası metni: `docs/gizlilik-politikasi.md`
+
+### Platform yapılandırmasında dikkat
+
+**iOS izin metinleri zorunludur.** `NSCameraUsageDescription` ve
+`NSPhotoLibraryUsageDescription` olmadan iOS uygulamayı **çökertir** —
+kullanıcı reddedemez, sistem doğrudan sonlandırır. OCR ekranı `image_picker`
+ve `file_picker` kullandığı için ikisi de gerekli.
+
+**`IPHONEOS_DEPLOYMENT_TARGET` en az 13.0.** `firebase_core 3.x` bunu istiyor;
+12.0 ile `pod install` başarısız olur.
+
+**Apple ile Giriş zorunlu.** Uygulama Google ile giriş sunduğu için App Store
+yönergesi 4.8 gereği Apple ile giriş de sunulmalı.
+`Runner.entitlements` içindeki `com.apple.developer.applesignin` eksikse
+yükleme reddedilir.
+
+**Android `allowBackup="false"`.** Finansal veri cihaz yedeğine çıkmamalı;
+veri zaten Firestore'da kullanıcının hesabında. Android 12+ için ayrıca
+`data_extraction_rules.xml` gerekir — `fullBackupContent` tek başına yetmez.
+
+**Google girişi iOS'ta URL şeması ister.** `GoogleService-Info.plist`
+içindeki `REVERSED_CLIENT_ID`, `Info.plist` → `CFBundleURLSchemes` altına
+yazılmalı. Eksikse kullanıcı tarayıcıdan dönemez, beyaz ekranda kalır.
+
 ## Tasarım Sistemi (ÖNEMLİ)
 
 Üç dosya tek kaynaktır. **Yeni kodda ham değer yazma** — ölçekten seç.

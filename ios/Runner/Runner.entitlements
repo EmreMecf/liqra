@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Push bildirimleri (FCM). Release derlemesinde "production" olmalı;
+	     Xcode otomatik yönetiyorsa bu anahtar kaldırılabilir. -->
+	<key>aps-environment</key>
+	<string>development</string>
+
+	<!-- Apple ile Giriş — AuthService.signInWithApple() bunu kullanıyor.
+	     Bu yetki olmadan giriş çalışmaz.
+
+	     ÖNEMLİ: Uygulama Google ile girişi de sunduğu için App Store
+	     yönergesi 4.8 gereği Apple ile Giriş ZORUNLUDUR. Eksikse yükleme
+	     reddedilir. -->
+	<key>com.apple.developer.applesignin</key>
+	<array>
+		<string>Default</string>
+	</array>
+</dict>
+</plist>

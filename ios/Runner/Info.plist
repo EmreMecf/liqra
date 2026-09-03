@@ -4,16 +4,20 @@
 	<dict>
 		<key>CFBundleDevelopmentRegion</key>
 		<string>$(DEVELOPMENT_LANGUAGE)</string>
+
+		<!-- Ana ekranda görünen ad. Flutter şablonundan kalan "Muhasebe"
+		     değeriyle mağazaya çıkılırsa kullanıcı Liqra yerine onu görür. -->
 		<key>CFBundleDisplayName</key>
-		<string>Muhasebe</string>
+		<string>Liqra</string>
+		<key>CFBundleName</key>
+		<string>Liqra</string>
+
 		<key>CFBundleExecutable</key>
 		<string>$(EXECUTABLE_NAME)</string>
 		<key>CFBundleIdentifier</key>
 		<string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
 		<key>CFBundleInfoDictionaryVersion</key>
 		<string>6.0</string>
-		<key>CFBundleName</key>
-		<string>muhasebe</string>
 		<key>CFBundlePackageType</key>
 		<string>APPL</string>
 		<key>CFBundleShortVersionString</key>
@@ -22,30 +26,85 @@
 		<string>????</string>
 		<key>CFBundleVersion</key>
 		<string>$(FLUTTER_BUILD_NUMBER)</string>
+
+		<!-- ── İzin açıklamaları ────────────────────────────────────────────
+		     Bunlar OLMADAN iOS uygulamayı ÇÖKERTİR (kullanıcı reddedemez,
+		     sistem doğrudan sonlandırır) ve App Store incelemesi reddeder.
+		     Metinler Türkçe ve amacı açık olmalı — "erişim gerekiyor" gibi
+		     genel ifadeler reddedilme sebebidir. -->
+		<key>NSCameraUsageDescription</key>
+		<string>Fiş ve faturalarınızı okuyup harcama olarak kaydedebilmek için kameraya erişmemiz gerekiyor. Görseller yalnızca metne dönüştürülür.</string>
+
+		<key>NSPhotoLibraryUsageDescription</key>
+		<string>Galerinizden fiş, fatura veya hesap ekstresi seçebilmeniz için fotoğraflarınıza erişmemiz gerekiyor.</string>
+
+		<key>NSPhotoLibraryAddUsageDescription</key>
+		<string>Oluşturduğunuz raporları galerinize kaydedebilmek için izin gerekiyor.</string>
+
+		<key>NSFaceIDUsageDescription</key>
+		<string>Uygulamayı biyometrik kilitle açabilmeniz için Face ID kullanılır.</string>
+
+		<!-- ── Arka plan ────────────────────────────────────────────────────
+		     FCM bildirimlerinin uygulama kapalıyken de gelmesi için gerekli. -->
+		<key>UIBackgroundModes</key>
+		<array>
+			<string>remote-notification</string>
+			<string>fetch</string>
+		</array>
+
+		<!-- ── Google ile giriş ─────────────────────────────────────────────
+		     GoogleService-Info.plist içindeki REVERSED_CLIENT_ID buraya
+		     yazılmalı (com.googleusercontent.apps.XXXX-YYYY biçiminde).
+		     Bu değer olmadan Google girişi tarayıcıdan geri dönemez ve
+		     kullanıcı beyaz ekranda kalır.
+		     Dosya indirildikten sonra aşağıdaki YER_TUTUCU değiştirilecek. -->
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeRole</key>
+				<string>Editor</string>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>REVERSED_CLIENT_ID_YER_TUTUCU</string>
+				</array>
+			</dict>
+		</array>
+
+		<!-- ── Şifreleme beyanı ─────────────────────────────────────────────
+		     Uygulama yalnızca standart HTTPS kullanıyor. Bu anahtar olmadan
+		     her yüklemede Apple manuel olarak soruyor ve süreç bekliyor. -->
+		<key>ITSAppUsesNonExemptEncryption</key>
+		<false/>
+
 		<key>LSRequiresIPhoneOS</key>
 		<true/>
 		<key>UILaunchStoryboardName</key>
 		<string>LaunchScreen</string>
 		<key>UIMainStoryboardFile</key>
 		<string>Main</string>
+
+		<!-- Uygulama main.dart içinde yalnızca dikey yönü kilitliyor;
+		     plist de aynı şeyi söylemeli, aksi halde açılış karesi yatay
+		     çizilip zıplıyor. -->
 		<key>UISupportedInterfaceOrientations</key>
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
 		<key>UISupportedInterfaceOrientations~ipad</key>
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>
 			<string>UIInterfaceOrientationPortraitUpsideDown</string>
-			<string>UIInterfaceOrientationLandscapeLeft</string>
-			<string>UIInterfaceOrientationLandscapeRight</string>
 		</array>
+
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>
 		<key>UIApplicationSupportsIndirectInputEvents</key>
 		<true/>
 		<key>UIStatusBarHidden</key>
 		<false/>
+
+		<!-- Koyu temaya sabit — uygulama dark-first tasarlandı. -->
+		<key>UIUserInterfaceStyle</key>
+		<string>Dark</string>
 	</dict>
 </plist>
