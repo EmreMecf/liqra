@@ -1,0 +1,207 @@
+# Liqra — Codemagic CI yapılandırması
+#
+# ── Neden bu dosya var ────────────────────────────────────────────────────────
+# iOS derlemesi macOS gerektirir. Geliştirme makinesi Windows olduğu için
+# iOS tarafı bulutta derlenir. Codemagic, App Store Connect API anahtarıyla
+# sertifikayı ve provisioning profile'ı **kendisi üretir** — Mac gerekmez.
+#
+# ── Gizli dosyalar ────────────────────────────────────────────────────────────
+# google-services.json, GoogleService-Info.plist ve imzalama anahtarı
+# .gitignore'da; depoya girmezler. Codemagic'te şifreli ortam değişkeni olarak
+# tutulur ve derleme sırasında dosyaya yazılır (aşağıdaki scriptler).
+#
+# Base64'e çevirmek için (Windows PowerShell):
+#   [Convert]::ToBase64String([IO.File]::ReadAllBytes("google-services.json")) | Set-Clipboard
+
+definitions:
+  flutter_version: &flutter_version 3.44.6
+
+  cache_paths: &cache_paths
+    cache_paths:
+      - $HOME/.pub-cache
+      - $FLUTTER_ROOT/.pub-cache
+
+  # Her derlemeden önce çalışan ortak adımlar
+  prepare_android: &prepare_android
+    name: Firebase yapılandırmasını yaz (Android)
+    script: |
+      if [ -z "$GOOGLE_SERVICES_JSON" ]; then
+        echo "HATA: GOOGLE_SERVICES_JSON ortam degiskeni tanimli degil."
+        echo "Codemagic > Environment variables icine base64 olarak ekleyin."
+        exit 1
+      fi
+      echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
+      echo "google-services.json yazildi."
+
+  prepare_ios: &prepare_ios
+    name: Firebase yapılandırmasını yaz (iOS)
+    script: |
+      if [ -z "$GOOGLE_SERVICE_INFO_PLIST" ]; then
+        echo "HATA: GOOGLE_SERVICE_INFO_PLIST ortam degiskeni tanimli degil."
+        exit 1
+      fi
+      echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
+      echo "GoogleService-Info.plist yazildi."
+
+      # Google girisi icin URL semasi: REVERSED_CLIENT_ID plist'ten okunup
+      # Info.plist'teki yer tutucunun yerine yazilir. Elle senkron tutmak
+      # yerine her derlemede otomatik alinir.
+      REVERSED=$(plutil -extract REVERSED_CLIENT_ID raw ios/Runner/GoogleService-Info.plist)
+      if [ -z "$REVERSED" ]; then
+        echo "HATA: REVERSED_CLIENT_ID okunamadi."
+        exit 1
+      fi
+      sed -i '' "s|REVERSED_CLIENT_ID_YER_TUTUCU|$REVERSED|g" ios/Runner/Info.plist
+      echo "URL semasi ayarlandi: $REVERSED"
+
+  quality_gate: &quality_gate
+    name: Kod kalitesi — analyze + test
+    script: |
+      flutter pub get
+      dart run build_runner build --delete-conflicting-outputs
+      flutter analyze
+      flutter test
+
+workflows:
+  # ══════════════════════════════════════════════════════════════════════════
+  # ANDROID — Google Play
+  # ══════════════════════════════════════════════════════════════════════════
+  android-release:
+    name: Liqra · Android (Play Store)
+    max_build_duration: 60
+    instance_type: linux_x2
+
+    environment:
+      flutter: *flutter_version
+      java: 17
+      groups:
+        - firebase          # GOOGLE_SERVICES_JSON
+        - google_play       # GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+      android_signing:
+        - liqra_keystore    # Codemagic'e yuklenen imzalama anahtari
+      vars:
+        PACKAGE_NAME: com.emrec.muhasebe
+
+    <<: *cache_paths
+
+    scripts:
+      - *prepare_android
+      - *quality_gate
+      - name: Sürüm numarasını Play'deki son yapıdan bir artır
+        script: |
+          # Ayni versionCode ile ikinci yukleme reddedilir. Play'deki en
+          # yuksek numarayi alip uzerine ekliyoruz; elle takip gerekmez.
+          LATEST=$(google-play get-latest-build-number --package-name "$PACKAGE_NAME" 2>/dev/null || echo 0)
+          echo "Play'deki son build number: $LATEST"
+          echo "BUILD_NUMBER=$(($LATEST + 1))" >> $CM_ENV
+      - name: App Bundle derle
+        script: |
+          flutter build appbundle --release \
+            --build-number="$BUILD_NUMBER"
+
+    artifacts:
+      - build/app/outputs/bundle/release/*.aab
+      - build/app/outputs/mapping/release/mapping.txt
+
+    publishing:
+      email:
+        recipients:
+          - emreciftci873@gmail.com
+        notify:
+          success: true
+          failure: true
+      google_play:
+        credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
+        # Once ic test kanalina — dogrudan produksiyona gonderme.
+        track: internal
+        submit_as_draft: true
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # iOS — App Store  (Mac GEREKMEZ, sertifika Codemagic tarafindan uretilir)
+  # ══════════════════════════════════════════════════════════════════════════
+  ios-release:
+    name: Liqra · iOS (App Store)
+    max_build_duration: 90
+    instance_type: mac_mini_m2
+
+    integrations:
+      app_store_connect: liqra_asc_key   # App Store Connect API anahtari
+
+    environment:
+      flutter: *flutter_version
+      xcode: latest
+      cocoapods: default
+      groups:
+        - firebase          # GOOGLE_SERVICE_INFO_PLIST
+      ios_signing:
+        distribution_type: app_store
+        bundle_identifier: com.emrec.muhasebe
+
+    <<: *cache_paths
+
+    scripts:
+      - *prepare_ios
+      - *quality_gate
+      - name: CocoaPods bağımlılıkları
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: Sürüm numarasını TestFlight'taki son yapıdan bir artır
+        script: |
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          echo "TestFlight'taki son build number: $LATEST"
+          echo "BUILD_NUMBER=$(($LATEST + 1))" >> $CM_ENV
+      - name: IPA derle
+        script: |
+          flutter build ipa --release \
+            --build-number="$BUILD_NUMBER" \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+      - flutter_drive.log
+
+    publishing:
+      email:
+        recipients:
+          - emreciftci873@gmail.com
+        notify:
+          success: true
+          failure: true
+      app_store_connect:
+        auth: integration
+        # TestFlight'a yukle; App Store incelemesine ELLE gonderilecek.
+        submit_to_testflight: true
+        submit_to_app_store: false
+
+  # ══════════════════════════════════════════════════════════════════════════
+  # Her push'ta hizli kontrol — imzalama yok, sadece kalite kapisi
+  # ══════════════════════════════════════════════════════════════════════════
+  quality-check:
+    name: Liqra · Kalite kontrolü
+    max_build_duration: 20
+    instance_type: linux_x2
+
+    environment:
+      flutter: *flutter_version
+
+    <<: *cache_paths
+
+    triggering:
+      events:
+        - push
+        - pull_request
+      branch_patterns:
+        - pattern: main
+          include: true
+
+    scripts:
+      - *quality_gate
+
+    publishing:
+      email:
+        recipients:
+          - emreciftci873@gmail.com
+        notify:
+          success: false
+          failure: true
