@@ -85,7 +85,7 @@ class _StockAnalysisSheetState extends State<_StockAnalysisSheet> {
       expand: false,
       builder: (ctx, scrollController) => Container(
         decoration: const BoxDecoration(
-          color: Color(0xFF0C1120),
+          color: AppColors.bgVoid,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(

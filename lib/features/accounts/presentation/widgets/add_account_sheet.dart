@@ -170,7 +170,7 @@ class _AddAccountSheetState extends State<_AddAccountSheet> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0C1120),
+        color: AppColors.bgVoid,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottom),
@@ -377,7 +377,7 @@ class _StepType extends StatelessWidget {
           icon: Icons.account_balance_outlined,
           title: 'Banka Hesabı',
           subtitle: 'Vadesiz, tasarruf veya birikim hesabı',
-          color: const Color(0xFF0AFFE0),
+          color: AppColors.accentGreen,
           onTap: () => onSelect(AccountType.bankAccount),
         ),
         const SizedBox(height: 12),
@@ -385,7 +385,7 @@ class _StepType extends StatelessWidget {
           icon: Icons.credit_card_outlined,
           title: 'Kredi Kartı',
           subtitle: 'Limit, ekstre ve son ödeme takibi',
-          color: const Color(0xFFE4B84A),
+          color: AppColors.accentAmber,
           onTap: () => onSelect(AccountType.creditCard),
         ),
         const SizedBox(height: 12),
@@ -393,7 +393,7 @@ class _StepType extends StatelessWidget {
           icon: Icons.account_balance_wallet_outlined,
           title: 'Kredi',
           subtitle: 'İhtiyaç, konut veya taşıt kredisi takibi',
-          color: const Color(0xFFFF6B7A),
+          color: AppColors.accentRed,
           onTap: onSelectLoan,
         ),
         const SizedBox(height: 8),
@@ -736,7 +736,7 @@ class _Field extends StatelessWidget {
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF0AFFE0), width: 1.5),
+              borderSide: const BorderSide(color: AppColors.accentGreen, width: 1.5),
             ),
             contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
           ),
@@ -768,16 +768,16 @@ class _DaySelector extends StatelessWidget {
               '$value',
               style: GoogleFonts.dmMono(
                   fontSize: 14, fontWeight: FontWeight.w600,
-                  color: const Color(0xFF0AFFE0)),
+                  color: AppColors.accentGreen),
             ),
           ],
         ),
         SliderTheme(
           data: SliderTheme.of(context).copyWith(
-            activeTrackColor: const Color(0xFF0AFFE0),
+            activeTrackColor: AppColors.accentGreen,
             inactiveTrackColor: Colors.white.withValues(alpha: 0.08),
-            thumbColor: const Color(0xFF0AFFE0),
-            overlayColor: const Color(0xFF0AFFE0).withValues(alpha: 0.1),
+            thumbColor: AppColors.accentGreen,
+            overlayColor: AppColors.accentGreen.withValues(alpha: 0.1),
             trackHeight: 3,
             thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 7),
           ),
@@ -818,8 +818,8 @@ class _SaveButton extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFF0AFFE0)
-                : const Color(0xFF0AFFE0).withValues(alpha: 0.3),
+                ? AppColors.accentGreen
+                : AppColors.accentGreen.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Center(
@@ -827,12 +827,12 @@ class _SaveButton extends StatelessWidget {
                 ? const SizedBox(
                     width: 20, height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Color(0xFF05080F)))
+                        strokeWidth: 2, color: AppColors.bgPrimary))
                 : Text(
                     'Hesabı Ekle',
                     style: GoogleFonts.outfit(
                       fontSize: 15, fontWeight: FontWeight.w700,
-                      color: const Color(0xFF05080F),
+                      color: AppColors.bgPrimary,
                     ),
                   ),
           ),
@@ -864,8 +864,8 @@ class _LoanSaveButton extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             color: active
-                ? const Color(0xFFFF6B7A)
-                : const Color(0xFFFF6B7A).withValues(alpha: 0.3),
+                ? AppColors.accentRed
+                : AppColors.accentRed.withValues(alpha: 0.3),
             borderRadius: BorderRadius.circular(14),
           ),
           child: Center(
@@ -874,13 +874,13 @@ class _LoanSaveButton extends StatelessWidget {
                     width: 20,
                     height: 20,
                     child: CircularProgressIndicator(
-                        strokeWidth: 2, color: Color(0xFF05080F)))
+                        strokeWidth: 2, color: AppColors.bgPrimary))
                 : Text(
                     'Krediyi Ekle',
                     style: GoogleFonts.outfit(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: const Color(0xFF05080F),
+                      color: AppColors.bgPrimary,
                     ),
                   ),
           ),
@@ -906,13 +906,13 @@ class _ErrorText extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const Icon(Icons.error_outline_rounded,
-              size: 14, color: Color(0xFFFF6B7A)),
+              size: 14, color: AppColors.accentRed),
           const SizedBox(width: 6),
           Expanded(
             child: Text(
               text,
               style: GoogleFonts.outfit(
-                  fontSize: 12, color: const Color(0xFFFF6B7A)),
+                  fontSize: 12, color: AppColors.accentRed),
             ),
           ),
         ],

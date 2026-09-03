@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -28,12 +29,10 @@ class CreditCardWidget extends StatelessWidget {
         width: 300,
         child: Column(
           children: [
-            // Kart yüzeyi
+            // Kart yüzeyi ve bilgi paneli — aralarında boşluk yok.
+            // Eskiden 10 piksellik boşluk vardı ve ikisi ayrı kart gibi
+            // okunuyordu; oysa aynı kartın iki yüzü.
             _CardFace(card: card, bankColor: bankColor, onDelete: onDelete),
-
-            const SizedBox(height: 10),
-
-            // Limit kullanım + ekstre bilgisi
             _CardInfo(card: card, bankColor: bankColor, fmt: fmt),
           ],
         ),
@@ -57,13 +56,13 @@ class _CardFace extends StatelessWidget {
       width: 300,
       height: 180,
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
           colors: [
-            Color.lerp(const Color(0xFF1A2235), bankColor, 0.25)!,
-            Color.lerp(const Color(0xFF0C1120), bankColor, 0.12)!,
+            Color.lerp(AppColors.bgCard2, bankColor, 0.25)!,
+            Color.lerp(AppColors.bgVoid, bankColor, 0.12)!,
             const Color(0xFF080C16),
           ],
           stops: const [0.0, 0.5, 1.0],
@@ -77,101 +76,105 @@ class _CardFace extends StatelessWidget {
           ),
         ],
       ),
-      child: Stack(
+      // Mutlak konumlandırma yerine dikey akış: kartın ortasında 54 piksellik
+      // bir boşluk kalıyordu ve kart yarım basılmış gibi görünüyordu.
+      // Boşluğa kullanıcının asıl merak ettiği rakam kondu: toplam borç.
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Chip efekti
-          Positioned(
-            top: 22,
-            left: 22,
-            child: _ChipWidget(color: bankColor),
-          ),
-
-          // Menü butonu
-          if (onDelete != null)
-            Positioned(
-              top: 12,
-              right: 12,
-              child: GestureDetector(
-                onTap: onDelete,
-                child: Icon(Icons.more_horiz,
-                    color: Colors.white.withValues(alpha: 0.4), size: 18),
-              ),
-            ),
-
-          // Kart numarası
-          Positioned(
-            top: 72,
-            left: 22,
-            right: 22,
-            child: Text(
-              card.maskedCardNumber != null
-                  ? '•••• •••• •••• ${card.maskedCardNumber}'
-                  : '•••• •••• •••• ••••',
-              style: GoogleFonts.dmMono(
-                fontSize: 15,
-                fontWeight: FontWeight.w500,
-                color: Colors.white.withValues(alpha: 0.85),
-                letterSpacing: 2,
-              ),
-            ),
-          ),
-
-          // Alt: kart adı + banka
-          Positioned(
-            bottom: 18,
-            left: 22,
-            right: 22,
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Expanded(
-                  child: Text(
-                    card.name,
-                    style: GoogleFonts.outfit(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w500,
-                      color: Colors.white.withValues(alpha: 0.7),
-                    ),
-                    overflow: TextOverflow.ellipsis,
+          Row(
+            children: [
+              const _ChipWidget(),
+              const SizedBox(width: 10),
+              Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: bankColor.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(color: bankColor.withValues(alpha: 0.3)),
+                ),
+                child: Text(
+                  'Kredi',
+                  style: GoogleFonts.dmMono(
+                    fontSize: 9,
+                    color: bankColor,
+                    letterSpacing: 0.5,
                   ),
                 ),
-                Row(
-                  children: [
-                    Text(card.bank.emoji, style: const TextStyle(fontSize: 14)),
-                    const SizedBox(width: 4),
-                    Text(
-                      card.bank.displayName,
-                      style: GoogleFonts.outfit(
-                        fontSize: 11,
-                        color: Colors.white.withValues(alpha: 0.5),
-                      ),
-                    ),
-                  ],
+              ),
+              const Spacer(),
+              if (onDelete != null)
+                GestureDetector(
+                  onTap: onDelete,
+                  child: Icon(Icons.more_horiz,
+                      color: Colors.white.withValues(alpha: 0.4), size: 18),
                 ),
-              ],
+            ],
+          ),
+
+          const Spacer(),
+
+          // Toplam borç — kartın kahramanı
+          Text(
+            'TOPLAM BORÇ',
+            style: GoogleFonts.dmMono(
+              fontSize: 8.5,
+              color: Colors.white.withValues(alpha: 0.35),
+              letterSpacing: 1.4,
+            ),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            NumberFormat.currency(
+                    locale: 'tr_TR', symbol: '₺', decimalDigits: 0)
+                .format(card.usedAmount),
+            style: GoogleFonts.dmMono(
+              fontSize: 24,
+              fontWeight: FontWeight.w600,
+              color: Colors.white,
+              height: 1.1,
             ),
           ),
 
-          // Kredi kartı etiketi
-          Positioned(
-            top: 14,
-            left: 65,
-            child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-              decoration: BoxDecoration(
-                color: bankColor.withValues(alpha: 0.15),
-                borderRadius: BorderRadius.circular(20),
-                border: Border.all(color: bankColor.withValues(alpha: 0.3)),
-              ),
-              child: Text(
-                'Kredi',
-                style: GoogleFonts.dmMono(
-                  fontSize: 9,
-                  color: bankColor,
-                  letterSpacing: 0.5,
+          const SizedBox(height: 10),
+
+          Text(
+            card.maskedCardNumber != null
+                ? '•••• ${card.maskedCardNumber}'
+                : '•••• ••••',
+            style: GoogleFonts.dmMono(
+              fontSize: 12,
+              color: Colors.white.withValues(alpha: 0.55),
+              letterSpacing: 1.5,
+            ),
+          ),
+
+          const Spacer(),
+
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  card.name,
+                  style: GoogleFonts.outfit(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: Colors.white.withValues(alpha: 0.7),
+                  ),
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-            ),
+              const SizedBox(width: 8),
+              Text(
+                card.bank.displayName,
+                style: GoogleFonts.outfit(
+                  fontSize: 11,
+                  color: Colors.white.withValues(alpha: 0.5),
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -192,16 +195,18 @@ class _CardInfo extends StatelessWidget {
   Widget build(BuildContext context) {
     final usage = card.usagePercent;
     final dueColor = card.isOverdue
-        ? const Color(0xFFFF4757)
+        ? AppColors.accentRed
         : card.isDueSoon
-            ? const Color(0xFFE4B84A)
+            ? AppColors.accentAmber
             : Colors.white.withValues(alpha: 0.5);
 
     return Container(
+      width: 300,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
-        borderRadius: BorderRadius.circular(14),
+        color: AppColors.bgSurface,
+        borderRadius:
+            const BorderRadius.vertical(bottom: Radius.circular(20)),
         border: Border.all(color: Colors.white.withValues(alpha: 0.06)),
       ),
       child: Column(
@@ -214,7 +219,7 @@ class _CardInfo extends StatelessWidget {
                 style: GoogleFonts.outfit(
                     fontSize: 11,
                     color: card.isOverLimit
-                        ? const Color(0xFFFF4757)
+                        ? AppColors.accentRed
                         : Colors.white.withValues(alpha: 0.4)),
               ),
               const Spacer(),
@@ -223,7 +228,7 @@ class _CardInfo extends StatelessWidget {
                 style: GoogleFonts.dmMono(
                   fontSize: 11,
                   color: card.isOverLimit
-                      ? const Color(0xFFFF4757)
+                      ? AppColors.accentRed
                       : Colors.white.withValues(alpha: 0.7),
                 ),
               ),
@@ -238,9 +243,9 @@ class _CardInfo extends StatelessWidget {
               backgroundColor: Colors.white.withValues(alpha: 0.08),
               valueColor: AlwaysStoppedAnimation<Color>(
                 card.isOverLimit || usage > 0.8
-                    ? const Color(0xFFFF4757)
+                    ? AppColors.accentRed
                     : usage > 0.5
-                        ? const Color(0xFFE4B84A)
+                        ? AppColors.accentAmber
                         : bankColor,
               ),
             ),
@@ -326,47 +331,70 @@ class _InfoChip extends StatelessWidget {
 // ── Chip widget ────────────────────────────────────────────────────────────
 
 class _ChipWidget extends StatelessWidget {
-  final Color color;
-  const _ChipWidget({required this.color});
+  const _ChipWidget();
 
   @override
-  Widget build(BuildContext context) {
-    return CustomPaint(
-      size: const Size(36, 28),
-      painter: _ChipPainter(color: color),
-    );
-  }
+  Widget build(BuildContext context) => const CustomPaint(
+        size: Size(34, 26),
+        painter: _ChipPainter(),
+      );
 }
 
+/// Kart çipi — metalik altın, kontak pedleri görünür.
+///
+/// Eskiden bankanın markası %50 saydamlıkla düz doldurulur, iç çizgiler %25
+/// saydamlıkta çizilirdi: sonuç, kartın sol üstünde duran **düz renkli bir
+/// blok**tu ve bozuk görsel yer tutucusuna benziyordu. Çip artık her bankada
+/// aynı altın tonunda — bankayı zaten kartın degrade rengi anlatıyor.
 class _ChipPainter extends CustomPainter {
-  final Color color;
-  const _ChipPainter({required this.color});
+  const _ChipPainter();
+
+  static const _light = Color(0xFFE8CB86);
+  static const _dark  = Color(0xFF9C7C34);
 
   @override
   void paint(Canvas canvas, Size size) {
-    final paint = Paint()
-      ..color = color.withValues(alpha: 0.5)
-      ..style = PaintingStyle.fill;
-    final strokePaint = Paint()
-      ..color = color.withValues(alpha: 0.3)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 0.8;
+    final rect = Rect.fromLTWH(0, 0, size.width, size.height);
+    final body = RRect.fromRectAndRadius(rect, const Radius.circular(4));
 
-    final rect = RRect.fromRectAndRadius(
-      Rect.fromLTWH(0, 0, size.width, size.height),
-      const Radius.circular(5),
+    // Metalik gövde — köşeden köşeye degrade
+    canvas.drawRRect(
+      body,
+      Paint()
+        ..shader = const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [_light, _dark],
+        ).createShader(rect),
     );
-    canvas.drawRRect(rect, paint);
-    canvas.drawRRect(rect, strokePaint);
+    canvas.drawRRect(
+      body,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 0.6
+        ..color = _dark.withValues(alpha: 0.8),
+    );
 
-    // İç çizgiler
-    final linePaint = Paint()
-      ..color = color.withValues(alpha: 0.25)
-      ..strokeWidth = 0.7;
+    // Kontak pedleri — gerçek çipteki bölünmüş yüzey
+    final line = Paint()
+      ..color = _dark.withValues(alpha: 0.85)
+      ..strokeWidth = 0.9;
+
+    final midY = size.height / 2;
+    final inset = size.width * 0.22;
+
+    // Yatay orta hat, kenarlara değmeden
+    canvas.drawLine(Offset(inset, midY), Offset(size.width - inset, midY), line);
+    // İki dikey ayraç
+    canvas.drawLine(Offset(inset, 0), Offset(inset, size.height), line);
     canvas.drawLine(
-        Offset(0, size.height / 2), Offset(size.width, size.height / 2), linePaint);
+        Offset(size.width - inset, 0), Offset(size.width - inset, size.height), line);
+    // Orta pedin üst/alt kenarları
+    final padTop = size.height * 0.28;
     canvas.drawLine(
-        Offset(size.width / 2, 0), Offset(size.width / 2, size.height), linePaint);
+        Offset(inset, padTop), Offset(size.width - inset, padTop), line);
+    canvas.drawLine(Offset(inset, size.height - padTop),
+        Offset(size.width - inset, size.height - padTop), line);
   }
 
   @override

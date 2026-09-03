@@ -619,7 +619,7 @@ class _ScoreBadge extends StatelessWidget {
 
   Color get _color {
     if (score >= 80) return AppColors.accentGreen;
-    if (score >= 60) return const Color(0xFF00C9B1);
+    if (score >= 60) return AppColors.accentTeal;
     if (score >= 40) return AppColors.accentAmber;
     return AppColors.accentRed;
   }
@@ -662,7 +662,7 @@ class _HealthScoreCard extends StatelessWidget {
 
   Color get _color {
     if (score >= 80) return AppColors.accentGreen;
-    if (score >= 60) return const Color(0xFF00C9B1);
+    if (score >= 60) return AppColors.accentTeal;
     if (score >= 40) return AppColors.accentAmber;
     return AppColors.accentRed;
   }
@@ -788,7 +788,7 @@ class _HealthRing extends StatelessWidget {
 
   Color get _color {
     if (score >= 80) return AppColors.accentGreen;
-    if (score >= 60) return const Color(0xFF00C9B1);
+    if (score >= 60) return AppColors.accentTeal;
     if (score >= 40) return AppColors.accentAmber;
     return AppColors.accentRed;
   }
@@ -1282,7 +1282,7 @@ class _BudgetCard extends StatelessWidget {
   const _BudgetCard({required this.provider});
 
   static const _catColors = <TransactionCategory, Color>{
-    TransactionCategory.yemeicme:  Color(0xFFFF6B6B),
+    TransactionCategory.yemeicme:  AppColors.accentRed,
     TransactionCategory.market:    Color(0xFFFFBE76),
     TransactionCategory.ulasim:    Color(0xFF74B9FF),
     TransactionCategory.fatura:    Color(0xFFA29BFE),
@@ -1351,7 +1351,7 @@ class _BudgetCard extends StatelessWidget {
                       const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                   decoration: BoxDecoration(
                     color: AppColors.accentGreen.withValues(alpha: 0.10),
-                    borderRadius: BorderRadius.circular(7),
+                    borderRadius: BorderRadius.circular(8),
                     border: Border.all(
                         color: AppColors.accentGreen.withValues(alpha: 0.3)),
                   ),
@@ -1628,7 +1628,7 @@ class _GoalCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(vertical: 10),
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [AppColors.accentAmber, Color(0xFFE4B84A)],
+                  colors: [AppColors.accentAmber, AppColors.accentAmber],
                 ),
                 borderRadius: BorderRadius.circular(10),
                 boxShadow: [
@@ -1983,7 +1983,7 @@ class _TransactionTile extends StatelessWidget {
               color: isIncome
                   ? AppColors.accentGreen.withValues(alpha: 0.08)
                   : AppColors.bgTertiary,
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(12),
               border: Border.all(
                 color: isIncome
                     ? AppColors.accentGreen.withValues(alpha: 0.2)
@@ -2095,7 +2095,7 @@ class _EmptyTransactions extends StatelessWidget {
                     horizontal: 22, vertical: 11),
                 decoration: BoxDecoration(
                   gradient: const LinearGradient(
-                    colors: [AppColors.accentGreen, Color(0xFF00C9B1)],
+                    colors: [AppColors.accentGreen, AppColors.accentTeal],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),

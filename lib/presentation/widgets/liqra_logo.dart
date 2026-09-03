@@ -3,8 +3,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../core/constants/app_colors.dart';
 
 // ── Marka renkleri (HTML tasarımından birebir)
-const _teal = Color(0xFF0AFFE0);
-const _gold = Color(0xFFE4B84A);
+const _teal = AppColors.accentGreen;
+const _gold = AppColors.accentAmber;
 
 // ══════════════════════════════════════════════════════════════════════════════
 //  KÜÇÜK LOGO — ₺-L Glow Premium App Icon
@@ -79,7 +79,7 @@ class _LogoMarkPainter extends CustomPainter {
         ..shader = const RadialGradient(
           center: Alignment(-0.4, -0.5),
           radius: 0.8,
-          colors: [Color(0xFF0C1E30), Color(0xFF05080F)],
+          colors: [Color(0xFF0C1E30), AppColors.bgPrimary],
         ).createShader(bgRect),
     );
 

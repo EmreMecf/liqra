@@ -1,4 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import '../../core/constants/app_colors.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
@@ -152,7 +153,7 @@ class NotificationService {
           importance: Importance.high,
           priority:   Priority.high,
           icon:       '@mipmap/ic_launcher',
-          color:      const Color(0xFF0AFFE0), // Liqra teal
+          color:      AppColors.accentGreen, // Liqra teal
         ),
         iOS: const DarwinNotificationDetails(
           presentAlert: true,

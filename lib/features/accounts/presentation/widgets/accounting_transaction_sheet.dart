@@ -54,13 +54,13 @@ extension _TxTypeExt on _TxType {
   Color get color {
     switch (this) {
       case _TxType.income:
-        return const Color(0xFF0AFFE0);
+        return AppColors.accentGreen;
       case _TxType.bankExpense:
-        return const Color(0xFFFF4757);
+        return AppColors.accentRed;
       case _TxType.cardExpense:
         return const Color(0xFFFF9F43);
       case _TxType.cardPayment:
-        return const Color(0xFF3B82F6);
+        return AppColors.accentBlue;
       case _TxType.transfer:
         return const Color(0xFF8B5CF6);
     }

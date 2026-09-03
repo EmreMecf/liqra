@@ -95,7 +95,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.borderSubtle, width: 0.5),
               ),
               child: TabBar(
@@ -106,7 +106,7 @@ class _PortfolioScreenState extends State<PortfolioScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: AppColors.accentGreen.withAlpha(50),
                     width: 0.5,
@@ -943,7 +943,7 @@ class _MarketTabState extends State<_MarketTab> {
                           color: isSelected
                               ? AppColors.accentGreen
                               : AppColors.bgSecondary,
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: BorderRadius.circular(16),
                           border: Border.all(
                             color: isSelected
                                 ? AppColors.accentGreen
@@ -1384,7 +1384,7 @@ class _GoldView extends StatelessWidget {
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
-                const Color(0xFFD4A017).withValues(alpha: 0.25),
+                AppColors.accentAmber.withValues(alpha: 0.25),
                 const Color(0xFFB8860B).withValues(alpha: 0.10),
               ],
               begin: Alignment.topLeft,
@@ -1392,7 +1392,7 @@ class _GoldView extends StatelessWidget {
             ),
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
-              color: const Color(0xFFD4A017).withValues(alpha: 0.4),
+              color: AppColors.accentAmber.withValues(alpha: 0.4),
             ),
           ),
           child: Column(
@@ -1406,7 +1406,7 @@ class _GoldView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text('Gram Altın', style: AppTypography.labelS.copyWith(
-                        color: const Color(0xFFD4A017), fontWeight: FontWeight.w700,
+                        color: AppColors.accentAmber, fontWeight: FontWeight.w700,
                       )),
                       if (updateStr.isNotEmpty)
                         Text(updateStr, style: AppTypography.labelS.copyWith(fontSize: 10)),

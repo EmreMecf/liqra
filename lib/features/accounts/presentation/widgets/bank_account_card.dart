@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -33,7 +34,7 @@ class BankAccountCard extends StatelessWidget {
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
             colors: [
-              const Color(0xFF1A2235),
+              AppColors.bgCard2,
               Color.lerp(const Color(0xFF0F1922), bankColor.withValues(alpha: 0.15), 0.6)!,
             ],
           ),

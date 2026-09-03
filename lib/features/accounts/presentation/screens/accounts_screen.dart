@@ -456,7 +456,7 @@ class _NetWorthCard extends StatelessWidget {
               ? [const Color(0xFF0D2010), const Color(0xFF071510)]
               : [const Color(0xFF201008), const Color(0xFF150705)],
         ),
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(20),
         border: Border.all(
           color: (isPositive ? AppColors.accentGreen : AppColors.accentRed)
               .withValues(alpha: 0.25),
@@ -655,7 +655,7 @@ class _CreditHealthRow extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.borderSubtle),
               ),
               child: Column(
@@ -730,7 +730,7 @@ class _CreditHealthRow extends StatelessWidget {
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(color: AppColors.borderSubtle),
               ),
               child: Column(

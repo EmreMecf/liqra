@@ -172,7 +172,7 @@ class ProfileScreen extends StatelessWidget {
                               padding: const EdgeInsets.all(7),
                               decoration: BoxDecoration(
                                 color: AppColors.accentGreen.withAlpha(28),
-                                borderRadius: BorderRadius.circular(9),
+                                borderRadius: BorderRadius.circular(8),
                                 border: Border.all(
                                   color: AppColors.accentGreen.withAlpha(80),
                                 ),
@@ -312,7 +312,7 @@ class ProfileScreen extends StatelessWidget {
                         subtitle: 'Her ayın 1\'inde otomatik analiz',
                         value: true,
                         icon: Icons.auto_awesome_rounded,
-                        iconColor: const Color(0xFF7C3AED),
+                        iconColor: AppColors.accentPurple,
                         prefKey: 'notif_monthly_ai',
                       ),
                       _NotificationToggle(

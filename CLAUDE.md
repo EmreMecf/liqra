@@ -562,6 +562,56 @@ slug'ı hem de eski kayıtlardaki Türkçe etiketleri tanır (migration gerekmez
 `SetOptions(merge: true)` kullanılmalı; merge'siz `set()` `role` ve `fcmToken`
 alanlarını sileceği için güvenlik kuralı isteği reddeder.
 
+## Tasarım Sistemi (ÖNEMLİ)
+
+Üç dosya tek kaynaktır. **Yeni kodda ham değer yazma** — ölçekten seç.
+
+| Dosya | Ne verir |
+|---|---|
+| `core/constants/app_colors.dart` | Renk token'ları |
+| `core/constants/app_typography.dart` | 16 kademeli tip ölçeği |
+| `core/constants/app_dimensions.dart` | `AppRadius`, `AppSpacing`, `AppBorder` |
+
+```dart
+color: AppColors.accentRed              // ✅
+color: const Color(0xFFFF4757)          // ❌ aynı renk, ikinci kaynak
+
+borderRadius: BorderRadius.circular(AppRadius.md)   // ✅
+borderRadius: BorderRadius.circular(15)             // ❌ ölçek dışı
+
+style: AppTypography.bodyM              // ✅
+style: GoogleFonts.outfit(fontSize: 14) // ❌ tip ölçeğini atlıyor
+```
+
+### Neden bu kadar katı
+
+Denetimde ölçülen tutarsızlık: **143 ham renk**, **18 farklı köşe yarıçapı**,
+**27 farklı font boyutu**. Ekranlar tek tek fena değildi ama birbirini
+tutmuyordu — yan yana duran iki kartın köşesi ve kenarlığı farklıydı. Göz
+bunu "bozuk" diye okur, nedenini söyleyemez.
+
+Aynı rengin iki kopyası dolaşıyordu: `#FF4757` ve `#FF6B7A` (kırmızı),
+`#E4B84A` ve `#D4A017` (altın). Tek renge indirildi.
+
+Marka paleti **teal + gold**. Asistanın moru (`accentPurple`) ve bilgi mavisi
+(`accentBlue`) token olarak tanımlıdır; bunların dışına çıkma.
+
+Banka marka renkleri (`BankNameExt.primaryColor`), grafik paleti
+(`AppColors.chartColors`) ve Google giriş düğmesi (`googleBlue`) bilinçli
+istisnalardır — token'a çekilmezler.
+
+### Tasarım önizleme
+
+Uygulama `google-services.json` olmadan derlenmiyor, bu yüzden bileşenleri
+görmek için Firebase'e hiç dokunmayan ayrı bir giriş var:
+
+```bash
+flutter run -d chrome -t lib/design_preview.dart
+```
+
+Bileşenler sahte veriyle yan yana dizilir; tutarsızlık saniyeler içinde
+görünür. Yeni bir paylaşılan bileşen eklerken galeriye de ekle.
+
 ## Localization & Formatting
 
 `formatters.dart` ile Türkçe para birimi (`289.847,50 TL`), yüzde (`+12,4%`), kompakt (`289,8B`).  

@@ -33,12 +33,12 @@ class _PortfolioDonutChartState extends State<PortfolioDonutChart> {
 
   // Varlık tipi renkler
   static const _typeColors = <String, Color>{
-    'altin':   Color(0xFFE4B84A), // Liqra gold
-    'fon':     Color(0xFF0AFFE0), // Liqra teal
-    'hisse':   Color(0xFF3B82F6), // blue
-    'crypto':  Color(0xFFFF4757), // red
-    'doviz':   Color(0xFFF7D470), // gold bright
-    'mevduat': Color(0xFF00C9B1), // teal 2
+    'altin':   AppColors.accentAmber, // Liqra gold
+    'fon':     AppColors.accentGreen, // Liqra teal
+    'hisse':   AppColors.accentBlue, // blue
+    'crypto':  AppColors.accentRed, // red
+    'doviz':   AppColors.goldBright, // gold bright
+    'mevduat': AppColors.accentTeal, // teal 2
   };
 
   static const _typeLabels = <String, String>{

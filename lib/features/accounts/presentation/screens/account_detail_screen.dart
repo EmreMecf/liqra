@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
@@ -62,11 +63,11 @@ class _BankAccountDetail extends StatelessWidget {
     final fmt = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2);
 
     return Scaffold(
-      backgroundColor: const Color(0xFF05080F),
+      backgroundColor: AppColors.bgPrimary,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: const Color(0xFF05080F),
+            backgroundColor: AppColors.bgPrimary,
             expandedHeight: 200,
             pinned: true,
             leading: IconButton(
@@ -81,7 +82,7 @@ class _BankAccountDetail extends StatelessWidget {
                     end: Alignment.bottomRight,
                     colors: [
                       bankColor.withValues(alpha: 0.25),
-                      const Color(0xFF05080F),
+                      AppColors.bgPrimary,
                     ],
                   ),
                 ),
@@ -151,11 +152,11 @@ class _CreditCardDetail extends StatelessWidget {
     final daysLeft = card.daysUntilDue;
 
     return Scaffold(
-      backgroundColor: const Color(0xFF05080F),
+      backgroundColor: AppColors.bgPrimary,
       body: CustomScrollView(
         slivers: [
           SliverAppBar(
-            backgroundColor: const Color(0xFF05080F),
+            backgroundColor: AppColors.bgPrimary,
             expandedHeight: 300,
             pinned: true,
             leading: IconButton(
@@ -168,7 +169,7 @@ class _CreditCardDetail extends StatelessWidget {
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [bankColor.withValues(alpha: 0.2), const Color(0xFF05080F)],
+                    colors: [bankColor.withValues(alpha: 0.2), AppColors.bgPrimary],
                   ),
                 ),
                 child: Column(
@@ -221,9 +222,9 @@ class _CreditCardDetail extends StatelessWidget {
                             : '$daysLeft gün kaldı',
                     value: 'Son Ödeme',
                     color: card.isOverdue
-                        ? const Color(0xFFFF4757)
+                        ? AppColors.accentRed
                         : card.isDueSoon
-                            ? const Color(0xFFE4B84A)
+                            ? AppColors.accentAmber
                             : Colors.white.withValues(alpha: 0.5),
                   ),
                 ],
@@ -276,7 +277,7 @@ class _CreditCardDetail extends StatelessWidget {
                 children: [
                   _DayBadge(label: 'Kesim Günü', day: card.statementClosingDay, color: bankColor),
                   const SizedBox(width: 8),
-                  _DayBadge(label: 'Son Ödeme Günü', day: card.paymentDueDay, color: const Color(0xFFE4B84A)),
+                  _DayBadge(label: 'Son Ödeme Günü', day: card.paymentDueDay, color: AppColors.accentAmber),
                 ],
               ),
             ),
@@ -325,7 +326,7 @@ class _CreditCardDetail extends StatelessWidget {
         children: [
           FloatingActionButton.extended(
             heroTag: 'pay_card',
-            backgroundColor: const Color(0xFF3B82F6),
+            backgroundColor: AppColors.accentBlue,
             foregroundColor: Colors.white,
             onPressed: () => _showCardPayment(context),
             icon: const Icon(Icons.payment_rounded, size: 18),
@@ -383,7 +384,7 @@ class _CreditCardDetail extends StatelessWidget {
         final bottom = MediaQuery.of(ctx).viewInsets.bottom;
         return Container(
           decoration: const BoxDecoration(
-            color: Color(0xFF0C1120),
+            color: AppColors.bgVoid,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + bottom),
@@ -424,7 +425,7 @@ class _CreditCardDetail extends StatelessWidget {
                   filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5)),
+                      borderSide: const BorderSide(color: AppColors.accentBlue, width: 1.5)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 ),
               ),
@@ -443,7 +444,7 @@ class _CreditCardDetail extends StatelessWidget {
                   filled: true, fillColor: Colors.white.withValues(alpha: 0.05),
                   border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(12),
-                      borderSide: const BorderSide(color: Color(0xFF3B82F6), width: 1.5)),
+                      borderSide: const BorderSide(color: AppColors.accentBlue, width: 1.5)),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
                 ),
               ),
@@ -633,7 +634,7 @@ class _DayBadge extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 12),
         decoration: BoxDecoration(
-          color: const Color(0xFF111827),
+          color: AppColors.bgSurface,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(color: Colors.white.withValues(alpha: 0.07)),
         ),
@@ -691,8 +692,8 @@ class _StatementSaveButtonState extends State<_StatementSaveButton> {
         child: Container(
           decoration: BoxDecoration(
             color: _saving
-                ? const Color(0xFF3B82F6).withValues(alpha: 0.5)
-                : const Color(0xFF3B82F6),
+                ? AppColors.accentBlue.withValues(alpha: 0.5)
+                : AppColors.accentBlue,
             borderRadius: BorderRadius.circular(12),
           ),
           child: Center(

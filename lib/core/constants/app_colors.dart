@@ -44,6 +44,17 @@ class AppColors {
   // ── Bilgi / Link ─────────────────────────────────────────────────────────
   static const Color accentBlue = Color(0xFF3B82F6);
 
+  // ── Asistan (Liqra) ───────────────────────────────────────────────────────
+  /// Liqra asistanının kimlik rengi. Kodda 13 yerde ham hex olarak
+  /// dolaşıyordu; marka paletinde tanımlı olmadığı için ekranlar arasında
+  /// tutarsız görünüyordu.
+  static const Color accentPurple = Color(0xFF7C3AED);
+  static const Color purpleBg     = Color(0x1A7C3AED); // %10 alpha
+
+  // ── Dış marka renkleri ────────────────────────────────────────────────────
+  /// Google giriş düğmesi — Google'ın kendi marka rengi, değiştirilmemeli.
+  static const Color googleBlue = Color(0xFF4285F4);
+
   // ── Metin ────────────────────────────────────────────────────────────────
   /// Birincil metin
   static const Color textPrimary   = Color(0xFFD6DCF0); // text

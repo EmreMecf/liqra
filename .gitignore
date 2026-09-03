@@ -88,3 +88,6 @@ key.properties
 # Yerel artıklar
 /json
 /Kullanıcıları
+
+# Tasarım önizleme sunucusu logu
+preview.log

@@ -700,7 +700,7 @@ class _GoogleIconPainter extends CustomPainter {
     final r = size.width / 2;
 
     final segments = [
-      (const Color(0xFF4285F4), -0.1, 0.5),
+      (AppColors.googleBlue, -0.1, 0.5),
       (const Color(0xFFEA4335), 0.4, 0.5),
       (const Color(0xFFFBBC05), 0.9, 0.5),
       (const Color(0xFF34A853), 1.4, 0.5),
@@ -726,12 +726,12 @@ class _GoogleIconPainter extends CustomPainter {
     // Blue right bar
     canvas.drawRect(
       Rect.fromLTWH(cx, cy - r * 0.28, r * 0.9, r * 0.56),
-      Paint()..color = const Color(0xFF4285F4),
+      Paint()..color = AppColors.googleBlue,
     );
     canvas.drawCircle(
       Offset(cx + r * 0.46, cy),
       r * 0.28,
-      Paint()..color = const Color(0xFF4285F4),
+      Paint()..color = AppColors.googleBlue,
     );
   }
 

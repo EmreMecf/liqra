@@ -85,14 +85,14 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         width: 40, height: 40,
                         decoration: BoxDecoration(
                           gradient: const LinearGradient(
-                            colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                            colors: [AppColors.accentPurple, AppColors.accentBlue],
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                           ),
                           shape: BoxShape.circle,
                           boxShadow: [
                             BoxShadow(
-                              color: const Color(0xFF7C3AED).withAlpha(80),
+                              color: AppColors.accentPurple.withAlpha(80),
                               blurRadius: 14,
                               spreadRadius: 1,
                             )
@@ -162,7 +162,7 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                           padding: const EdgeInsets.all(9),
                           decoration: BoxDecoration(
                             color: AppColors.bgTertiary,
-                            borderRadius: BorderRadius.circular(11),
+                            borderRadius: BorderRadius.circular(12),
                             border: Border.all(color: AppColors.borderSubtle),
                           ),
                           child: const Icon(Icons.restart_alt_rounded,
@@ -385,19 +385,19 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
             width: 72, height: 72,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                colors: [AppColors.accentPurple, AppColors.accentBlue],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF7C3AED).withAlpha(80),
+                  color: AppColors.accentPurple.withAlpha(80),
                   blurRadius: 20,
                   spreadRadius: 2,
                 ),
                 BoxShadow(
-                  color: const Color(0xFF3B82F6).withAlpha(40),
+                  color: AppColors.accentBlue.withAlpha(40),
                   blurRadius: 36,
                   spreadRadius: 4,
                 ),
@@ -442,11 +442,11 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                   Container(
                     width: 28, height: 28,
                     decoration: BoxDecoration(
-                      color: const Color(0xFF7C3AED).withAlpha(25),
+                      color: AppColors.accentPurple.withAlpha(25),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: const Icon(Icons.keyboard_arrow_right_rounded,
-                        color: Color(0xFF7C3AED), size: 18),
+                        color: AppColors.accentPurple, size: 18),
                   ),
                   const SizedBox(width: 10),
                   Expanded(child: Text(s, style: AppTypography.bodyM.copyWith(
@@ -523,14 +523,14 @@ class _MessageBubble extends StatelessWidget {
               width: 32, height: 32,
               decoration: BoxDecoration(
                 gradient: const LinearGradient(
-                  colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                  colors: [AppColors.accentPurple, AppColors.accentBlue],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
                 shape: BoxShape.circle,
                 boxShadow: [
                   BoxShadow(
-                    color: const Color(0xFF7C3AED).withAlpha(60),
+                    color: AppColors.accentPurple.withAlpha(60),
                     blurRadius: 8,
                     spreadRadius: 1,
                   ),
@@ -671,14 +671,14 @@ class _TypingIndicatorState extends State<_TypingIndicator>
             width: 32, height: 32,
             decoration: BoxDecoration(
               gradient: const LinearGradient(
-                colors: [Color(0xFF7C3AED), Color(0xFF3B82F6)],
+                colors: [AppColors.accentPurple, AppColors.accentBlue],
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
               ),
               shape: BoxShape.circle,
               boxShadow: [
                 BoxShadow(
-                  color: const Color(0xFF7C3AED).withAlpha(60),
+                  color: AppColors.accentPurple.withAlpha(60),
                   blurRadius: 8,
                   spreadRadius: 1,
                 ),

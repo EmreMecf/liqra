@@ -441,7 +441,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
                         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                         decoration: BoxDecoration(
                           color: sel ? AppColors.accentGreen.withValues(alpha: 0.15) : AppColors.bgTertiary,
-                          borderRadius: BorderRadius.circular(22),
+                          borderRadius: BorderRadius.circular(20),
                           border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
                         ),
                         child: Row(
@@ -975,7 +975,7 @@ class _AddAssetSheetState extends State<AddAssetSheet> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
             decoration: BoxDecoration(
               color: sel ? AppColors.accentGreen.withValues(alpha: 0.15) : AppColors.bgTertiary,
-              borderRadius: BorderRadius.circular(18),
+              borderRadius: BorderRadius.circular(16),
               border: Border.all(color: sel ? AppColors.accentGreen : AppColors.borderSubtle),
             ),
             child: Text(s.$1, style: AppTypography.labelS.copyWith(

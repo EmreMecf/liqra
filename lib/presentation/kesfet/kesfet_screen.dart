@@ -71,7 +71,7 @@ class _KesfetScreenState extends State<KesfetScreen>
                               AppColors.accentGreen.withAlpha(18),
                             ],
                           ),
-                          borderRadius: BorderRadius.circular(11),
+                          borderRadius: BorderRadius.circular(12),
                           border: Border.all(
                               color: AppColors.accentGreen.withAlpha(120)),
                         ),

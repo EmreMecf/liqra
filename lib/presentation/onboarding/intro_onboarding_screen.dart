@@ -600,7 +600,7 @@ class _DonutPainter extends CustomPainter {
       (AppColors.accentGold, 0.30),
       (AppColors.accentGreen, 0.25),
       (AppColors.accentRed, 0.20),
-      (const Color(0xFF3B82F6), 0.15),
+      (AppColors.accentBlue, 0.15),
       (AppColors.textDisabled, 0.10),
     ];
 

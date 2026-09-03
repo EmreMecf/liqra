@@ -151,7 +151,7 @@ class _SavingsPlanSheetState extends State<_SavingsPlanSheet> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0C1120),
+        color: AppColors.bgVoid,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(20, 0, 20, 24 + bottom),
@@ -239,12 +239,12 @@ class _SavingsPlanSheetState extends State<_SavingsPlanSheet> {
             Row(
               children: [
                 const Icon(Icons.error_outline_rounded,
-                    size: 14, color: Color(0xFFFF6B7A)),
+                    size: 14, color: AppColors.accentRed),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(error,
                       style: GoogleFonts.outfit(
-                          fontSize: 12, color: const Color(0xFFFF6B7A))),
+                          fontSize: 12, color: AppColors.accentRed)),
                 ),
               ],
             ),
@@ -269,13 +269,13 @@ class _SavingsPlanSheetState extends State<_SavingsPlanSheet> {
                           width: 20,
                           height: 20,
                           child: CircularProgressIndicator(
-                              strokeWidth: 2, color: Color(0xFF05080F)),
+                              strokeWidth: 2, color: AppColors.bgPrimary),
                         )
                       : Text('Planı Oluştur',
                           style: GoogleFonts.outfit(
                             fontSize: 15,
                             fontWeight: FontWeight.w700,
-                            color: const Color(0xFF05080F),
+                            color: AppColors.bgPrimary,
                           )),
                 ),
               ),

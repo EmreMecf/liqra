@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../core/constants/app_colors.dart';
 import '../widgets/liqra_logo.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -26,7 +27,7 @@ class _SplashScreenState extends State<SplashScreen> {
           gradient: RadialGradient(
             center: Alignment(-0.2, -0.4),
             radius: 0.9,
-            colors: [Color(0xFF0C1E30), Color(0xFF05080F)],
+            colors: [Color(0xFF0C1E30), AppColors.bgPrimary],
           ),
         ),
         child: const Center(

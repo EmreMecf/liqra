@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:intl/intl.dart';
 
@@ -14,7 +15,7 @@ class AccountTransactionTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isIncome = tx.isIncome;
-    final color = isIncome ? const Color(0xFF00C896) : const Color(0xFFFF4757);
+    final color = isIncome ? const Color(0xFF00C896) : AppColors.accentRed;
     final fmt = NumberFormat.currency(locale: 'tr_TR', symbol: '₺', decimalDigits: 2);
     // DateFormat('...', 'tr_TR') initializeDateFormatting gerektirir ve
     // LocaleDataException atar — Formatters'ın manuel ay isimleri kullanılıyor.
@@ -23,7 +24,7 @@ class AccountTransactionTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: const Color(0xFF111827),
+        color: AppColors.bgSurface,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(color: Colors.white.withValues(alpha: 0.05)),
       ),
@@ -71,16 +72,16 @@ class AccountTransactionTile extends StatelessWidget {
                         margin: const EdgeInsets.only(left: 6),
                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE4B84A).withValues(alpha: 0.12),
+                          color: AppColors.accentAmber.withValues(alpha: 0.12),
                           borderRadius: BorderRadius.circular(6),
                           border: Border.all(
-                              color: const Color(0xFFE4B84A).withValues(alpha: 0.3)),
+                              color: AppColors.accentAmber.withValues(alpha: 0.3)),
                         ),
                         child: Text(
                           '${tx.installmentNumber}/${tx.installmentCount}',
                           style: GoogleFonts.dmMono(
                             fontSize: 9,
-                            color: const Color(0xFFE4B84A),
+                            color: AppColors.accentAmber,
                           ),
                         ),
                       ),

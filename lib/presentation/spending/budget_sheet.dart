@@ -60,7 +60,7 @@ class _BudgetSheetState extends State<_BudgetSheet> {
       expand: false,
       builder: (ctx, scrollController) => Container(
         decoration: const BoxDecoration(
-          color: Color(0xFF0C1120),
+          color: AppColors.bgVoid,
           borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Column(
@@ -268,17 +268,17 @@ class _BudgetRowState extends State<_BudgetRow> {
                     contentPadding: const EdgeInsets.symmetric(
                         horizontal: 10, vertical: 9),
                     border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
                           color: Colors.white.withValues(alpha: 0.1)),
                     ),
                     enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(8),
                       borderSide: BorderSide(
                           color: Colors.white.withValues(alpha: 0.1)),
                     ),
                     focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(8),
                       borderSide: const BorderSide(
                           color: AppColors.accentGreen, width: 1.5),
                     ),

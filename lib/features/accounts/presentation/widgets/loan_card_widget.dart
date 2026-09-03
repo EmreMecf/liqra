@@ -330,7 +330,7 @@ class _LoanPaymentSheetState extends State<_LoanPaymentSheet> {
 
     return Container(
       decoration: const BoxDecoration(
-        color: Color(0xFF0C1120),
+        color: AppColors.bgVoid,
         borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
       ),
       padding: EdgeInsets.fromLTRB(24, 0, 24, 24 + bottom),
@@ -492,7 +492,7 @@ class _LoanPaymentSheetState extends State<_LoanPaymentSheet> {
                 backgroundColor: _loading
                     ? AppColors.accentGreen.withValues(alpha: 0.5)
                     : AppColors.accentGreen,
-                foregroundColor: const Color(0xFF05080F),
+                foregroundColor: AppColors.bgPrimary,
                 elevation: 0,
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(14)),
@@ -504,7 +504,7 @@ class _LoanPaymentSheetState extends State<_LoanPaymentSheet> {
                       height: 20,
                       child: CircularProgressIndicator(
                           strokeWidth: 2,
-                          color: Color(0xFF05080F)),
+                          color: AppColors.bgPrimary),
                     )
                   : Text(
                       'Onayla',

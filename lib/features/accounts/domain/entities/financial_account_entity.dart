@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../../../../core/constants/app_colors.dart';
 import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../billing_cycle.dart';
@@ -135,7 +136,7 @@ extension BankNameExt on BankName {
       case BankName.ing:
         return const Color(0xFFFF6200);
       case BankName.other:
-        return const Color(0xFF4A5570);
+        return AppColors.textDisabled;
     }
   }
 }

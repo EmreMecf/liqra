@@ -234,7 +234,7 @@ class _MainScaffoldState extends State<MainScaffold>
               begin: Alignment.topLeft,
               end: Alignment.bottomRight,
               colors: _fabOpen
-                  ? [AppColors.accentRed, const Color(0xFFFF6B6B)]
+                  ? [AppColors.accentRed, AppColors.accentRed]
                   : [AppColors.accentGreen, const Color(0xFF00B896)],
             ),
             boxShadow: [
@@ -593,7 +593,7 @@ class _NavItem extends StatelessWidget {
                     color: isActive
                         ? AppColors.accentGreen.withAlpha(28)
                         : Colors.transparent,
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(16),
                     boxShadow: isActive
                         ? [
                             BoxShadow(

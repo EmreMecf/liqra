@@ -97,7 +97,7 @@ class _SpendingScreenState extends State<SpendingScreen>
               padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(13),
+                borderRadius: BorderRadius.circular(12),
                 border: Border.all(color: AppColors.borderSubtle, width: 0.5),
               ),
               child: TabBar(
@@ -108,7 +108,7 @@ class _SpendingScreenState extends State<SpendingScreen>
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(8),
                   border: Border.all(
                     color: AppColors.accentGreen.withAlpha(50),
                     width: 0.5,
@@ -965,7 +965,7 @@ class _AddTabState extends State<_AddTab> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       color: _isManual ? AppColors.bgTertiary : Colors.transparent,
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -986,7 +986,7 @@ class _AddTabState extends State<_AddTab> {
                     padding: const EdgeInsets.symmetric(vertical: 10),
                     decoration: BoxDecoration(
                       color: !_isManual ? AppColors.bgTertiary : Colors.transparent,
-                      borderRadius: BorderRadius.circular(9),
+                      borderRadius: BorderRadius.circular(8),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.center,
@@ -1131,7 +1131,7 @@ class _AddTabState extends State<_AddTab> {
               padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
               decoration: BoxDecoration(
                 color: AppColors.bgSecondary,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(16),
                 border: Border.all(
                   color: AppColors.accentBlue.withAlpha(80),
                   width: 1,

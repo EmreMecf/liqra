@@ -375,7 +375,7 @@ class _CampaignCard extends StatelessWidget {
                             decoration: BoxDecoration(
                               color: AppColors.accentAmber
                                   .withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(5),
+                              borderRadius: BorderRadius.circular(4),
                               border: Border.all(
                                   color: AppColors.accentAmber
                                       .withValues(alpha: 0.3)),
