@@ -137,9 +137,16 @@ workflows:
       cocoapods: default
       groups:
         - firebase          # GOOGLE_SERVICE_INFO_PLIST
+      # Elle imzalama. Otomatik imzalama (distribution_type + bundle_identifier)
+      # denendi ancak Codemagic hesapta sertifika üretemedi ve her derleme
+      # "No matching profiles found" ile durdu. Sertifika ve profil Apple
+      # portalında elle oluşturulup Codemagic > Code signing identities
+      # altına yüklendi; aşağıdaki adlar oradaki referans adlarıdır.
       ios_signing:
-        distribution_type: app_store
-        bundle_identifier: com.emrec.muhasebe
+        certificates:
+          - liqra_distribution
+        provisioning_profiles:
+          - liqra_app_store
 
     <<: *cache_config
 
