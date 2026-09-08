@@ -2,10 +2,14 @@
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-	<!-- Push bildirimleri (FCM). Release derlemesinde "production" olmalı;
-	     Xcode otomatik yönetiyorsa bu anahtar kaldırılabilir. -->
+	<!-- Push bildirimleri (FCM).
+	     "production" — tüm iOS derlemeleri Codemagic'ten app_store imzasıyla
+	     çıkıyor. "development" bırakılırsa TestFlight ve App Store yapılarında
+	     APNs sandbox ortamı kullanılır ve bildirimler ulaşmaz.
+	     Yerel Xcode debug derlemesi yapılacaksa geçici olarak "development"
+	     yapılmalı, aksi hâlde profil uyuşmazlığı hatası verir. -->
 	<key>aps-environment</key>
-	<string>development</string>
+	<string>production</string>
 
 	<!-- Apple ile Giriş — AuthService.signInWithApple() bunu kullanıyor.
 	     Bu yetki olmadan giriş çalışmaz.

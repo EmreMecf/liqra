@@ -1,3 +1,4 @@
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:google_fonts/google_fonts.dart';
@@ -5,6 +6,7 @@ import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/constants/app_typography.dart';
+import '../../core/services/account_deletion_service.dart';
 import '../../core/utils/formatters.dart';
 import '../../data/models/goal_model.dart';
 import '../../data/models/user_model.dart';
@@ -373,11 +375,8 @@ class ProfileScreen extends StatelessWidget {
                         label: 'Hesabı Sil',
                         subtitle: 'Kalıcı — tüm veriler silinir',
                         textColor: AppColors.accentRed,
-                        onTap: () => Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                              builder: (_) => const KvkkScreen()),
-                        ),
+                        onTap: () =>
+                            _showDeleteAccountDialog(context, provider),
                       ),
                     ],
                   ),
@@ -506,6 +505,196 @@ class ProfileScreen extends StatelessWidget {
             )),
           ),
         ],
+      ),
+    );
+  }
+
+  // ── Hesap silme (KVKK + App Store yönergesi 5.1.1(v)) ──────────────────────
+  // Apple, hesap açmaya izin veren uygulamanın hesap silmeyi de sunmasını
+  // zorunlu tutar ve inceleme sırasında bizzat dener.
+
+  void _showDeleteAccountDialog(BuildContext context, AppProvider provider) {
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppColors.bgSecondary,
+        title: Text('Hesabı Sil', style: AppTypography.headlineS),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'Bu işlem geri alınamaz. Kalıcı olarak silinecekler:',
+              style: AppTypography.bodyM,
+            ),
+            const SizedBox(height: 12),
+            ...[
+              'Tüm işlem ve harcama geçmişiniz',
+              'Banka hesapları, kredi kartları ve krediler',
+              'Portföy, hedefler ve abonelikler',
+              'Hesabınız ve giriş bilgileriniz',
+            ].map((t) => Padding(
+                  padding: const EdgeInsets.only(bottom: 6),
+                  child: Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('•  ',
+                          style: TextStyle(color: AppColors.accentRed)),
+                      Expanded(
+                        child: Text(t,
+                            style: AppTypography.bodyS
+                                .copyWith(color: AppColors.textSecondary)),
+                      ),
+                    ],
+                  ),
+                )),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: Text('İptal',
+                style: AppTypography.bodyM
+                    .copyWith(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogCtx);
+              _runAccountDeletion(context, provider);
+            },
+            child: Text('Kalıcı Olarak Sil',
+                style: AppTypography.bodyM.copyWith(
+                  color: AppColors.accentRed,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _runAccountDeletion(
+      BuildContext context, AppProvider provider) async {
+    // Silme, alt koleksiyonları batch'ler hâlinde dolaştığı için sürebilir.
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (_) => const AlertDialog(
+        backgroundColor: AppColors.bgSecondary,
+        content: Row(
+          children: [
+            SizedBox(
+              width: 22,
+              height: 22,
+              child: CircularProgressIndicator(
+                  strokeWidth: 2.5, color: AppColors.accentRed),
+            ),
+            SizedBox(width: 16),
+            Text('Hesabınız siliniyor…'),
+          ],
+        ),
+      ),
+    );
+
+    final result = await AccountDeletionService.instance.deleteAccount();
+    if (!context.mounted) return;
+    Navigator.pop(context); // ilerleme penceresini kapat
+
+    if (result.succeeded) {
+      // Auth akışı null'a düşünce main.dart AuthScreen'e yönlendirir.
+      try {
+        await provider.signOut();
+      } catch (_) {
+        // Kullanıcı zaten silindi; yerel durumu temizleyememek akışı bozmaz.
+      }
+      return;
+    }
+
+    if (result.requiresReauth) {
+      _handleReauth(context, provider);
+      return;
+    }
+
+    _snack(context, result.errorMessage ?? 'Hesap silinemedi.');
+  }
+
+  /// Firebase, uzun süredir açık oturumlarda silmeden önce yeniden giriş ister.
+  void _handleReauth(BuildContext context, AppProvider provider) {
+    final hasPassword = FirebaseAuth.instance.currentUser?.providerData
+            .any((p) => p.providerId == 'password') ??
+        false;
+
+    // Google/Apple ile girenlerde şifre yok — çıkıp yeniden girmeleri gerekir.
+    if (!hasPassword) {
+      _snack(
+        context,
+        'Güvenlik için çıkış yapıp yeniden giriş yapın, ardından silme '
+        'işlemini tekrarlayın.',
+      );
+      return;
+    }
+
+    final passCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (dialogCtx) => AlertDialog(
+        backgroundColor: AppColors.bgSecondary,
+        title: Text('Şifrenizi Doğrulayın', style: AppTypography.headlineS),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(
+              'Güvenliğiniz için hesabınızı silmeden önce şifrenizi girin.',
+              style: AppTypography.bodyS
+                  .copyWith(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: passCtrl,
+              obscureText: true,
+              autofocus: true,
+              style: AppTypography.bodyM,
+              decoration: const InputDecoration(labelText: 'Şifre'),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogCtx),
+            child: Text('İptal',
+                style: AppTypography.bodyM
+                    .copyWith(color: AppColors.textSecondary)),
+          ),
+          TextButton(
+            onPressed: () async {
+              final password = passCtrl.text;
+              Navigator.pop(dialogCtx);
+              final ok = await AccountDeletionService.instance
+                  .reauthenticateWithPassword(password);
+              if (!context.mounted) return;
+              if (!ok) {
+                _snack(context, 'Şifre doğrulanamadı.');
+                return;
+              }
+              await _runAccountDeletion(context, provider);
+            },
+            child: Text('Doğrula ve Sil',
+                style: AppTypography.bodyM.copyWith(
+                  color: AppColors.accentRed,
+                  fontWeight: FontWeight.w700,
+                )),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _snack(BuildContext context, String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.accentRed,
+        behavior: SnackBarBehavior.floating,
       ),
     );
   }

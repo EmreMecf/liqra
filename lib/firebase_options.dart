@@ -26,10 +26,7 @@ class DefaultFirebaseOptions {
       case TargetPlatform.android:
         return android;
       case TargetPlatform.iOS:
-        throw UnsupportedError(
-          'DefaultFirebaseOptions have not been configured for ios - '
-          'you can reconfigure this by running the FlutterFire CLI again.',
-        );
+        return ios;
       case TargetPlatform.macOS:
         throw UnsupportedError(
           'DefaultFirebaseOptions have not been configured for macos - '
@@ -58,5 +55,18 @@ class DefaultFirebaseOptions {
     messagingSenderId: '646938337554',
     projectId: 'finansasistaniapp',
     storageBucket: 'finansasistaniapp.firebasestorage.app',
+  );
+
+  // ios/Runner/GoogleService-Info.plist ile birebir aynı olmalı.
+  // Plist yeniden indirilirse bu blok da güncellenmeli.
+  static const FirebaseOptions ios = FirebaseOptions(
+    apiKey: 'AIzaSyCSx0zaMJj-6tbKO_CKYYqaCXnyiCGnu8k',
+    appId: '1:646938337554:ios:c9c378faf4827cc4fc13cb',
+    messagingSenderId: '646938337554',
+    projectId: 'finansasistaniapp',
+    storageBucket: 'finansasistaniapp.firebasestorage.app',
+    iosBundleId: 'com.emrec.muhasebe',
+    iosClientId:
+        '646938337554-iom3uueoll8h7i6hrrlrvv8e8etvguvl.apps.googleusercontent.com',
   );
 }
