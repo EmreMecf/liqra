@@ -16,10 +16,14 @@
 definitions:
   flutter_version: &flutter_version 3.44.6
 
-  cache_paths: &cache_paths
-    cache_paths:
-      - $HOME/.pub-cache
-      - $FLUTTER_ROOT/.pub-cache
+  # Codemagic önbellek yolunu "cache:" bloğunun içinde bekler. Doğrudan
+  # workflow altına "cache_paths" konursa yapılandırma doğrulaması
+  # "extra fields not permitted" hatasıyla reddeder.
+  cache_config: &cache_config
+    cache:
+      cache_paths:
+        - $HOME/.pub-cache
+        - $FLUTTER_ROOT/.pub-cache
 
   # Her derlemeden önce çalışan ortak adımlar
   prepare_android: &prepare_android
@@ -82,7 +86,7 @@ workflows:
       vars:
         PACKAGE_NAME: com.emrec.muhasebe
 
-    <<: *cache_paths
+    <<: *cache_config
 
     scripts:
       - *prepare_android
@@ -137,7 +141,7 @@ workflows:
         distribution_type: app_store
         bundle_identifier: com.emrec.muhasebe
 
-    <<: *cache_paths
+    <<: *cache_config
 
     scripts:
       - *prepare_ios
@@ -197,7 +201,7 @@ workflows:
     environment:
       flutter: *flutter_version
 
-    <<: *cache_paths
+    <<: *cache_config
 
     triggering:
       events:
