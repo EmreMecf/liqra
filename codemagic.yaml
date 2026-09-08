@@ -147,7 +147,19 @@ workflows:
           find . -name "Podfile" -execdir pod install \;
       - name: Sürüm numarasını TestFlight'taki son yapıdan bir artır
         script: |
-          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID" 2>/dev/null || echo 0)
+          # APP_STORE_APPLE_ID: App Store Connect'teki sayisal uygulama
+          # kimligi (Uygulama Bilgileri > Genel > Apple ID).
+          # Tanimsiz birakilirsa komut bos argumanla calisip hata verir,
+          # build number her derlemede 1 olur ve ikinci yukleme
+          # "bundle version must be higher" ile reddedilir. Sessizce
+          # ilerlemek yerine burada durduruyoruz.
+          if [ -z "$APP_STORE_APPLE_ID" ]; then
+            echo "HATA: APP_STORE_APPLE_ID ortam degiskeni tanimli degil."
+            echo "Codemagic > Environment variables icine uygulamanin"
+            echo "App Store Connect sayisal Apple ID degerini ekleyin."
+            exit 1
+          fi
+          LATEST=$(app-store-connect get-latest-testflight-build-number "$APP_STORE_APPLE_ID")
           echo "TestFlight'taki son build number: $LATEST"
           echo "BUILD_NUMBER=$(($LATEST + 1))" >> $CM_ENV
       - name: IPA derle

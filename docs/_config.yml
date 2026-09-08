@@ -1,0 +1,11 @@
+# GitHub Pages (Jekyll) yapılandırması
+#
+# Bu klasör herkese açık yayınlanır. Amaç yalnızca mağazaların zorunlu
+# tuttuğu gizlilik politikasını bir URL'de sunmak.
+
+title: Liqra
+description: Kişisel finans ve yatırım asistanı
+
+# Dahili notlar siteye çıkmasın — depoda kalır ama yayınlanmaz.
+exclude:
+  - yayin-kontrol-listesi.md

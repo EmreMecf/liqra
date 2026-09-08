@@ -1,3 +1,8 @@
+---
+title: Liqra — Gizlilik Politikası
+description: Liqra mobil uygulamasının kişisel veri işleme esasları ve KVKK aydınlatma metni.
+---
+
 # Liqra — Gizlilik Politikası
 
 **Son güncelleme:** 3 Eylül 2026
