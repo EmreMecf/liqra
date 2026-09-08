@@ -6,6 +6,9 @@
 title: Liqra
 description: Kişisel finans ve yatırım asistanı
 
+# İçerik Türkçe — varsayılan en-US bırakılırsa <html lang> yanlış olur.
+lang: tr-TR
+
 # Dahili notlar siteye çıkmasın — depoda kalır ama yayınlanmaz.
 exclude:
   - yayin-kontrol-listesi.md
