@@ -34,8 +34,15 @@ definitions:
         echo "Codemagic > Environment variables icine base64 olarak ekleyin."
         exit 1
       fi
-      echo "$GOOGLE_SERVICES_JSON" | base64 --decode > android/app/google-services.json
-      echo "google-services.json yazildi."
+      echo "$GOOGLE_SERVICES_JSON" | tr -d '[:space:]' | base64 --decode \
+        > android/app/google-services.json 2>/dev/null
+
+      if [ ! -s android/app/google-services.json ]; then
+        echo "HATA: GOOGLE_SERVICES_JSON base64 olarak cozulemedi."
+        echo "Degisken uzunlugu: ${#GOOGLE_SERVICES_JSON} karakter (beklenen: 4096)"
+        exit 1
+      fi
+      echo "google-services.json yazildi ($(wc -c < android/app/google-services.json) bayt)."
 
   prepare_ios: &prepare_ios
     name: Firebase yapılandırmasını yaz (iOS)
@@ -44,15 +51,27 @@ definitions:
         echo "HATA: GOOGLE_SERVICE_INFO_PLIST ortam degiskeni tanimli degil."
         exit 1
       fi
-      echo "$GOOGLE_SERVICE_INFO_PLIST" | base64 --decode > ios/Runner/GoogleService-Info.plist
-      echo "GoogleService-Info.plist yazildi."
+      # tr -d: panodan yapistirilirken araya giren satir sonu ve bosluklar
+      # base64 cozumunu bozar; once temizliyoruz.
+      echo "$GOOGLE_SERVICE_INFO_PLIST" | tr -d '[:space:]' | base64 --decode \
+        > ios/Runner/GoogleService-Info.plist 2>/dev/null
+
+      # Cozum basarisiz olsa bile onceki surumde "yazildi" yazip devam
+      # ediliyordu; asil hata iki adim sonra ortaya cikiyordu. Burada duruyoruz.
+      if [ ! -s ios/Runner/GoogleService-Info.plist ]; then
+        echo "HATA: GOOGLE_SERVICE_INFO_PLIST base64 olarak cozulemedi."
+        echo "Degisken uzunlugu: ${#GOOGLE_SERVICE_INFO_PLIST} karakter (beklenen: 1656)"
+        echo "Deger kirpilmis ya da base64 disi karakter icermis olabilir."
+        exit 1
+      fi
+      echo "GoogleService-Info.plist yazildi ($(wc -c < ios/Runner/GoogleService-Info.plist) bayt)."
 
       # Google girisi icin URL semasi: REVERSED_CLIENT_ID plist'ten okunup
       # Info.plist'teki yer tutucunun yerine yazilir. Elle senkron tutmak
       # yerine her derlemede otomatik alinir.
-      REVERSED=$(plutil -extract REVERSED_CLIENT_ID raw ios/Runner/GoogleService-Info.plist)
+      REVERSED=$(plutil -extract REVERSED_CLIENT_ID raw ios/Runner/GoogleService-Info.plist 2>/dev/null)
       if [ -z "$REVERSED" ]; then
-        echo "HATA: REVERSED_CLIENT_ID okunamadi."
+        echo "HATA: REVERSED_CLIENT_ID okunamadi - plist bozuk."
         exit 1
       fi
       sed -i '' "s|REVERSED_CLIENT_ID_YER_TUTUCU|$REVERSED|g" ios/Runner/Info.plist
