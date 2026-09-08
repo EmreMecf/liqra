@@ -175,6 +175,15 @@ workflows:
       - name: CocoaPods bağımlılıkları
         script: |
           find . -name "Podfile" -execdir pod install \;
+      - name: İmzalama profilini Xcode projesine uygula
+        script: |
+          # Yuklenen provisioning profile'i Xcode projesine baglar ve
+          # /Users/builder/export_options.plist dosyasini uretir.
+          # Otomatik imzalamada Codemagic bunu kendisi yapiyordu; elle
+          # imzalamaya gecince adim acikta kaldi ve "IPA derle" asamasi
+          # "export_options.plist property list does not exist" ile dustu.
+          # Pod kurulumundan SONRA calismali, workspace'i de duzenliyor.
+          xcode-project use-profiles
       - name: Sürüm numarasını TestFlight'taki son yapıdan bir artır
         script: |
           # APP_STORE_APPLE_ID: App Store Connect'teki sayisal uygulama
