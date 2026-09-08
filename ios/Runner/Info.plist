@@ -44,6 +44,14 @@
 		<key>NSFaceIDUsageDescription</key>
 		<string>Uygulamayı biyometrik kilitle açabilmeniz için Face ID kullanılır.</string>
 
+		<!-- Liqra konum bilgisi toplamaz ve kullanıcıdan konum izni istemez.
+		     Bu anahtar yalnızca Apple'ın yükleme doğrulaması (uyarı 90683)
+		     için var: bağlı SDK'lardan biri konum API'lerine referans
+		     verdiğinden, kullanılmasa bile amaç metni zorunlu tutuluyor.
+		     Konum istenmediği için kullanıcı bu metni hiçbir zaman görmez. -->
+		<key>NSLocationWhenInUseUsageDescription</key>
+		<string>Liqra konumunuzu kullanmaz. Bu izin yalnızca uygulamanın kullandığı bir kütüphanenin gereksinimi nedeniyle tanımlıdır ve sizden konum bilgisi istenmez.</string>
+
 		<!-- ── Arka plan ────────────────────────────────────────────────────
 		     FCM bildirimlerinin uygulama kapalıyken de gelmesi için gerekli. -->
 		<key>UIBackgroundModes</key>
