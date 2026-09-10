@@ -61,11 +61,22 @@
 		</array>
 
 		<!-- ── Google ile giriş ─────────────────────────────────────────────
-		     GoogleService-Info.plist içindeki REVERSED_CLIENT_ID buraya
-		     yazılmalı (com.googleusercontent.apps.XXXX-YYYY biçiminde).
-		     Bu değer olmadan Google girişi tarayıcıdan geri dönemez ve
-		     kullanıcı beyaz ekranda kalır.
-		     Dosya indirildikten sonra aşağıdaki YER_TUTUCU değiştirilecek. -->
+		     GoogleService-Info.plist UYGULAMA PAKETİNE DAHİL DEĞİL: dosya
+		     Xcode projesine kayıtlı olmadığı için derlemede paketlenmiyor.
+		     Firebase bundan etkilenmiyor (yapılandırmayı firebase_options.dart
+		     içinden alıyor) ama google_sign_in istemci kimliğini plist'ten
+		     okumaya çalışıyor; bulamayınca butona basıldığı anda uygulama
+		     ÇÖKÜYORDU.
+
+		     Çözüm: kimlik doğrudan Info.plist'e yazılıyor. Her iki değer de
+		     derleme sırasında GoogleService-Info.plist'ten okunup yerine
+		     konuyor (codemagic.yaml → prepare_ios), böylece Firebase
+		     yapılandırması yenilendiğinde elle senkron tutmak gerekmiyor. -->
+		<key>GIDClientID</key>
+		<string>GID_CLIENT_ID_YER_TUTUCU</string>
+
+		<!-- Tarayıcıdan uygulamaya dönüş için URL şeması. Bu değer olmadan
+		     Google girişi geri dönemez, kullanıcı beyaz ekranda kalır. -->
 		<key>CFBundleURLTypes</key>
 		<array>
 			<dict>

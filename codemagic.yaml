@@ -77,6 +77,27 @@ definitions:
       sed -i '' "s|REVERSED_CLIENT_ID_YER_TUTUCU|$REVERSED|g" ios/Runner/Info.plist
       echo "URL semasi ayarlandi: $REVERSED"
 
+      # GIDClientID: google_sign_in bu kimligi calisma aninda ariyor.
+      # GoogleService-Info.plist uygulama paketine DAHIL DEGIL (dosya Xcode
+      # projesine kayitli degil), o yuzden paket icinden okuyamiyor ve
+      # kimlik yoksa butona basildigi anda uygulama cokuyor. Degeri
+      # Info.plist'e yaziyoruz.
+      CLIENT_ID=$(plutil -extract CLIENT_ID raw ios/Runner/GoogleService-Info.plist 2>/dev/null)
+      if [ -z "$CLIENT_ID" ]; then
+        echo "HATA: CLIENT_ID okunamadi - plist bozuk."
+        exit 1
+      fi
+      sed -i '' "s|GID_CLIENT_ID_YER_TUTUCU|$CLIENT_ID|g" ios/Runner/Info.plist
+      echo "GIDClientID ayarlandi: $CLIENT_ID"
+
+      # Yer tutucu kaldiysa sed eslesmemis demektir; sessizce bozuk bir
+      # yapiyla devam etmek yerine burada duruyoruz.
+      if grep -q "_YER_TUTUCU" ios/Runner/Info.plist; then
+        echo "HATA: Info.plist icinde doldurulmamis yer tutucu kaldi:"
+        grep -n "_YER_TUTUCU" ios/Runner/Info.plist
+        exit 1
+      fi
+
   quality_gate: &quality_gate
     name: Kod kalitesi — analyze + test
     script: |
