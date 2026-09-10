@@ -182,66 +182,55 @@ class _MobileDashboard extends StatelessWidget {
                 child: _DashboardHeader(user: user, score: score),
               ),
 
-              // ── Hızlı İşlemler ──────────────────────────────────────────
+              // ── Net Nakit ────────────────────────────────────────────────
+              // Ekranın ilk kartı: "nerede duruyorum" sorusunun cevabı.
+              // Önceden dört bölüm aşağıdaydı ve kullanıcı ana rakamı görmek
+              // için kaydırmak zorundaydı.
               SliverToBoxAdapter(
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                  child: _QuickActionsRow(),
-                ).animate().fadeIn(duration: 250.ms).slideY(begin: 0.06, end: 0),
-              ),
-
-              // ── Asistan içgörüleri ────────────────────────────────────
-              // İçgörüler InsightEngine tarafından modele hiç gitmeden üretilir;
-              // burada göstermek ek maliyet getirmez.
-              SliverToBoxAdapter(
-                child: Consumer<AiAssistantViewModel>(
-                  builder: (_, avm, __) {
-                    final insights = avm.topInsights(2);
-                    if (insights.isEmpty) return const SizedBox.shrink();
-                    return Padding(
-                      padding: const EdgeInsets.only(top: 14),
-                      child: InsightList(
-                        insights: insights,
-                        title: 'Liqra ne fark etti',
-                        limit: 2,
-                        onTap: (i) => AppRoutes.go(i.route),
-                      ),
-                    ).animate(delay: 30.ms).fadeIn(duration: 250.ms);
-                  },
-                ),
-              ),
-
-              // ── Piyasa Pulse ─────────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.only(top: 14),
-                  child: Consumer<MarketViewModel>(
-                    builder: (_, mvm, __) => _MarketPulseStrip(mvm: mvm),
-                  ),
-                ).animate(delay: 40.ms).fadeIn(duration: 250.ms),
-              ),
-
-              // ── Net Nakit ────────────────────────────────────────────────
-              SliverToBoxAdapter(
-                child: Padding(
-                  padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
                   child: _NetCashCard(
                     netCash: netCash,
                     income: provider.monthlyIncome,
                     expenses: provider.monthlyExpenses,
                     prevDelta: prevDelta,
                   ),
-                ).animate(delay: 60.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
+                ).animate().fadeIn(duration: 300.ms).slideY(begin: 0.06, end: 0),
               ),
 
-              // ── Bütçe Durumu ─────────────────────────────────────────────
-              if (provider.monthlyExpensesByCategory.isNotEmpty)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: _BudgetCard(provider: provider),
-                  ).animate(delay: 100.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
-                ),
+              // ── Uyarı veya içgörü ────────────────────────────────────────
+              // Önceden iki ayrı bölümdü: "Asistan içgörüleri" en üstte, "AI
+              // Uyarı" beş bölüm aşağıda. İkisi de aynı işi yapıyor, aynı
+              // ekranda iki yapay zekâ kutusu birbiriyle yarışıyordu.
+              //
+              // Artık tek yer: acil bir uyarı varsa o gösterilir, yoksa en
+              // önemli TEK içgörü. İki içgörü yan yana konunca hangisinin
+              // önemli olduğu kayboluyordu.
+              SliverToBoxAdapter(
+                child: (hasWarning && warningMsg != null)
+                    ? Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
+                        child: _AiWarningCard(
+                          message: warningMsg!,
+                          onTap: () => MainScaffold.switchTab(4),
+                        ),
+                      ).animate(delay: 60.ms).fadeIn(duration: 300.ms)
+                    : Consumer<AiAssistantViewModel>(
+                        builder: (_, avm, __) {
+                          final insights = avm.topInsights(1);
+                          if (insights.isEmpty) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: InsightList(
+                              insights: insights,
+                              title: 'Liqra ne fark etti',
+                              limit: 1,
+                              onTap: (i) => AppRoutes.go(i.route),
+                            ),
+                          ).animate(delay: 60.ms).fadeIn(duration: 300.ms);
+                        },
+                      ),
+              ),
 
               // ── Hedef ────────────────────────────────────────────────────
               if (goal != null)
@@ -253,7 +242,7 @@ class _MobileDashboard extends StatelessWidget {
                       goal: goal!,
                       monthlySavings: monthlySavings,
                     ),
-                  ).animate(delay: 140.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
+                  ).animate(delay: 100.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
                 ),
 
               // ── Portföy ──────────────────────────────────────────────────
@@ -261,20 +250,19 @@ class _MobileDashboard extends StatelessWidget {
                 child: Padding(
                   padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
                   child: _PortfolioGlassCard(portVm: portVm),
-                ).animate(delay: 180.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
+                ).animate(delay: 140.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
               ),
 
-              // ── AI Uyarı ─────────────────────────────────────────────────
-              if (hasWarning && warningMsg != null)
-                SliverToBoxAdapter(
-                  child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 12, 20, 0),
-                    child: _AiWarningCard(
-                      message: warningMsg!,
-                      onTap: () => MainScaffold.switchTab(4),
-                    ),
-                  ).animate(delay: 220.ms).fadeIn(duration: 300.ms).slideY(begin: 0.08, end: 0),
-                ),
+              // ── Kaldırılan bölümler ──────────────────────────────────────
+              // Aşağıdakiler ana sayfadan çıkarıldı; hiçbiri kaybolmadı,
+              // hepsi zaten kendi sekmesinde duruyor:
+              //
+              //   Hızlı İşlemler  → alt menü ve + butonu aynı dört işi yapıyor
+              //   Piyasa Pulse    → Yatırımlar sekmesi, "Canlı Piyasa"
+              //   Bütçe Durumu    → Harcamalar sekmesi, "Bütçe Karşılaştırması"
+              //
+              // Ana sayfa on bölümden beşe indi. Widget'ların kendisi web
+              // düzeninde kullanılmaya devam ediyor, silinmediler.
 
               // ── Son İşlemler başlık ───────────────────────────────────────
               SliverToBoxAdapter(
