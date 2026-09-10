@@ -574,8 +574,15 @@ Gizlilik politikası metni: `docs/gizlilik-politikasi.md`
 kullanıcı reddedemez, sistem doğrudan sonlandırır. OCR ekranı `image_picker`
 ve `file_picker` kullandığı için ikisi de gerekli.
 
-**`IPHONEOS_DEPLOYMENT_TARGET` en az 13.0.** `firebase_core 3.x` bunu istiyor;
-12.0 ile `pod install` başarısız olur.
+**`IPHONEOS_DEPLOYMENT_TARGET` = 15.0.** İki ayrı gerekçe:
+`firebase_core 3.x` en az 13.0 istiyor (12.0 ile `pod install` düşer) ve
+Apple 2027 baharından itibaren 15.0 altındaki yüklemeleri **kabul etmeyecek**
+(uyarı 90068). Cihaz kaybı yok: iOS 15, iOS 13 ile aynı donanımı destekler
+(iPhone 6s ve sonrası).
+
+`ios/Flutter/AppFrameworkInfo.plist` içindeki `MinimumOSVersion` **aynı değeri
+taşımalı**. Yükleme doğrulaması App.framework'ün bu alanını da okur; 12.0'da
+kalırsa proje 15.0 olsa bile 90068 uyarısı sürer.
 
 **Apple ile Giriş zorunlu.** Uygulama Google ile giriş sunduğu için App Store
 yönergesi 4.8 gereği Apple ile giriş de sunulmalı.
@@ -669,6 +676,44 @@ https://emremecf.github.io/liqra/gizlilik-politikasi
 `yayin-kontrol-listesi.md` `exclude` listesindedir — dahili not, siteye
 çıkmaz. Politika metni değişirse mağaza kayıtlarındaki tarih de
 güncellenmeli.
+
+## Açılış Zinciri (ÖNEMLİ)
+
+`main()` içinde **hiçbir yardımcı servis `runApp`'i engelleyemez.**
+
+```dart
+await _startOptional('Bildirimler', NotificationService.instance.init);
+```
+
+`_startOptional` her servisi kendi `try/catch`'i ve **10 saniyelik zaman
+aşımı** ile sarar. Zorunlu olan yalnızca ikisidir: `Firebase.initializeApp`
+ve `configureDependencies()`. İkisi de patlarsa `_StartupFailureApp`
+gösterilir — sebebi ekranda yazar.
+
+### Neden bu kadar önemli
+
+Eskiden beş servis tek bir `Future.wait` içindeydi. `Future.wait` ilk hatayı
+yeniden fırlatır: **herhangi biri** patladığında `main()` çöküyor, `runApp`
+hiç çağrılmıyor, ekran siyah kalıyordu. Birkaç saniye sonra iOS watchdog
+uygulamayı sonlandırıyordu — dışarıdan "uygulama açılmıyor" ya da "uygulama
+yok" gibi görünür ve **hiçbir hata mesajı çıkmaz**.
+
+Bu servislerin hiçbiri açılış için zorunlu değil: Remote Config düşerse
+varsayılanlar devreye girer, Analytics düşerse ölçüm kaybolur, bildirim izni
+düşerse bildirim gelmez. Uygulama yine çalışır.
+
+Zaman aşımı ayrı bir gerekliliktir: `NotificationService.init()` iOS'ta APNs
+jetonu gelmezse **askıda kalabilir**. Sonsuza kadar beklemek de siyah ekran
+demektir, çökmekten farkı yoktur.
+
+`NotificationService.init()` beş servis içinde **try/catch'i olmayan tek
+servisti**; diğer dördü hatalarını zaten yutuyordu.
+
+### Yeni servis eklerken
+
+Açılışta çağrılan her yeni servis `_startOptional` ile sarılmalı. Zorunlu
+olduğunu düşünüyorsan iki kez düşün: kullanıcının uygulamayı hiç açamaması,
+o servisin eksik çalışmasından neredeyse her zaman daha kötüdür.
 
 ## Tasarım Sistemi (ÖNEMLİ)
 

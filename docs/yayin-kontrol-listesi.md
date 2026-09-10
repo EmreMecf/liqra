@@ -15,7 +15,7 @@ Bu maddeler daha önce "yayına engel" listesindeydi; artık kapalı.
 |---|---|
 | iOS Firebase yapılandırması | `firebase_options.dart` iOS bloğu eklendi · `firebase.json` iOS platformunu tanıyor |
 | iOS izin metinleri | Kamera, galeri, galeriye kaydetme, Face ID, konum (uyarı 90683) |
-| iOS dağıtım hedefi | `IPHONEOS_DEPLOYMENT_TARGET = 13.0` (3 yapılandırma) |
+| iOS dağıtım hedefi | `IPHONEOS_DEPLOYMENT_TARGET = 15.0` (3 yapılandırma) + `AppFrameworkInfo.plist` — uyarı 90068 kapandı |
 | iOS yetkiler | `Runner.entitlements` · `aps-environment: production` · Apple ile Giriş |
 | Cihaz ailesi | `TARGETED_DEVICE_FAMILY = 1` — yalnızca iPhone |
 | Google girişi URL şeması | Codemagic her derlemede plist'ten okuyup yazıyor |
@@ -23,6 +23,7 @@ Bu maddeler daha önce "yayına engel" listesindeydi; artık kapalı.
 | Android imzalama yapılandırması | `key.properties` okunuyor; Codemagic dosyayı üretiyor |
 | Android küçültme | `isMinifyEnabled` + `isShrinkResources` + ProGuard kuralları |
 | Hesap silme | Profil → Hesabı Sil gerçekten siliyor (App Store 5.1.1(v)) |
+| Açılış dayanıklılığı | Yardımcı servis patlarsa uygulama yine açılıyor; siyah ekran yerine sebep gösteriliyor |
 | Gizlilik politikası URL'si | **Yayında** → https://emremecf.github.io/liqra/gizlilik-politikasi |
 | CI hattı | Codemagic 3 iş akışı: android-release, ios-release, quality-check |
 
@@ -118,7 +119,7 @@ ediliyor.
 - **Paket adı / Bundle ID:** `com.emrec.muhasebe`
 - **Sürüm:** 1.1.0 (build numarasını CI otomatik artırır)
 - **Kategori:** Finans
-- **Minimum sürüm:** Android 6.0 (API 23) · iOS 13.0
+- **Minimum sürüm:** Android 6.0 (API 23) · iOS 15.0
 - **Cihaz:** yalnızca iPhone (iPad desteklenmiyor)
 
 ### İzinler ve gerekçeleri

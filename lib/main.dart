@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_core/firebase_core.dart';
 // CupertinoPageTransitionsBuilder artık material.dart'tan export edilmiyor
@@ -33,24 +35,77 @@ import 'presentation/onboarding/intro_onboarding_screen.dart';
 import 'presentation/onboarding/onboarding_screen.dart';
 import 'presentation/main_scaffold.dart';
 
+/// Açılışta bir yardımcı servis patlarsa uygulamayı ÖLDÜRMEZ.
+///
+/// ── Neden ──────────────────────────────────────────────────────────────────
+/// Eskiden beş servis tek bir `Future.wait` içinde bekleniyordu. `Future.wait`
+/// ilk hatayı yeniden fırlatır: **herhangi biri** patladığında `main()` çöker,
+/// `runApp` hiç çağrılmaz ve kullanıcı siyah ekran görür. Birkaç saniye sonra
+/// iOS watchdog uygulamayı sonlandırır — dışarıdan "uygulama açılmıyor" ya da
+/// "uygulama yok" gibi görünür, hiçbir hata mesajı çıkmaz.
+///
+/// Bu servislerin hiçbiri açılış için **zorunlu değildir**: Remote Config
+/// düşerse varsayılanlar, Analytics düşerse ölçüm, bildirim izni düşerse
+/// bildirim kaybolur — uygulama yine de çalışır.
+///
+/// Zaman aşımı da şart: `NotificationService.init()` iOS'ta APNs jetonu
+/// gelmezse **askıda kalabilir**. Sonsuza kadar beklemek de siyah ekran
+/// demektir, çökmekten farkı yoktur.
+Future<void> _startOptional(String name, Future<void> Function() start) async {
+  try {
+    await start().timeout(const Duration(seconds: 10));
+  } catch (e, s) {
+    debugPrint('[Açılış] $name başlatılamadı, devam ediliyor: $e');
+    // Crashlytics hazırsa kaydet; hazır değilse bu çağrı da sessizce geçer.
+    unawaited(CrashService.instance.recordError(e, s, reason: '$name init'));
+  }
+}
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
   // ── Firebase ──────────────────────────────────────────────────────────────
-  await Firebase.initializeApp(
-    options: DefaultFirebaseOptions.currentPlatform,
-  );
+  // Bu ZORUNLU. Başarısız olursa uygulamanın anlamlı bir şey yapması mümkün
+  // değil, ama siyah ekranla ölmek yerine sebebi göstermek gerekir: TestFlight
+  // ya da mağaza sürümünde hata ayıklayıcı bağlanamaz, ekrandaki metin elde
+  // kalan tek ipucudur.
+  try {
+    await Firebase.initializeApp(
+      options: DefaultFirebaseOptions.currentPlatform,
+    );
+  } catch (e, s) {
+    debugPrint('[Açılış] Firebase başlatılamadı: $e\n$s');
+    runApp(_StartupFailureApp(
+      title: 'Bağlantı kurulamadı',
+      detail: 'Firebase başlatılamadı.\n\n$e',
+    ));
+    return;
+  }
 
+  // ── Yardımcı servisler — hiçbiri açılışı engelleyemez ────────────────────
+  // Crashlytics ilk sırada: sonrakiler patlarsa raporu o toplasın.
+  await _startOptional('Crashlytics', CrashService.instance.init);
   await Future.wait([
-    CrashService.instance.init(),
-    AnalyticsService.instance.init(),
-    NotificationService.instance.init(),
-    FeatureFlagService.instance.init(),
-    AuthService.instance.init(),
+    _startOptional('Analytics', AnalyticsService.instance.init),
+    _startOptional('Bildirimler', NotificationService.instance.init),
+    _startOptional('Remote Config', FeatureFlagService.instance.init),
+    _startOptional('Auth', AuthService.instance.init),
   ]);
 
   // ── DI kayıt ─────────────────────────────────────────────────────────────
-  await configureDependencies();
+  // Bu da zorunlu: ekranlar getIt üzerinden ViewModel çözüyor, kayıt
+  // yapılmazsa ilk karede fırlatır.
+  try {
+    await configureDependencies();
+  } catch (e, s) {
+    debugPrint('[Açılış] Bağımlılıklar kaydedilemedi: $e\n$s');
+    unawaited(CrashService.instance.recordError(e, s, reason: 'DI init'));
+    runApp(_StartupFailureApp(
+      title: 'Uygulama başlatılamadı',
+      detail: 'Bağımlılıklar kurulamadı.\n\n$e',
+    ));
+    return;
+  }
 
   SystemChrome.setPreferredOrientations([DeviceOrientation.portraitUp]);
   SystemChrome.setSystemUIOverlayStyle(
@@ -63,6 +118,78 @@ void main() async {
   );
 
   runApp(const LiqraApp());
+}
+
+/// Açılış tamamlanamadığında gösterilen ekran.
+///
+/// `runApp` hiç çağrılmazsa ekran siyah kalır ve iOS watchdog uygulamayı
+/// sonlandırır; kullanıcıya "uygulama açılmıyor" diye görünür, elde hiçbir
+/// bilgi kalmaz. Bu ekran en azından **neyin** patladığını söyler — TestFlight
+/// ve mağaza sürümünde hata ayıklayıcı bağlanamadığı için tek ipucu budur.
+class _StartupFailureApp extends StatelessWidget {
+  final String title;
+  final String detail;
+
+  const _StartupFailureApp({required this.title, required this.detail});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      debugShowCheckedModeBanner: false,
+      home: Scaffold(
+        backgroundColor: AppColors.bgPrimary,
+        body: SafeArea(
+          child: Center(
+            child: SingleChildScrollView(
+              padding: const EdgeInsets.all(28),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.cloud_off_rounded,
+                      size: 52, color: AppColors.accentAmber),
+                  const SizedBox(height: 18),
+                  Text(
+                    title,
+                    textAlign: TextAlign.center,
+                    style: const TextStyle(
+                      color: AppColors.textPrimary,
+                      fontSize: 19,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  const Text(
+                    'İnternet bağlantını kontrol edip uygulamayı yeniden aç. '
+                    'Sorun sürerse aşağıdaki metni bize ilet.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                        color: AppColors.textSecondary, fontSize: 13.5),
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: AppColors.bgSecondary,
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: SelectableText(
+                      detail,
+                      style: const TextStyle(
+                        color: AppColors.textSecondary,
+                        fontSize: 11.5,
+                        height: 1.45,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class LiqraApp extends StatelessWidget {
