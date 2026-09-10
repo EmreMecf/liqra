@@ -256,6 +256,62 @@ workflows:
           - Liqra Test
 
   # ══════════════════════════════════════════════════════════════════════════
+  # iOS — Ad Hoc  (kayitli cihaza dogrudan kurulum, TestFlight'siz)
+  #
+  # App Store yerine belirli cihazlara kurulum icindir. Profil yalnizca
+  # UDID'si kayitli cihazlara izin verir; yeni bir telefon eklenecekse once
+  # Apple portalinda cihaz kaydedilip profil yeniden uretilmelidir.
+  #
+  # Kalite kapisi bilerek yok: bu workflow cihazda hizli deneme icin var,
+  # analyze ve testler ios-release ile quality-check'te zaten kosuluyor.
+  # ══════════════════════════════════════════════════════════════════════════
+  ios-adhoc:
+    name: Liqra · iOS (Ad Hoc — cihaza kurulum)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+
+    environment:
+      flutter: *flutter_version
+      xcode: latest
+      cocoapods: default
+      groups:
+        - firebase          # GOOGLE_SERVICE_INFO_PLIST
+      ios_signing:
+        certificates:
+          - liqra_distribution
+        provisioning_profiles:
+          - liqra_ad_hoc
+
+    <<: *cache_config
+
+    scripts:
+      - *prepare_ios
+      - name: CocoaPods bağımlılıkları
+        script: |
+          find . -name "Podfile" -execdir pod install \;
+      - name: İmzalama profilini Xcode projesine uygula
+        script: |
+          # Profil ad hoc oldugu icin uretilen export_options.plist da
+          # method=ad-hoc olur; ayrica belirtmeye gerek yok.
+          xcode-project use-profiles
+      - name: IPA derle (ad hoc)
+        script: |
+          flutter build ipa --release \
+            --export-options-plist=/Users/builder/export_options.plist
+
+    artifacts:
+      - build/ios/ipa/*.ipa
+      - /tmp/xcodebuild_logs/*.log
+
+    publishing:
+      email:
+        recipients:
+          - emreciftci873@gmail.com
+        notify:
+          success: true
+          failure: true
+
+  # ══════════════════════════════════════════════════════════════════════════
   # Her push'ta hizli kontrol — imzalama yok, sadece kalite kapisi
   # ══════════════════════════════════════════════════════════════════════════
   quality-check:
