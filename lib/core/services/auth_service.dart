@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:math';
 
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:crypto/crypto.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/foundation.dart';
@@ -33,13 +34,59 @@ class AuthService extends ChangeNotifier {
   /// Başlangıçta SharedPreferences'tan profil durumunu yükle
   Future<void> init() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
       final uid = _auth.currentUser?.uid;
       if (uid != null) {
-        _profileComplete = prefs.getBool('profile_complete_$uid') ?? false;
+        _profileComplete = await _checkProfileComplete(uid);
       }
     } catch (e) {
       debugPrint('[AuthService] init error: $e');
+    }
+  }
+
+  /// Kullanıcı onboarding'i tamamlamış mı? İki kademeli bakar.
+  ///
+  /// Yalnızca SharedPreferences'a bakmak yetmiyordu: bayrak cihaza özel, oysa
+  /// profilin kendisi Firestore'da. Bayrak yoksa kullanıcı dolu bir hesapla
+  /// giriş yapmasına rağmen onboarding'e düşüyor ve uygulama sıfırdan
+  /// başlıyormuş gibi görünüyordu. Bu şu durumlarda oluyordu:
+  ///
+  ///   - farklı sağlayıcıyla (Google/Apple/e-posta) girip farklı uid almak
+  ///   - uygulamayı silip yeniden kurmak
+  ///   - başka bir cihazdan giriş yapmak
+  ///   - uygulama verisini temizlemek
+  ///
+  /// Artık bayrak yoksa Firestore'daki users/{uid} belgesine bakılıyor ve
+  /// profil varsa bayrak yerel olarak da yazılıyor; sonraki açılışlar tekrar
+  /// ağa çıkmıyor.
+  Future<bool> _checkProfileComplete(String uid) async {
+    final anahtar = 'profile_complete_$uid';
+    try {
+      final prefs = await SharedPreferences.getInstance();
+
+      // Hızlı yol — cihazda kayıtlıysa Firestore'a hiç gitme.
+      if (prefs.getBool(anahtar) == true) return true;
+
+      // Yavaş yol — profilin gerçek kaynağı.
+      final doc = await FirebaseFirestore.instance
+          .collection('users')
+          .doc(uid)
+          .get(const GetOptions(source: Source.serverAndCache));
+
+      final veri = doc.data();
+      final profilVar = doc.exists &&
+          veri != null &&
+          (veri['name'] as String?)?.trim().isNotEmpty == true;
+
+      if (profilVar) {
+        await prefs.setBool(anahtar, true);
+        debugPrint('[AuthService] Profil Firestore\'dan doğrulandı → yerel bayrak yazıldı');
+      }
+      return profilVar;
+    } catch (e) {
+      // Ağ yoksa yerel bayrağa güven; yoksa onboarding gösterilir ama
+      // kullanıcının verisi Firestore'da durduğu için kaybolmaz.
+      debugPrint('[AuthService] _checkProfileComplete hatası: $e');
+      return false;
     }
   }
 
@@ -85,11 +132,8 @@ class AuthService extends ChangeNotifier {
         password: password,
       );
       // Daha önce onboarding geçmişse yükle
-      final prefs = await SharedPreferences.getInstance();
       final uid = _auth.currentUser?.uid;
-      _profileComplete = uid != null
-          ? (prefs.getBool('profile_complete_$uid') ?? false)
-          : false;
+      _profileComplete = uid != null ? await _checkProfileComplete(uid) : false;
       notifyListeners();
       return AuthResult.success();
     } on FirebaseAuthException catch (e) {
@@ -125,11 +169,8 @@ class AuthService extends ChangeNotifier {
       );
       await _auth.signInWithCredential(credential);
 
-      final prefs = await SharedPreferences.getInstance();
       final uid = _auth.currentUser?.uid;
-      _profileComplete = uid != null
-          ? (prefs.getBool('profile_complete_$uid') ?? false)
-          : false;
+      _profileComplete = uid != null ? await _checkProfileComplete(uid) : false;
       notifyListeners();
       return AuthResult.success();
     } on FirebaseAuthException catch (e) {
@@ -202,8 +243,7 @@ class AuthService extends ChangeNotifier {
         await user.updateDisplayName(ad);
       }
 
-      final prefs = await SharedPreferences.getInstance();
-      _profileComplete = prefs.getBool('profile_complete_${user.uid}') ?? false;
+      _profileComplete = await _checkProfileComplete(user.uid);
       notifyListeners();
       return AuthResult.success();
     } on SignInWithAppleAuthorizationException catch (e) {
