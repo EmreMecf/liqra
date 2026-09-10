@@ -131,16 +131,65 @@ class GeminiService {
     }
   }
 
+  /// Gemini hatalarını kullanıcıya gösterilebilir Türkçe mesaja çevirir.
+  ///
+  /// Önceden `e.message` doğrudan döndürülüyordu; kullanıcı Google'ın ham
+  /// İngilizce metnini görüyordu. Kredi bittiğinde ekranda şu çıkıyordu:
+  /// "Your prepayment credits are depleted. Please go to AI Studio at
+  /// https://ai.studio/projects to manage your project and billing."
+  ///
+  /// Bu hem anlaşılmaz hem de uygulamanın faturalandırma detayını kullanıcıya
+  /// sızdırıyor. Ham mesaj yalnızca log'da kalıyor.
   Exception _handleError(Object e) {
     debugPrint('[GeminiService] Hata: $e');
 
     if (e is GenerativeAIException) {
-      // Ham hata mesajını logla — debug için
-      debugPrint('[GeminiService] Tam hata: ${e.message}');
-      return Exception(e.message);
+      debugPrint('[GeminiService] Ham mesaj: ${e.message}');
+      return Exception(_kullaniciMesaji(e.message));
     }
 
-    if (e is Exception) return e;
-    return Exception('AI servisi hatası: $e');
+    if (e is Exception) {
+      debugPrint('[GeminiService] Ham mesaj: $e');
+      return Exception(_kullaniciMesaji(e.toString()));
+    }
+    return Exception('Yapay zekâ şu an yanıt veremiyor. Lütfen tekrar deneyin.');
+  }
+
+  String _kullaniciMesaji(String ham) {
+    final m = ham.toLowerCase();
+
+    // Kota, kredi ve faturalandırma — kullanıcının yapabileceği bir şey yok.
+    if (m.contains('prepayment') ||
+        m.contains('credits are depleted') ||
+        m.contains('billing') ||
+        m.contains('quota') ||
+        m.contains('resource_exhausted') ||
+        m.contains('exceeded')) {
+      return 'Yapay zekâ şu an kullanılamıyor. Kısa süre içinde tekrar deneyin.';
+    }
+
+    // Çok sık istek.
+    if (m.contains('rate limit') || m.contains('too many requests') || m.contains('429')) {
+      return 'Çok fazla istek gönderildi. Biraz bekleyip tekrar deneyin.';
+    }
+
+    // Anahtar sorunu — yapılandırma hatası, kullanıcı çözemez.
+    if (m.contains('api key') || m.contains('api_key') || m.contains('permission_denied') ||
+        m.contains('unauthenticated')) {
+      return 'Yapay zekâ servisi yapılandırılamadı. Sorun bizde, en kısa sürede düzeltilecek.';
+    }
+
+    // İçerik güvenlik filtresine takıldı.
+    if (m.contains('safety') || m.contains('blocked')) {
+      return 'Bu istek yanıtlanamadı. Farklı bir şekilde sormayı deneyin.';
+    }
+
+    // Bağlantı.
+    if (m.contains('socket') || m.contains('network') || m.contains('timeout') ||
+        m.contains('connection')) {
+      return 'İnternet bağlantısı kurulamadı. Bağlantınızı kontrol edin.';
+    }
+
+    return 'Yapay zekâ şu an yanıt veremiyor. Lütfen tekrar deneyin.';
   }
 }
