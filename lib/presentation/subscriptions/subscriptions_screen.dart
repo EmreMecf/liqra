@@ -191,32 +191,47 @@ class _SubscriptionsScreenState extends State<SubscriptionsScreen> {
           );
         },
       ),
-      floatingActionButton: Container(
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(16),
-          boxShadow: [
-            BoxShadow(
-              color: AppColors.accentGreen.withAlpha(100),
-              blurRadius: 18,
-              spreadRadius: 1,
-              offset: const Offset(0, 4),
+      // FAB, Consumer'ın dışında olduğu için listenin boş olup olmadığını
+      // göremiyordu ve her durumda çiziliyordu. Liste boşken ekranın ortasında
+      // zaten "İlk Aboneliği Ekle" düğmesi var; ikisi üst üste binip aynı işi
+      // yapan iki düğme gibi görünüyordu. Ayrı bir Consumer ile duruma bağlandı.
+      floatingActionButton: Consumer<SubscriptionViewModel>(
+        builder: (context, vm, _) {
+          final state = vm.state;
+          final bosDurumGoruluyor =
+              state is SubscriptionLoaded && state.active.isEmpty;
+          if (bosDurumGoruluyor) return const SizedBox.shrink();
+
+          return Container(
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(16),
+              boxShadow: [
+                BoxShadow(
+                  color: AppColors.accentGreen.withAlpha(100),
+                  blurRadius: 18,
+                  spreadRadius: 1,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: AppColors.accentGreen.withAlpha(40),
+                  blurRadius: 32,
+                  spreadRadius: 4,
+                  offset: const Offset(0, 6),
+                ),
+              ],
             ),
-            BoxShadow(
-              color: AppColors.accentGreen.withAlpha(40),
-              blurRadius: 32,
-              spreadRadius: 4,
-              offset: const Offset(0, 6),
+            child: FloatingActionButton.extended(
+              onPressed: _openAddSheet,
+              backgroundColor: AppColors.accentGreen,
+              foregroundColor: AppColors.bgPrimary,
+              elevation: 0,
+              icon: const Icon(Icons.add_rounded),
+              label: Text('Abonelik Ekle',
+                  style: AppTypography.button
+                      .copyWith(color: AppColors.bgPrimary)),
             ),
-          ],
-        ),
-        child: FloatingActionButton.extended(
-          onPressed: _openAddSheet,
-          backgroundColor: AppColors.accentGreen,
-          foregroundColor: AppColors.bgPrimary,
-          elevation: 0,
-          icon: const Icon(Icons.add_rounded),
-          label: Text('Abonelik Ekle', style: AppTypography.button.copyWith(color: AppColors.bgPrimary)),
-        ),
+          );
+        },
       ),
     );
   }

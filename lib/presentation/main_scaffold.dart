@@ -194,12 +194,18 @@ class _MainScaffoldState extends State<MainScaffold>
         children: [
           _contentStack(),
           // FAB karartması
+          //
+          // alpha 140 (%55) koyu temada yetersiz kalıyordu: arka plan zaten
+          // koyu olduğu için kartların yazıları karartmanın arasından okunmaya
+          // devam ediyor, menü etiketleriyle üst üste binip ikisini birden
+          // okunmaz hale getiriyordu. Açık temada standart olan %55 değeri
+          // burada işe yaramıyor.
           if (_fabOpen)
             GestureDetector(
               onTap: _closeFab,
               child: FadeTransition(
                 opacity: _fadeAnim,
-                child: Container(color: Colors.black.withAlpha(140)),
+                child: Container(color: Colors.black.withAlpha(215)),
               ),
             ),
           // FAB speed-dial item'ları

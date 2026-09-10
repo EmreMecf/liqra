@@ -209,8 +209,18 @@ class _AccountsScreenState extends State<AccountsScreen> {
           );
         },
       ),
-      floatingActionButton: _AddFab(
-          onTap: () => showAddAccountSheet(context)),
+      // Hesap eklemenin üç ayrı girişi vardı: başlıktaki +, bu FAB ve boş
+      // durumdaki "Hesap Ekle" düğmesi. Liste boşken üçü aynı anda görünüyor,
+      // ekranda üç tane ekleme düğmesi birden duruyordu. Boş durumda ortadaki
+      // düğme zaten asıl çağrı; FAB gizleniyor.
+      floatingActionButton: Consumer<AccountsViewModel>(
+        builder: (context, vm, _) {
+          if (vm.accounts.isEmpty && vm.loans.isEmpty) {
+            return const SizedBox.shrink();
+          }
+          return _AddFab(onTap: () => showAddAccountSheet(context));
+        },
+      ),
     );
   }
 
