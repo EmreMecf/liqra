@@ -259,9 +259,22 @@ workflows:
           failure: true
       app_store_connect:
         auth: integration
-        # TestFlight'a yukle; App Store incelemesine ELLE gonderilecek.
-        submit_to_testflight: true
         submit_to_app_store: false
+
+        # Beta App Review'e GONDERME.
+        #
+        # Beta incelemesi yalnizca DIS (external) test kullanicilari icin
+        # gereklidir. Liqra'da yalnizca "Liqra Test" adli IC (internal) grup
+        # var; ic test kullanicilari incelemeyi beklemeden yukler.
+        #
+        # true birakildiginda Codemagic betaAppReviewSubmissions ucuna
+        # istek atiyor ve Apple 422 "BETA_CONTRACT_MISSING" donduruyor:
+        #   "Uygulama icin beta sozlesmesi eksik."
+        # Bu hata yapiyi dagitmiyor, sadece gereksiz bir inceleme
+        # gonderimini deniyor ve derlemeyi kirmizi yapiyordu.
+        #
+        # Dis test grubu eklenirse bunu tekrar true yap.
+        submit_to_testflight: false
 
         # Yapiyi hangi test grubuna dagitacagi.
         #

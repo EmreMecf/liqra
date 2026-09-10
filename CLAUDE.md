@@ -659,6 +659,12 @@ Elle imzalamada `xcode-project use-profiles` adımı **zorunludur** —
 "property list does not exist" ile düşer. Pod kurulumundan **sonra**
 çalışmalıdır.
 
+**Beta App Review yalnızca DIŞ test kullanıcıları için gerekir.** Liqra'da
+yalnızca iç (internal) grup var, bu yüzden `submit_to_testflight: false`.
+`true` bırakıldığında Codemagic `betaAppReviewSubmissions` ucuna istek atıyor
+ve Apple 422 `BETA_CONTRACT_MISSING` döndürüp derlemeyi kırıyordu — oysa yapı
+gruba zaten dağıtılmıştı. Dış grup eklenirse tekrar `true` yapılmalı.
+
 **TestFlight'a yükleme, dağıtım demek değildir.** `submit_to_testflight: true`
 yapıyı yükler ve "Ready to Test" yapar ama **hiçbir test grubuna atamaz**;
 TestFlight uygulamasında hiçbir şey görünmez ve ortada hata da olmaz.

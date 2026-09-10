@@ -92,7 +92,51 @@ Ayrıca: TestFlight uygulamasında **davet edilen Apple kimliğiyle** oturum
 açtığından emin ol. Farklı bir Apple ID ile girildiğinde uygulama listede
 hiç görünmez.
 
-### 4. Apple inceleme test hesabı
+### 4. "Beta Sözleşmesi eksik" (422 BETA_CONTRACT_MISSING)
+
+Codemagic derlemesi şu hatayla düşüyordu:
+
+```
+POST /v1/betaAppReviewSubmissions -> 422
+Uygulama için beta sözleşmesi eksik.
+```
+
+**İki ayrı mesele birbirine karışmıştı.**
+
+**a) Gereksiz inceleme gönderimi — düzeltildi.**
+Beta App Review yalnızca **dış (external)** test kullanıcıları için gerekli.
+Liqra'da sadece `Liqra Test` adlı **iç (internal)** grup var; iç kullanıcılar
+incelemeyi beklemeden yükler. `submit_to_testflight: false` yapıldı —
+`beta_groups` dağıtımı ayrı bir adımda zaten çalışıyor (log'da yapının gruba
+eklendiği görülüyor). Dış grup eklenirse tekrar `true` yapılmalı.
+
+**b) Sözleşme durumu — hesapta kontrol edilmeli.**
+Apple, TestFlight dağıtımı için **yalnızca iç test yapılsa bile** Paid Apps
+Agreement'ın gerçekten yürürlükte olmasını istiyor. "Active" görünmesi yetmez;
+arkasındaki üç şey de tamam olmalı:
+
+> App Store Connect → **Business** (Anlaşmalar, Vergi ve Bankacılık)
+
+| Alan | Ne olmalı |
+|---|---|
+| Free Apps Agreement | Active |
+| Paid Apps Agreement | Active |
+| **Bank Accounts** | Banka hesabı ekli ve Active |
+| **Tax Forms** | Türkiye + **ABD (W-8BEN)** formları gönderilmiş |
+
+Vergi formları eksikken sözleşme "Active" görünebilir ama Apple'ın arka ucu
+beta sözleşmesini yok sayar — hem bu 422 hatası hem de telefonda
+**"İstenilen uygulama kullanılamıyor veya yok"** buradan gelir.
+
+Paid Apps Agreement yeni imzalandıysa (Liqra'da 8 Eylül 2026) Apple'ın arka
+ucunun eşitlenmesi **48 saate kadar** sürebiliyor. Formlar tamsa ve süre
+geçtiyse sorun Apple tarafındadır; bilinen bir arka uç arızası:
+
+- Feedback Assistant üzerinden bildir (e-postadan daha hızlı dönüyor)
+- Başlık: `TestFlight betaAppReviewSubmissions returns 422 BETA_CONTRACT_MISSING`
+- Bundle ID ve hatalı isteğin zamanını yaz
+
+### 5. Apple inceleme test hesabı
 
 App Store incelemesi giriş isteyen her uygulamada **çalışan bir test hesabı**
 zorunlu tutar. Uygulama içinden bir hesap aç, içine birkaç örnek işlem gir ve
@@ -101,7 +145,7 @@ bilgilerini App Store Connect → App Review Information alanına yaz.
 Boş bir hesapla gönderirsen "uygulamanın ne yaptığını göremedik" gerekçesiyle
 reddedilme ihtimali yüksek.
 
-### 5. Cloud Functions deploy
+### 6. Cloud Functions deploy
 
 Düzeltilen haber kaynakları, kampanya temizliği ve ASCII slug'lar **hâlâ
 yayında değil**. Uygulama canlıya çıkarsa kullanıcılar eski (üçü ölü) RSS
@@ -114,7 +158,7 @@ cd functions && firebase deploy --only functions
 Blaze planı gerekli — Cloud Functions ücretsiz planda dışarı ağ isteği
 yapamaz.
 
-### 6. Mağaza görselleri ve metinleri
+### 7. Mağaza görselleri ve metinleri
 
 | Öğe | Gereken |
 |---|---|
@@ -127,7 +171,7 @@ yapamaz.
 iPad ekran görüntüsü **gerekmiyor** — uygulama iPhone-only olarak beyan
 ediliyor.
 
-### 7. Mağaza formları
+### 8. Mağaza formları
 
 - Play → **Veri Güvenliği** formu (aşağıdaki hazır bilgi)
 - Play → **İçerik derecelendirmesi** anketi
