@@ -659,6 +659,12 @@ Elle imzalamada `xcode-project use-profiles` adımı **zorunludur** —
 "property list does not exist" ile düşer. Pod kurulumundan **sonra**
 çalışmalıdır.
 
+**TestFlight'a yükleme, dağıtım demek değildir.** `submit_to_testflight: true`
+yapıyı yükler ve "Ready to Test" yapar ama **hiçbir test grubuna atamaz**;
+TestFlight uygulamasında hiçbir şey görünmez ve ortada hata da olmaz.
+`beta_groups` bu yüzden zorunludur — oradaki ad App Store Connect'teki grup
+adıyla birebir aynı olmalı, yoksa yayın adımı durur.
+
 **Android sürüm derlemesi sessizce debug anahtarına düşebilir.**
 `build.gradle.kts`, `key.properties` yoksa yalnızca uyarı yazıp debug
 anahtarıyla imzalar (yerel geliştirme kesilmesin diye). Codemagic bu dosyayı

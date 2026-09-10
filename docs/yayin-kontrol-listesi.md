@@ -68,7 +68,31 @@ durduruyor**. Eskiden `build.gradle.kts` sessizce debug anahtarına düşüyor,
 (`google_play` değişken grubu). Play Console → Setup → API access →
 service account JSON.
 
-### 3. Apple inceleme test hesabı
+### 3. TestFlight test grubu — yapı kimseye ulaşmıyor
+
+Yapı App Store Connect'e yükleniyor ve "Ready to Test" oluyor ama **hiçbir
+test grubuna atanmıyordu**; TestFlight uygulamasında hiçbir şey görünmüyor,
+ortada hata da olmuyor.
+
+`codemagic.yaml` artık `beta_groups: [Liqra Test]` gönderiyor. Bu adla bir
+grup **önce oluşturulmalı**, yoksa derleme yayın adımında durur:
+
+> App Store Connect → TestFlight → **Gruplar** → + → ad: `Liqra Test`
+
+Grup türü:
+
+| Tür | İnceleme | Kimler |
+|---|---|---|
+| **Internal Testing** | yok, dakikalar içinde | App Store Connect'te kullanıcı olarak tanımlı kişiler (en fazla 100) |
+| External Testing | Beta App Review gerekir | E-posta ile davet edilen herkes (en fazla 10.000) |
+
+Kendin test edeceksen **Internal** seç — inceleme beklemezsin.
+
+Ayrıca: TestFlight uygulamasında **davet edilen Apple kimliğiyle** oturum
+açtığından emin ol. Farklı bir Apple ID ile girildiğinde uygulama listede
+hiç görünmez.
+
+### 4. Apple inceleme test hesabı
 
 App Store incelemesi giriş isteyen her uygulamada **çalışan bir test hesabı**
 zorunlu tutar. Uygulama içinden bir hesap aç, içine birkaç örnek işlem gir ve
@@ -77,7 +101,7 @@ bilgilerini App Store Connect → App Review Information alanına yaz.
 Boş bir hesapla gönderirsen "uygulamanın ne yaptığını göremedik" gerekçesiyle
 reddedilme ihtimali yüksek.
 
-### 4. Cloud Functions deploy
+### 5. Cloud Functions deploy
 
 Düzeltilen haber kaynakları, kampanya temizliği ve ASCII slug'lar **hâlâ
 yayında değil**. Uygulama canlıya çıkarsa kullanıcılar eski (üçü ölü) RSS
@@ -90,7 +114,7 @@ cd functions && firebase deploy --only functions
 Blaze planı gerekli — Cloud Functions ücretsiz planda dışarı ağ isteği
 yapamaz.
 
-### 5. Mağaza görselleri ve metinleri
+### 6. Mağaza görselleri ve metinleri
 
 | Öğe | Gereken |
 |---|---|
@@ -103,7 +127,7 @@ yapamaz.
 iPad ekran görüntüsü **gerekmiyor** — uygulama iPhone-only olarak beyan
 ediliyor.
 
-### 6. Mağaza formları
+### 7. Mağaza formları
 
 - Play → **Veri Güvenliği** formu (aşağıdaki hazır bilgi)
 - Play → **İçerik derecelendirmesi** anketi

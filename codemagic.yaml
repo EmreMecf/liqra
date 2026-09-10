@@ -242,6 +242,19 @@ workflows:
         submit_to_testflight: true
         submit_to_app_store: false
 
+        # Yapiyi hangi test grubuna dagitacagi.
+        #
+        # ONEMLI: Bu satirlar olmadan yapi App Store Connect'e yuklenir,
+        # "Ready to Test" olur ama HICBIR test grubuna atanmaz. TestFlight
+        # uygulamasinda hicbir sey gorunmez -- disaridan "uygulama yok" ya da
+        # "kullanilamiyor" gibi gorunur, ortada hata da yoktur.
+        #
+        # Buradaki ad App Store Connect > TestFlight altindaki grubun adiyla
+        # BIREBIR ayni olmali; grup yoksa derleme yayin adiminda durur.
+        # Grubu once olusturun: App Store Connect > TestFlight > Gruplar.
+        beta_groups:
+          - Liqra Test
+
   # ══════════════════════════════════════════════════════════════════════════
   # Her push'ta hizli kontrol — imzalama yok, sadece kalite kapisi
   # ══════════════════════════════════════════════════════════════════════════
