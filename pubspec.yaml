@@ -36,6 +36,9 @@ dependencies:
   intl: ^0.19.0
   uuid: ^4.4.0
   shared_preferences: ^2.3.2
+  # Apple ile Giriş'te nonce'un SHA-256 özeti için. Dolaylı bağımlılık olarak
+  # zaten geliyordu ama doğrudan import edildiği için açıkça bildiriliyor.
+  crypto: ^3.0.3
 
   # Markdown render — AI yanıtları için
   flutter_markdown: ^0.7.3
