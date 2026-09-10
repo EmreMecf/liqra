@@ -109,6 +109,23 @@ workflows:
 
     scripts:
       - *prepare_android
+      - name: İmzalama anahtarını doğrula
+        script: |
+          # Codemagic, android_signing altinda tanimli anahtardan
+          # android/key.properties dosyasini KENDISI uretir. Uretemezse
+          # (grup adi yanlis, anahtar silinmis, yapilandirma kaymis)
+          # build.gradle.kts release yapisini DEBUG anahtariyla imzalar ve
+          # yalnizca bir uyari yazar. O .aab Play'e yuklenir, dakikalar
+          # sonra "debug sertifikasiyla imzalanmis" diye reddedilir.
+          # Hatayi burada, derlemeye baslamadan gorelim.
+          if [ ! -s android/key.properties ]; then
+            echo "HATA: android/key.properties olusturulmadi."
+            echo "Codemagic > Code signing identities > Android keystore"
+            echo "altinda 'liqra_keystore' referans adiyla bir anahtar"
+            echo "bulundugundan emin olun."
+            exit 1
+          fi
+          echo "Imzalama anahtari hazir."
       - *quality_gate
       - name: Sürüm numarasını Play'deki son yapıdan bir artır
         script: |

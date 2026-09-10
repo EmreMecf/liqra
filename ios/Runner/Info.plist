@@ -98,11 +98,12 @@
 		<array>
 			<string>UIInterfaceOrientationPortrait</string>
 		</array>
-		<key>UISupportedInterfaceOrientations~ipad</key>
-		<array>
-			<string>UIInterfaceOrientationPortrait</string>
-			<string>UIInterfaceOrientationPortraitUpsideDown</string>
-		</array>
+
+		<!-- UISupportedInterfaceOrientations~ipad BİLEREK YOK.
+		     TARGETED_DEVICE_FAMILY = 1 — uygulama yalnızca iPhone'u
+		     hedefliyor. iPad anahtarı bırakılırsa Apple, iPad desteği
+		     beyan edildiğini varsayıp inceleme sırasında iPad ekran
+		     görüntüsü ister. -->
 
 		<key>CADisableMinimumFrameDurationOnPhone</key>
 		<true/>

@@ -8,11 +8,20 @@
           "fileOutput": "android/app/google-services.json"
         }
       },
+      "ios": {
+        "default": {
+          "projectId": "finansasistaniapp",
+          "appId": "1:646938337554:ios:c9c378faf4827cc4fc13cb",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
       "dart": {
         "lib/firebase_options.dart": {
           "projectId": "finansasistaniapp",
           "configurations": {
-            "android": "1:646938337554:android:030f5cb0249fa5d8fc13cb"
+            "android": "1:646938337554:android:030f5cb0249fa5d8fc13cb",
+            "ios": "1:646938337554:ios:c9c378faf4827cc4fc13cb"
           }
         }
       }

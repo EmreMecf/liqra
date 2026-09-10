@@ -589,6 +589,86 @@ veri zaten Firestore'da kullanıcının hesabında. Android 12+ için ayrıca
 **Google girişi iOS'ta URL şeması ister.** `GoogleService-Info.plist`
 içindeki `REVERSED_CLIENT_ID`, `Info.plist` → `CFBundleURLSchemes` altına
 yazılmalı. Eksikse kullanıcı tarayıcıdan dönemez, beyaz ekranda kalır.
+Bu değer elle senkron tutulmaz: `codemagic.yaml` her derlemede plist'ten
+`plutil` ile okuyup `REVERSED_CLIENT_ID_YER_TUTUCU` yer tutucusunun yerine
+yazar.
+
+**`aps-environment` = `production`.** TestFlight ve App Store yapıları APNs
+üretim ortamını kullanır. `development` bırakılırsa bildirimler **hiç
+ulaşmaz** ve sebebi log'a düşmez. Yerelde Xcode ile debug derlemesi
+yapılacaksa geçici olarak `development` yapılmalı.
+
+**Yalnızca iPhone.** `TARGETED_DEVICE_FAMILY = 1`. Bu yüzden `Info.plist`
+içinde `UISupportedInterfaceOrientations~ipad` **bilerek yok** — bırakılırsa
+Apple iPad desteği beyan edildiğini varsayıp iPad ekran görüntüsü ister.
+
+**`NSLocationWhenInUseUsageDescription` kullanılmadığı hâlde var.** Uygulama
+konum istemez; anahtar yalnızca Apple'ın yükleme doğrulaması (uyarı 90683)
+için duruyor — bağlı SDK'lardan biri konum API'lerine referans veriyor.
+Silme, yükleme uyarı verir.
+
+### Hesap silme (App Store 5.1.1(v))
+
+`AccountDeletionService` hem Profil ekranından hem KVKK ekranından çağrılır.
+Firestore'da **doküman silmek alt koleksiyonları silmez**, bu yüzden servis
+silinecek koleksiyon adlarını elle tutar:
+
+```dart
+AccountDeletionService.subcollections   // transactions, assets, goals,
+                                        // subscriptions, loans, settings
+```
+
+`accounts` listede değildir — altındaki `accountTransactions` önce
+temizlenmek zorunda olduğu için ayrıca ele alınır.
+
+**Yeni alt koleksiyon eklendiğinde bu listeye de eklenmeli.** `settings`
+(bütçe limitleri) unutulmuştu; kullanıcı "hesabımı sil" dediği hâlde
+limitleri sunucuda kalıyordu. `test/account_deletion_test.dart` artık
+`lib/` içindeki `users/{uid}/…` zincirlerini tarayıp listeyle karşılaştırır;
+listeye eklemeyi unutan bir değişiklik testte düşer.
+
+`user.delete()` **yakın zamanlı giriş** ister. `requires-recent-login`
+dönerse şifreyle yeniden doğrulama sunulur; Google/Apple ile girenler
+yeniden girişe yönlendirilir.
+
+### Derleme buluttan yapılır
+
+Bu makinede Android SDK ve Xcode yok, `google-services.json` ve
+`GoogleService-Info.plist` depoda değil — **yerelde `flutter build`
+çalışmaz**. Üç iş akışı `codemagic.yaml` içinde:
+
+| İş akışı | Tetikleyici | Çıktı |
+|---|---|---|
+| `quality-check` | main'e her push | analyze + test |
+| `android-release` | elle | `.aab` → Play internal, taslak |
+| `ios-release` | elle | `.ipa` → TestFlight |
+
+**iOS imzalama elle yapılandırılmıştır.** Otomatik imzalama
+(`distribution_type` + `bundle_identifier`) denendi; Codemagic hesapta
+sertifika üretemedi ve her derleme "No matching profiles found" ile durdu.
+Sertifika ve profil Apple portalında oluşturulup Codemagic'e yüklendi.
+Elle imzalamada `xcode-project use-profiles` adımı **zorunludur** —
+`export_options.plist` dosyasını o üretir; adım olmadan IPA derlemesi
+"property list does not exist" ile düşer. Pod kurulumundan **sonra**
+çalışmalıdır.
+
+**Android sürüm derlemesi sessizce debug anahtarına düşebilir.**
+`build.gradle.kts`, `key.properties` yoksa yalnızca uyarı yazıp debug
+anahtarıyla imzalar (yerel geliştirme kesilmesin diye). Codemagic bu dosyayı
+`android_signing` tanımından kendisi üretir; üretemezse `.aab` Play'e
+yüklenip dakikalar sonra reddedilirdi. `codemagic.yaml` bu yüzden derlemeden
+**önce** dosyanın varlığını kontrol edip durur.
+
+### Gizlilik politikası yayında
+
+```
+https://emremecf.github.io/liqra/gizlilik-politikasi
+```
+
+`docs/` klasörü GitHub Pages ile yayınlanır (`docs/_config.yml`).
+`yayin-kontrol-listesi.md` `exclude` listesindedir — dahili not, siteye
+çıkmaz. Politika metni değişirse mağaza kayıtlarındaki tarih de
+güncellenmeli.
 
 ## Tasarım Sistemi (ÖNEMLİ)
 

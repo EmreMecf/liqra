@@ -17,14 +17,28 @@ class AccountDeletionService {
 
   final _db = FirebaseFirestore.instance;
 
-  /// Kullanıcının tüm alt koleksiyonları — accounts altındaki
-  /// accountTransactions ayrıca temizlenir.
-  static const _subcollections = <String>[
+  /// `users/{uid}` altındaki **tüm** alt koleksiyonlar.
+  ///
+  /// Firestore'da bir dokümanı silmek alt koleksiyonlarını **silmez**; her biri
+  /// tek tek gezilmek zorundadır. Bu liste eksik kalırsa kullanıcı "hesabımı
+  /// sil" dediği hâlde verisi sunucuda kalır — hem KVKK/GDPR ihlali hem de
+  /// App Store yönergesi 5.1.1(v) ihlalidir.
+  ///
+  /// Yeni bir alt koleksiyon eklendiğinde **buraya da** eklenmeli;
+  /// `account_deletion_test.dart` listeyi kod tabanıyla karşılaştırır.
+  ///
+  /// `accounts` listede yok: kendi altında `accountTransactions` taşıdığı için
+  /// ondan önce ayrıca temizlenir.
+  @visibleForTesting
+  static const subcollections = <String>[
     'transactions',
     'assets',
     'goals',
     'subscriptions',
     'loans',
+    // Bütçe limitleri burada durur (settings/budgets). Eskiden listede yoktu:
+    // hesap silindikten sonra Firestore'da yetim kalıyordu.
+    'settings',
   ];
 
   /// Hesabı ve tüm verilerini kalıcı olarak siler.
@@ -68,7 +82,7 @@ class AccountDeletionService {
     }
     await _deleteCollection(userDoc.collection('accounts'));
 
-    for (final name in _subcollections) {
+    for (final name in subcollections) {
       await _deleteCollection(userDoc.collection(name));
     }
 

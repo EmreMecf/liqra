@@ -1,123 +1,114 @@
 # Liqra — Yayın Kontrol Listesi
 
-Son denetim: 3 Eylül 2026 · `flutter analyze` temiz · 160 test geçiyor
+Son denetim: 10 Eylül 2026 · `flutter analyze` temiz · 164 test geçiyor
+
+Bu dosya `docs/_config.yml` içinde `exclude` listesindedir — GitHub Pages'te
+yayınlanmaz, depoda kalır.
 
 ---
 
-## 🔴 Yayına engel — sende
+## ✅ Tamamlananlar
 
-Bunlar olmadan uygulama **derlenmiyor** ya da mağaza **reddediyor**.
+Bu maddeler daha önce "yayına engel" listesindeydi; artık kapalı.
 
-### 1. Firebase yapılandırma dosyaları
+| Konu | Durum |
+|---|---|
+| iOS Firebase yapılandırması | `firebase_options.dart` iOS bloğu eklendi · `firebase.json` iOS platformunu tanıyor |
+| iOS izin metinleri | Kamera, galeri, galeriye kaydetme, Face ID, konum (uyarı 90683) |
+| iOS dağıtım hedefi | `IPHONEOS_DEPLOYMENT_TARGET = 13.0` (3 yapılandırma) |
+| iOS yetkiler | `Runner.entitlements` · `aps-environment: production` · Apple ile Giriş |
+| Cihaz ailesi | `TARGETED_DEVICE_FAMILY = 1` — yalnızca iPhone |
+| Google girişi URL şeması | Codemagic her derlemede plist'ten okuyup yazıyor |
+| Android yedekleme | `allowBackup=false` + `backup_rules.xml` + `data_extraction_rules.xml` |
+| Android imzalama yapılandırması | `key.properties` okunuyor; Codemagic dosyayı üretiyor |
+| Android küçültme | `isMinifyEnabled` + `isShrinkResources` + ProGuard kuralları |
+| Hesap silme | Profil → Hesabı Sil gerçekten siliyor (App Store 5.1.1(v)) |
+| Gizlilik politikası URL'si | **Yayında** → https://emremecf.github.io/liqra/gizlilik-politikasi |
+| CI hattı | Codemagic 3 iş akışı: android-release, ios-release, quality-check |
 
-| Dosya | Nereden | Nereye |
-|---|---|---|
-| `google-services.json` | Firebase Console → Proje ayarları → Android uygulaması | `android/app/` |
-| `GoogleService-Info.plist` | Firebase Console → iOS uygulaması ekle | `ios/Runner/` |
+### Gizlilik politikası adresi
 
-iOS uygulaması Firebase'de **henüz kayıtlı değil** — `firebase_options.dart`
-web ve iOS için `UnsupportedError` fırlatıyor. Bundle ID: `com.emrec.muhasebe`
+Her iki mağaza formuna da bu adres girilecek:
 
-Dosyayı indirdikten sonra:
-
-```bash
-flutterfire configure
+```
+https://emremecf.github.io/liqra/gizlilik-politikasi
 ```
 
-Bu komut `firebase_options.dart` dosyasını iOS için de doldurur.
+Doğrulandı: HTTP 200, `lang="tr-TR"`, içerik doğru.
 
-### 2. Google girişi — iOS URL şeması
+---
 
-`GoogleService-Info.plist` içindeki `REVERSED_CLIENT_ID` değerini
-`ios/Runner/Info.plist` içindeki `REVERSED_CLIENT_ID_YER_TUTUCU` yerine yaz.
-Biçim: `com.googleusercontent.apps.123456-abcdef`
+## 🔴 Kalan engeller
 
-**Bu olmadan** Google girişi tarayıcıdan geri dönemez, kullanıcı beyaz ekranda
-kalır.
+### 1. Android imzalama anahtarı — Codemagic'te var mı?
 
-### 3. Android imzalama anahtarı
+iOS tarafı TestFlight'a kadar gitti, **Android sürüm derlemesi henüz hiç
+çalışmadı**. Codemagic'te şunun bulunduğunu doğrula:
 
-```bash
+> Codemagic → Teams / App settings → **Code signing identities** →
+> **Android keystores** → referans adı `liqra_keystore`
+
+Yoksa önce anahtarı üret ve yükle:
+
+```powershell
 keytool -genkey -v -keystore liqra-release.jks -keyalg RSA -keysize 2048 -validity 10000 -alias liqra
 ```
 
-Sonra `android/key.properties` oluştur (bu dosya `.gitignore`'da, commit
-edilmez):
+⚠️ **Bu dosyayı kaybetme.** Kaybedersen aynı uygulamayı bir daha
+güncelleyemezsin — Play yeni paket adı ister. Yedeğini şifreli bir yerde tut.
 
+`codemagic.yaml` artık anahtar üretilmediyse derlemeyi **başlamadan
+durduruyor**. Eskiden `build.gradle.kts` sessizce debug anahtarına düşüyor,
+`.aab` Play'e yükleniyor ve dakikalar sonra reddediliyordu.
+
+### 2. Play Store servis hesabı
+
+`android-release` iş akışı `GCLOUD_SERVICE_ACCOUNT_CREDENTIALS` bekliyor
+(`google_play` değişken grubu). Play Console → Setup → API access →
+service account JSON.
+
+### 3. Apple inceleme test hesabı
+
+App Store incelemesi giriş isteyen her uygulamada **çalışan bir test hesabı**
+zorunlu tutar. Uygulama içinden bir hesap aç, içine birkaç örnek işlem gir ve
+bilgilerini App Store Connect → App Review Information alanına yaz.
+
+Boş bir hesapla gönderirsen "uygulamanın ne yaptığını göremedik" gerekçesiyle
+reddedilme ihtimali yüksek.
+
+### 4. Cloud Functions deploy
+
+Düzeltilen haber kaynakları, kampanya temizliği ve ASCII slug'lar **hâlâ
+yayında değil**. Uygulama canlıya çıkarsa kullanıcılar eski (üçü ölü) RSS
+kaynaklarıyla karşılaşır.
+
+```bash
+cd functions && firebase deploy --only functions
 ```
-storePassword=...
-keyPassword=...
-keyAlias=liqra
-storeFile=C:/yol/liqra-release.jks
-```
 
-⚠️ **Keystore dosyasını kaybetme.** Kaybedersen aynı uygulamayı bir daha
-güncelleyemezsin — Play Store yeni paket adı ister.
+Blaze planı gerekli — Cloud Functions ücretsiz planda dışarı ağ isteği
+yapamaz.
 
-### 4. Araç zinciri
+### 5. Mağaza görselleri ve metinleri
 
-`flutter doctor` şu an iki eksik gösteriyor:
-
-- **Android SDK yok** → [Android Studio](https://developer.android.com/studio)
-  kur, SDK + cmdline-tools bileşenlerini seç
-- **Xcode yok** → iOS derlemesi için **Mac zorunlu**. Mac'in yoksa
-  [Codemagic](https://codemagic.io) veya GitHub Actions macOS runner
-  kullanabilirsin
-
-### 5. Gizlilik politikası URL'si
-
-`docs/gizlilik-politikasi.md` hazır ama **herkese açık bir adreste
-yayınlanmalı**. En kolayı GitHub Pages:
-
-Repo → Settings → Pages → Source: main / docs → adres:
-`https://emremecf.github.io/liqra/gizlilik-politikasi`
-
-Bu URL hem Play Console'a hem App Store Connect'e girilecek. İkisi de
-zorunlu tutuyor.
-
----
-
-## ✅ Bu turda düzeltilenler
-
-### iOS — çökme sebepleri giderildi
-
-`Info.plist` Flutter şablonundan kalmıştı, hiç hazırlanmamıştı:
-
-| Eksik | Sonucu |
+| Öğe | Gereken |
 |---|---|
-| `NSCameraUsageDescription` | Fiş tarama açılınca **uygulama çöküyordu** |
-| `NSPhotoLibraryUsageDescription` | Galeriden seçince **çöküyordu** |
-| Görünen ad "Muhasebe" | Ana ekranda Liqra yerine "Muhasebe" yazacaktı |
-| `UIBackgroundModes` yok | Bildirimler uygulama kapalıyken gelmiyordu |
-| `ITSAppUsesNonExemptEncryption` yok | Her yüklemede Apple manuel soruyordu |
-| Yatay yön açık | Açılış karesi yatay çizilip zıplıyordu |
+| Uygulama ikonu | 512×512 (Play) · 1024×1024 (App Store) |
+| Ekran görüntüleri | Play: en az 2 telefon · Apple: 6.7" ve 6.5" zorunlu |
+| Feature graphic | 1024×500 (yalnızca Play) |
+| Kısa açıklama | 80 karakter (Play) |
+| Uzun açıklama | 4000 karakter (Play) · Apple: alt başlık + açıklama |
 
-iOS izin metinleri Türkçe ve amacı açık yazıldı — "erişim gerekiyor" gibi
-genel ifadeler App Store reddi sebebidir.
+iPad ekran görüntüsü **gerekmiyor** — uygulama iPhone-only olarak beyan
+ediliyor.
 
-### iOS — dağıtım hedefi
+### 6. Mağaza formları
 
-`IPHONEOS_DEPLOYMENT_TARGET` 12.0 idi. `firebase_core 3.x` **iOS 13**
-istiyor; 12.0 ile `pod install` başarısız olurdu. 13.0'a çekildi (3 yapılandırmada).
-
-### iOS — yetkiler
-
-`Runner.entitlements` yoktu, oluşturuldu ve projeye bağlandı:
-
-- `aps-environment` — FCM bildirimleri
-- `com.apple.developer.applesignin` — **App Store yönergesi 4.8 gereği
-  zorunlu**: Google ile giriş sunan uygulama Apple ile girişi de sunmak
-  zorunda. Eksikse yükleme reddedilir.
-
-### Android — finansal veri yedeğe çıkıyordu
-
-`allowBackup` varsayılan olarak `true` idi: hesap bakiyeleri, kart borçları ve
-işlem geçmişi Google Drive yedeğine kopyalanıyordu. Veri zaten Firestore'da
-kullanıcının hesabında ve yeni cihazda girişle geri geliyor — yedek yalnızca
-saldırı yüzeyi büyütüyordu.
-
-`allowBackup="false"` + `backup_rules.xml` + `data_extraction_rules.xml`
-(Android 12+ için ayrı dosya gerekiyor).
+- Play → **Veri Güvenliği** formu (aşağıdaki hazır bilgi)
+- Play → **İçerik derecelendirmesi** anketi
+- Apple → **Gizlilik etiketleri**
+- Apple → **Yaş sınırı**
+- Her ikisi → **Finans** kategorisi
 
 ---
 
@@ -125,9 +116,10 @@ saldırı yüzeyi büyütüyordu.
 
 ### Uygulama kimliği
 - **Paket adı / Bundle ID:** `com.emrec.muhasebe`
-- **Sürüm:** 1.1.0 (versionCode 2)
+- **Sürüm:** 1.1.0 (build numarasını CI otomatik artırır)
 - **Kategori:** Finans
 - **Minimum sürüm:** Android 6.0 (API 23) · iOS 13.0
+- **Cihaz:** yalnızca iPhone (iPad desteklenmiyor)
 
 ### İzinler ve gerekçeleri
 
@@ -136,8 +128,9 @@ saldırı yüzeyi büyütüyordu.
 | `CAMERA` | Fiş/fatura tarama (OCR) |
 | `POST_NOTIFICATIONS` | Ekstre ve bütçe hatırlatmaları |
 | `INTERNET`, `ACCESS_NETWORK_STATE` | Firestore ve piyasa verisi |
+| `NSLocationWhenInUse` (iOS) | **Kullanılmıyor** — yalnızca bağımlı bir SDK'nın referansı yüzünden amaç metni tanımlı |
 
-### Google Play — Veri Güvenliği formu
+### Veri Güvenliği / Gizlilik etiketleri
 
 Toplanan veri türleri:
 
@@ -147,45 +140,40 @@ Toplanan veri türleri:
 - **Cihaz kimliği:** FCM bildirim token'ı
 
 Beyan edilecekler:
+
 - Veri **şifreli** aktarılıyor (HTTPS) — ✅
-- Kullanıcı **silme** talep edebiliyor — ✅ (Profil → Hesabı Sil)
+- Kullanıcı **silme** talep edebiliyor — ✅ Profil → Hesabı Sil
 - Veri **satılmıyor / reklamla paylaşılmıyor** — ✅
+- **İzleme için kullanılmıyor** — ✅
+- Veri kullanıcıya **bağlı** — ✅
 
-⚠️ **Banka bağlantısı olmadığını** açıkça belirt. Finans kategorisinde
-"banka verisi" beyanı ek doğrulama süreci başlatır; Liqra'da kullanıcının
-elle girdiği veriler var, bankaya bağlanma yok.
-
-### App Store — Gizlilik etiketleri
-
-Aynı liste. Ek olarak "Veri kullanıcıya bağlı mı?" → **Evet** (hesabına bağlı).
-"İzleme için kullanılıyor mu?" → **Hayır**.
+⚠️ **Banka bağlantısı olmadığını açıkça belirt.** Finans kategorisinde "banka
+verisi" beyanı ek doğrulama süreci başlatır; Liqra'da bankaya bağlanma yok,
+tüm veriyi kullanıcı elle giriyor.
 
 ---
 
-## ⏳ Kalan işler (yayına engel değil)
+## 🚀 Yayın akışı
+
+Yerelde derleme **yapılmıyor**: bu makinede Android SDK ve Xcode yok, Firebase
+yapılandırma dosyaları da depoda değil. Her şey Codemagic üzerinden çıkıyor.
+
+| İş akışı | Ne yapar | Nereye gider |
+|---|---|---|
+| `quality-check` | Her push'ta analyze + test | — |
+| `android-release` | `.aab` üretir | Play → **internal** kanal, taslak |
+| `ios-release` | `.ipa` üretir | **TestFlight** |
+
+İkisi de **doğrudan üretime göndermiyor**. App Store incelemesine ve Play
+üretim kanalına geçiş elle yapılacak.
+
+---
+
+## ⏳ Yayına engel olmayanlar
 
 | İş | Not |
 |---|---|
-| Mağaza görselleri | Ekran görüntüleri, feature graphic (1024×500), ikon 512×512 |
-| Uygulama açıklaması | Play: 80 karakter kısa + 4000 uzun; Apple: alt başlık + açıklama |
-| Test hesabı | Apple inceleme ekibi için giriş bilgisi (zorunlu) |
-| Cloud Functions deploy | Düzeltilen haber kaynakları hâlâ yayında değil |
-| Erişilebilirlik | Kod tabanında hiç `Semantics` etiketi yok |
-| Yaş sınırı formu | Her iki mağazada da doldurulacak |
-
----
-
-## 🚀 Yayın komutları
-
-Yukarıdaki engeller çözüldükten sonra:
-
-```bash
-flutter build appbundle --release
-```
-
-```bash
-flutter build ipa --release
-```
-
-`.aab` dosyası: `build/app/outputs/bundle/release/app-release.aab`
-`.ipa` dosyası: `build/ios/ipa/`
+| Erişilebilirlik | Kod tabanında hiç `Semantics` etiketi yok; ekran okuyucu deneyimi zayıf |
+| Kampanya verisi | Tamamı örnek (`isSample: true`); canlı banka kaynağı bağlı değil |
+| Fon fiyatları | TEFAS fiyat ucu kapalı; kullanıcı elle giriyor |
+| CollectAPI kullanımı | `fetchMarketData` 7/24 2 dakikada bir çalışıyor; borsa saati kontrolü yok |
