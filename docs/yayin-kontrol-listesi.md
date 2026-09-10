@@ -136,7 +136,16 @@ geçtiyse sorun Apple tarafındadır; bilinen bir arka uç arızası:
 - Başlık: `TestFlight betaAppReviewSubmissions returns 422 BETA_CONTRACT_MISSING`
 - Bundle ID ve hatalı isteğin zamanını yaz
 
-### 5. Apple inceleme test hesabı
+### 5. TestFlight beklerken: Ad Hoc ile test et
+
+Beta contract arızası çözülene kadar (1-3 hafta sürebiliyor) uygulamayı
+TestFlight'sız da telefona kurabilirsin. Ad Hoc dağıtımın beta sözleşmesiyle
+ilgisi yoktur, arızadan etkilenmez. Mac gerekmez.
+
+`ios-adhoc` iş akışı `codemagic.yaml` içinde hazır.
+Adım adım anlatım: **`docs/adhoc-kurulum.md`**
+
+### 6. Apple inceleme test hesabı
 
 App Store incelemesi giriş isteyen her uygulamada **çalışan bir test hesabı**
 zorunlu tutar. Uygulama içinden bir hesap aç, içine birkaç örnek işlem gir ve
@@ -145,7 +154,7 @@ bilgilerini App Store Connect → App Review Information alanına yaz.
 Boş bir hesapla gönderirsen "uygulamanın ne yaptığını göremedik" gerekçesiyle
 reddedilme ihtimali yüksek.
 
-### 6. Cloud Functions deploy
+### 7. Cloud Functions deploy
 
 Düzeltilen haber kaynakları, kampanya temizliği ve ASCII slug'lar **hâlâ
 yayında değil**. Uygulama canlıya çıkarsa kullanıcılar eski (üçü ölü) RSS
@@ -158,7 +167,7 @@ cd functions && firebase deploy --only functions
 Blaze planı gerekli — Cloud Functions ücretsiz planda dışarı ağ isteği
 yapamaz.
 
-### 7. Mağaza görselleri ve metinleri
+### 8. Mağaza görselleri ve metinleri
 
 | Öğe | Gereken |
 |---|---|
@@ -171,7 +180,7 @@ yapamaz.
 iPad ekran görüntüsü **gerekmiyor** — uygulama iPhone-only olarak beyan
 ediliyor.
 
-### 8. Mağaza formları
+### 9. Mağaza formları
 
 - Play → **Veri Güvenliği** formu (aşağıdaki hazır bilgi)
 - Play → **İçerik derecelendirmesi** anketi

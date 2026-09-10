@@ -12,3 +12,4 @@ lang: tr-TR
 # Dahili notlar siteye çıkmasın — depoda kalır ama yayınlanmaz.
 exclude:
   - yayin-kontrol-listesi.md
+  - adhoc-kurulum.md

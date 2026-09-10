@@ -649,6 +649,7 @@ Bu makinede Android SDK ve Xcode yok, `google-services.json` ve
 | `quality-check` | main'e her push | analyze + test |
 | `android-release` | elle | `.aab` → Play internal, taslak |
 | `ios-release` | elle | `.ipa` → TestFlight |
+| `ios-adhoc` | elle | `.ipa` → doğrudan cihaza (TestFlight'ı atlar) |
 
 **iOS imzalama elle yapılandırılmıştır.** Otomatik imzalama
 (`distribution_type` + `bundle_identifier`) denendi; Codemagic hesapta
@@ -664,6 +665,14 @@ yalnızca iç (internal) grup var, bu yüzden `submit_to_testflight: false`.
 `true` bırakıldığında Codemagic `betaAppReviewSubmissions` ucuna istek atıyor
 ve Apple 422 `BETA_CONTRACT_MISSING` döndürüp derlemeyi kırıyordu — oysa yapı
 gruba zaten dağıtılmıştı. Dış grup eklenirse tekrar `true` yapılmalı.
+
+**TestFlight tamamen bloke olabilir — `ios-adhoc` kaçış yoludur.** Apple'ın
+arka ucunda uygulamanın Beta Contract kaydı oluşmazsa (`422
+BETA_CONTRACT_MISSING`) hem dış grup eklenemez hem de **iç test kullanıcıları
+yapıyı indiremez** ("requested app is not available"). Bu yalnızca Apple
+mühendisinin elle düzeltebildiği bilinen bir arıza; çözülmesi haftalar
+sürüyor. Ad Hoc dağıtım beta sözleşmesine bağlı olmadığı için etkilenmez.
+Anlatım: `docs/adhoc-kurulum.md`
 
 **TestFlight'a yükleme, dağıtım demek değildir.** `submit_to_testflight: true`
 yapıyı yükler ve "Ready to Test" yapar ama **hiçbir test grubuna atamaz**;
