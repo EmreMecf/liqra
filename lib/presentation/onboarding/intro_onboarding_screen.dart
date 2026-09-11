@@ -25,7 +25,7 @@ class _IntroOnboardingScreenState extends State<IntroOnboardingScreen> {
       badge: 'Hoş Geldin',
       title: 'Liqra ile\nfinansını yönet',
       subtitle:
-          'Harcamalarını takip et, yatırımlarını büyüt, yapay zeka destekli tavsiyeler al.',
+          'Harcamalarını takip et, yatırımlarını izle, yapay zeka destekli analizler al.',
       accent: AppColors.accentGreen,
       illustration: _IllustrationHero(),
     ),

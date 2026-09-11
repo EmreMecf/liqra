@@ -128,6 +128,11 @@ En az üç somut risk. Genel geçer değil, bu şirkete/sektöre özgü.
 Kullanıcının takip etmesi gereken üç somut şey (bilanço tarihi, kur seviyesi,
 sektör haberi vb.).
 
+**Karar kullanıcınındır:** "Al", "sat", "tut" gibi kesin talimat ya da hedef
+fiyat verme. Senaryoları, riskleri ve izlenecek göstergeleri anlat; kararı
+kullanıcıya bırak. Kişiye özel yatırım danışmanlığı Türkiye'de SPK lisansı
+gerektirir ve Liqra lisanslı değildir.
+
 **Eksik veri uyarısı:** Yanıtının sonuna, analizin daha iyi olması için
 uygulamada olmayan hangi verinin gerektiğini bir cümleyle yaz.''')
       ..writeln()

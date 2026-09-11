@@ -13,6 +13,7 @@ import 'features/ai_assistant/domain/assistant_insight.dart';
 import 'features/ai_assistant/presentation/widgets/insight_card.dart';
 import 'presentation/widgets/app_card.dart';
 import 'presentation/widgets/delta_chip.dart';
+import 'presentation/widgets/investment_disclaimer.dart';
 import 'presentation/widgets/liqra_bottom_nav.dart';
 import 'presentation/widgets/status_banners.dart';
 
@@ -196,6 +197,9 @@ class _Gallery extends StatelessWidget {
 
                 const _SectionTitle('Asistan içgörüleri'),
                 const InsightList(insights: _insights, limit: 4),
+
+                const _SectionTitle('Yatırım uyarısı'),
+                const InvestmentDisclaimer(),
 
                 const _SectionTitle('Kredi kartı'),
                 _Pad(child: CreditCardWidget(

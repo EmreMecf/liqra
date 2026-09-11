@@ -3,6 +3,7 @@ import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../../../../presentation/widgets/investment_disclaimer.dart';
 import '../../../../core/di/injection.dart';
 import '../../domain/assistant_context.dart';
 import '../assistant_context_builder.dart';
@@ -194,10 +195,24 @@ class _StockAnalysisSheetState extends State<_StockAnalysisSheet> {
       );
     }
 
+    // Uyarı analizin hemen altında, kaydırılan içeriğin DIŞINDA durur —
+    // uzun bir analizin sonuna gömülürse kimse görmez.
+    return Column(
+      children: [
+        Expanded(child: _markdown(controller)),
+        const Padding(
+          padding: EdgeInsets.fromLTRB(0, 10, 0, 18),
+          child: InvestmentDisclaimer(),
+        ),
+      ],
+    );
+  }
+
+  Widget _markdown(ScrollController controller) {
     return Markdown(
       controller: controller,
       data: _result!,
-      padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+      padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
       styleSheet: MarkdownStyleSheet(
         p: GoogleFonts.outfit(
             fontSize: 14, height: 1.6, color: Colors.white.withValues(alpha: 0.85)),

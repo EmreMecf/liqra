@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown/flutter_markdown.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../widgets/investment_disclaimer.dart';
 import '../../core/constants/app_colors.dart';
 import '../../core/navigation/app_routes.dart';
 import '../../core/constants/app_typography.dart';
@@ -296,9 +297,16 @@ class _AiAssistantScreenState extends State<AiAssistantScreen> {
                         ),
                 ),
 
+                // Asistan yatırım yorumu yapıyor; uyarı her zaman görünür.
+                if (messages.isNotEmpty)
+                  const Padding(
+                    padding: EdgeInsets.only(top: 8),
+                    child: InvestmentDisclaimer(),
+                  ),
+
                 // ── Giriş alanı ─────────────────────────────────────────────
                 Container(
-                  margin: const EdgeInsets.all(16),
+                  margin: const EdgeInsets.fromLTRB(16, 10, 16, 16),
                   decoration: BoxDecoration(
                     color: AppColors.bgSecondary,
                     borderRadius: BorderRadius.circular(16),

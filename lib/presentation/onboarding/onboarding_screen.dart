@@ -242,7 +242,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
           const SizedBox(height: 32),
           Text('Risk Profiliniz 📊', style: AppTypography.headlineL),
           const SizedBox(height: 8),
-          Text('4 kısa soru — AI tavsiyelerinizi optimize eder.', style: AppTypography.bodyM),
+          Text('4 kısa soru — Liqra analizlerini sana göre ayarlar.', style: AppTypography.bodyM),
           const SizedBox(height: 16),
 
           // Risk skoru göstergesi

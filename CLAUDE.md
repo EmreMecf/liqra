@@ -395,6 +395,25 @@ sıçraması, abonelik yükü, portföy yoğunlaşması, atıl nakit gibi bulgul
 İçgörüler `main.dart` içinde veriler yüklendikten sonra bir kez üretilir
 (`_refreshAssistant`). Ağ isteği yapmaz, maliyeti yoktur.
 
+### Yatırım uyarısı (yasal)
+
+Türkiye'de kişiye özel yatırım danışmanlığı **SPK lisansı** gerektirir
+(6362 sayılı Kanun). Liqra lisanslı değildir; asistanın yatırım içeriği
+bilgilendirme amaçlıdır.
+
+- `InvestmentDisclaimer` (`presentation/widgets/investment_disclaimer.dart`)
+  asistanın ürettiği **her yatırım içeriğinin altında** görünür olmalı —
+  şu an hisse analizi sayfası ve asistan sohbet ekranı. Yeni bir yatırım
+  analizi ekranı eklenirse oraya da konur.
+- Uyarı kaydırılan içeriğin **dışında** durur; uzun bir analizin sonuna
+  gömülürse kimse görmez.
+- Hisse prompt'u kesin "al / sat / tut" talimatını ve hedef fiyatı yasaklar.
+- Arayüz metinlerinde "tavsiye" yerine "analiz" denir. Tanıtım ekranı eskiden
+  "yapay zeka destekli tavsiyeler al" diyordu.
+
+`test/investment_disclaimer_test.dart` hem metnin hem prompt kuralının
+kaybolmasını yakalar.
+
 ### Hisse analizi ve eksik veri
 
 `AnalyzeStockUseCase` şunları birleştirir: canlı fiyat + gün içi aralık + hacim,
