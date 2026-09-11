@@ -156,7 +156,7 @@ Profil, üretildiği andaki cihaz listesini içinde taşır.
 > → **iOS provisioning profiles** → Upload profile
 
 - İndirdiğin `.mobileprovision` dosyasını seç
-- **Reference name:** `liqra_adhoc`
+- **Reference name:** `liqra_ad_hoc`
 
 Bu ad `codemagic.yaml` içindeki `provisioning_profiles` değeriyle **birebir
 aynı olmalı**, yoksa derleme imzalama adımında durur.
