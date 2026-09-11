@@ -5,7 +5,7 @@ description: Liqra mobil uygulamasının kişisel veri işleme esasları ve KVKK
 
 # Liqra — Gizlilik Politikası
 
-**Son güncelleme:** 3 Eylül 2026
+**Son güncelleme:** 11 Eylül 2026
 **Veri sorumlusu:** Emre Çiftci
 **İletişim:** emreciftci873@gmail.com
 
@@ -29,15 +29,15 @@ Liqra kişisel finans takibi yapar. İşlediğimiz veriler:
 
 ### Sizin girdiğiniz finansal veriler
 - Gelir ve harcama kayıtları, kategoriler, tarihler, notlar
-- Banka hesabı adları ve bakiyeleri
+- Banka hesabı adları ve bakiyeleri; girmeyi seçerseniz IBAN
 - Kredi kartı adı, limiti, borcu, ekstre ve son ödeme günleri
 - Kredi bilgileri, abonelikler, birikim hedefleri, bütçe limitleri
 - Yatırım portföyünüz: varlık adı, adet, alış fiyatı
 
 **Banka hesaplarınıza bağlanmıyoruz.** Uygulamanın bankalarla hiçbir
 bağlantısı yoktur; tüm veriler sizin elle girdiğiniz ya da yüklediğiniz
-belgelerden okunan bilgilerdir. Banka şifresi, IBAN doğrulaması veya kart
-numarasının tamamını hiçbir zaman istemeyiz — kart için yalnızca sizin
+belgelerden okunan bilgilerdir. Banka şifresi veya kart numarasının
+tamamını hiçbir zaman istemeyiz; IBAN alanı isteğe bağlıdır — kart için yalnızca sizin
 girdiğiniz son 4 hane saklanır.
 
 ### Cihaz ve kullanım verileri
@@ -58,22 +58,42 @@ Veriler cihazınızda da önbelleğe alınır (çevrimdışı kullanım için).
 
 ---
 
-## 3. Yapay zekâ asistanı (Liqra)
+## 3. Yapay zekâ özellikleri (Google Gemini)
 
-Uygulamadaki asistana bir soru sorduğunuzda ya da analiz istediğinizde,
-finansal durumunuzun özeti **Google Gemini** servisine gönderilir. Gönderilen
-bilgiler:
+İki özellik **Google Gemini** servisine veri gönderir. İkisini de hiç
+kullanmazsanız hiçbir veri Gemini'ye gitmez.
+
+### a) Asistan (Liqra)
+
+Asistana bir soru sorduğunuzda ya da analiz istediğinizde finansal
+durumunuzun özeti gönderilir:
 
 - Gelir/gider toplamları ve kategori dağılımı
-- Hesap bakiyeleri, kart borçları, ekstre tarihleri
+- Hesap bakiyeleri, kart borçları, ekstre tarihleri, bankaların adları
 - Portföy pozisyonlarınız ve hedefleriniz
 - Piyasa fiyatları ve haber başlıkları
 
-**Gönderilmeyen bilgiler:** adınız, e-postanız, banka hesap numaranız,
-IBAN'ınız, kart numaranız.
+Bu özete adınız, e-postanız, IBAN'ınız ve kart numaranız **eklenmez**.
 
-Bu veriler size cevap üretmek için kullanılır. Google'ın kurumsal API
-şartlarına tabidir. Asistanı hiç kullanmazsanız hiçbir veri Gemini'ye gitmez.
+### b) Belge tarama (fiş, fatura, banka ekstresi)
+
+Bir fişi, faturayı veya banka ekstresini taradığınızda ya da yüklediğinizde,
+**görselin veya PDF dosyasının kendisi** metni okunup işlem kaydına
+dönüştürülmek üzere Gemini'ye gönderilir. Belgenin üzerinde basılı olan her
+bilgi — adınız, IBAN'ınız, kartınızın bazı haneleri, işyeri adı ve adresi
+gibi — bu gönderime dahildir.
+
+Liqra görseli veya dosyayı **saklamaz**; hesabınıza yalnızca belgeden okunan
+işlem kayıtları yazılır. Paylaşmak istemediğiniz bir bilgi varsa belgeyi
+yüklemeden önce kırpabilir veya işlemi elle girebilirsiniz.
+
+### Gemini bu verileri nasıl kullanır
+
+Gönderilen veriler yalnızca size yanıt üretmek için kullanılır. Liqra,
+Gemini'yi Google'ın **ücretli API hizmeti** kapsamında kullanır; bu kapsamda
+Google gönderilen içeriği kendi ürünlerini geliştirmek için kullanmaz ve
+yalnızca kötüye kullanımı önleme ile yasal yükümlülükler için sınırlı süre
+saklar.
 
 ---
 
@@ -86,7 +106,7 @@ Kullandığımız hizmet sağlayıcılar:
 | Sağlayıcı | Ne için | Ne görüyor |
 |---|---|---|
 | Google Firebase | Kimlik doğrulama, veritabanı, bildirim | Hesap ve finansal verileriniz |
-| Google Gemini | Asistan yanıtları | Finansal özet (kimlik bilgisi hariç) |
+| Google Gemini | Asistan yanıtları, belge tarama | Asistan: finansal özet (kimlik bilgisi hariç) · Tarama: yüklediğiniz belgenin görseli veya PDF'i |
 | Firebase Crashlytics | Çökme raporları | Cihaz modeli, hata izi |
 | Firebase Analytics | Kullanım istatistikleri | Anonim ekran görüntüleme sayıları |
 

@@ -173,8 +173,20 @@ workflows:
           failure: true
       google_play:
         credentials: $GCLOUD_SERVICE_ACCOUNT_CREDENTIALS
-        # Once ic test kanalina — dogrudan produksiyona gonderme.
-        track: internal
+        # KAPALI TEST kanali ("alpha" = Play'deki varsayilan kapali test).
+        #
+        # 13 Kasim 2023 sonrasi acilan kisisel hesaplar uretime cikmadan once
+        # en az 12 test kullanicisiyla 14 GUN KESINTISIZ kapali test yapmak
+        # zorunda. Ic test (internal) bu sarti KARSILAMAZ -- eskiden burada
+        # "internal" yaziyordu; test kullanicilari yapiyi alsa bile 14 gunluk
+        # sayac hic baslamazdi.
+        #
+        # Uretim erisimi alindiktan sonra "production" yapilabilir.
+        #
+        # ONEMLI: Uygulamanin Play'e ILK yuklemesi API ile yapilamaz. Ilk
+        # .aab dosyasini Codemagic artifact'larindan indirip Play Console'a
+        # ELLE yukleyin; sonraki surumler buradan otomatik gider.
+        track: alpha
         submit_as_draft: true
 
   # ══════════════════════════════════════════════════════════════════════════

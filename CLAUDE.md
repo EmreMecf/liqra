@@ -184,7 +184,15 @@ sayfalar bot koruması arkasındadır. Bu nedenle:
   gerçek getiri verisi olmadan boş döner (uydurma sıralama yapılmaz)
 
 ### API Key Yönetimi
-- **Gemini API key**: Firebase Remote Config (`gemini_api_key`) — güvenli
+- **Gemini API key**: Firebase Remote Config (`gemini_api_key`). Anahtar
+  **istemciye iner** — paketi açan çıkarabilir; saatlik 20 istek sınırı da
+  yalnızca istemcide. Google Cloud'da API kısıtlaması + bütçe alarmı şart;
+  kalıcı çözüm Firebase AI Logic + App Check.
+- **Gemini ÜCRETLİ katmanda olmalı.** Anahtarın bağlı olduğu Cloud projesinde
+  faturalandırma açık değilse Google gönderilen içeriği ürün geliştirmede
+  kullanır ve insan incelemeciler okuyabilir; şartlar ücretsiz katmana kişisel
+  veri göndermeyi yasaklıyor. Liqra finansal özet ve banka ekstresi PDF'i
+  gönderiyor. Gizlilik politikası ücretli katmanı varsayar.
 - **Anthropic API key**: SharedPreferences veya dart-define — kullanıcı yönetimli
 - **DioClient base URL**: `--dart-define=API_BASE_URL=...` ile override edilir,
   varsayılan `http://localhost:3000/api`. Uygulama şu an backend'i kullanmıyor.
@@ -666,7 +674,7 @@ Bu makinede Android SDK ve Xcode yok, `google-services.json` ve
 | İş akışı | Tetikleyici | Çıktı |
 |---|---|---|
 | `quality-check` | main'e her push | analyze + test |
-| `android-release` | elle | `.aab` → Play internal, taslak |
+| `android-release` | elle | `.aab` → Play **kapalı test** (`alpha`), taslak |
 | `ios-release` | elle | `.ipa` → TestFlight |
 | `ios-adhoc` | elle | `.ipa` → doğrudan cihaza (TestFlight'ı atlar) |
 
@@ -699,12 +707,27 @@ TestFlight uygulamasında hiçbir şey görünmez ve ortada hata da olmaz.
 `beta_groups` bu yüzden zorunludur — oradaki ad App Store Connect'teki grup
 adıyla birebir aynı olmalı, yoksa yayın adımı durur.
 
+**Android kanalı `alpha` (kapalı test), `internal` DEĞİL.** 13 Kasım 2023
+sonrası açılan kişisel Play hesapları üretime çıkmadan önce 12 test
+kullanıcısıyla 14 gün kesintisiz **kapalı** test yapmak zorunda; iç test bu
+şartı karşılamaz. Uygulamanın Play'e **ilk** yüklemesi API ile yapılamaz —
+ilk `.aab` Play Console'a elle yüklenir.
+
 **Android sürüm derlemesi sessizce debug anahtarına düşebilir.**
 `build.gradle.kts`, `key.properties` yoksa yalnızca uyarı yazıp debug
 anahtarıyla imzalar (yerel geliştirme kesilmesin diye). Codemagic bu dosyayı
 `android_signing` tanımından kendisi üretir; üretemezse `.aab` Play'e
 yüklenip dakikalar sonra reddedilirdi. `codemagic.yaml` bu yüzden derlemeden
 **önce** dosyanın varlığını kontrol edip durur.
+
+### Gizlilik politikası kodla birebir örtüşmeli
+
+Politika bir kez yanlış beyan içeriyordu: "Gemini'ye adınız, IBAN'ınız, kart
+numaranız gönderilmez" diyordu — asistan için doğru, ama **belge tarama
+görselin/PDF'in kendisini** Gemini'ye gönderiyor ve bir banka ekstresinde bu
+bilgilerin hepsi yazılı. Veri akışına dokunan her değişiklikte
+`docs/gizlilik-politikasi.md` ve mağaza veri güvenliği beyanı birlikte
+güncellenmeli.
 
 ### Gizlilik politikası yayında
 

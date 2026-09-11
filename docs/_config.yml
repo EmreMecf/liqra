@@ -13,3 +13,4 @@ lang: tr-TR
 exclude:
   - yayin-kontrol-listesi.md
   - adhoc-kurulum.md
+  - magaza-metinleri.md
